@@ -1,0 +1,332 @@
+'use strict';
+
+var uniCliShared = require('@dcloudio/uni-cli-shared');
+var initMiniProgramPlugin = require('@dcloudio/uni-mp-vite');
+var compilerCore = require('@vue/compiler-core');
+var fs = require('fs');
+var path = require('path');
+
+function _interopDefault (e) { return e && e.__esModule ? e : { default: e }; }
+
+var initMiniProgramPlugin__default = /*#__PURE__*/_interopDefault(initMiniProgramPlugin);
+var fs__default = /*#__PURE__*/_interopDefault(fs);
+var path__default = /*#__PURE__*/_interopDefault(path);
+
+const AD_COMPONENTS = [
+    'uniad',
+    'ad-rewarded-video',
+    'ad-fullscreen-video',
+    'ad-interstitial',
+];
+let appJsonUniadFlag = false;
+function transformAd(node, context) {
+    if (!uniCliShared.isElementNode(node)) {
+        return;
+    }
+    const adpidProp = compilerCore.findProp(node, 'adpid');
+    if (node.tag === 'ad' && adpidProp) {
+        node.tag = 'uniad';
+        node.tagType = compilerCore.ElementTypes.COMPONENT;
+    }
+    if (appJsonUniadFlag) {
+        return;
+    }
+    if (AD_COMPONENTS.indexOf(node.tag) > -1) {
+        appJsonUniadFlag = true;
+        process.env.HAS_WXAD = '1';
+    }
+}
+
+function transformLoading(node, context) {
+    if (!uniCliShared.isElementNode(node)) {
+        return;
+    }
+    /**
+     * loading组件在easycom目录名为uniloading，
+     * 不使用loading作为名称，是因为app平台内置了loading，easycom会覆盖内置loading
+     * 不使用uni-loading作为名称，是因为uni-ui有同名组件
+     */
+    if (node.tag === 'loading') {
+        node.tag = 'uniloading';
+        node.tagType = compilerCore.ElementTypes.COMPONENT;
+    }
+}
+
+/**
+* @vue/shared v3.4.21
+* (c) 2018-present Yuxi (Evan) You and Vue contributors
+* @license MIT
+**/
+
+!!(process.env.NODE_ENV !== "production") ? Object.freeze({}) : {};
+!!(process.env.NODE_ENV !== "production") ? Object.freeze([]) : [];
+const isArray = Array.isArray;
+
+function getMiniProgramAIPaths(inputDir, platform) {
+    if (!inputDir || !platform) {
+        return [];
+    }
+    const manifestJson = uniCliShared.parseManifestJsonOnce(inputDir);
+    const config = manifestJson[platform];
+    if (!(config === null || config === void 0 ? void 0 : config.agent)) {
+        return [];
+    }
+    const agentConfig = config.agent;
+    const paths = [];
+    const instruction = agentConfig.instruction;
+    if (instruction && fs__default.default.existsSync(path__default.default.resolve(inputDir, instruction))) {
+        paths.push(instruction);
+    }
+    const pageMetadata = agentConfig.pageMetadata;
+    if (pageMetadata && fs__default.default.existsSync(path__default.default.resolve(inputDir, pageMetadata))) {
+        paths.push(pageMetadata);
+    }
+    const skills = agentConfig.skills;
+    if (isArray(skills) && skills.length > 0) {
+        skills.forEach((skill) => {
+            if (skill.path && fs__default.default.existsSync(path__default.default.resolve(inputDir, skill.path))) {
+                paths.push(skill.path);
+            }
+        });
+    }
+    return paths;
+}
+
+var description = "项目配置文件。";
+var packOptions = {
+	ignore: [
+	]
+};
+var setting = {
+	urlCheck: false,
+	es6: true,
+	postcss: false,
+	minified: false,
+	newFeature: true,
+	bigPackageSizeSupport: true
+};
+var compileType = "miniprogram";
+var libVersion = "";
+var appid = "touristappid";
+var projectname = "";
+var condition = {
+	search: {
+		current: -1,
+		list: [
+		]
+	},
+	conversation: {
+		current: -1,
+		list: [
+		]
+	},
+	game: {
+		current: -1,
+		list: [
+		]
+	},
+	miniprogram: {
+		current: -1,
+		list: [
+		]
+	}
+};
+var source = {
+	description: description,
+	packOptions: packOptions,
+	setting: setting,
+	compileType: compileType,
+	libVersion: libVersion,
+	appid: appid,
+	projectname: projectname,
+	condition: condition
+};
+
+const customElements = [
+    'ad-custom',
+    'channel-live',
+    'channel-video',
+    'double-tap-gesture-handler',
+    'draggable-sheet',
+    'editor-portal',
+    'force-press-gesture-handler',
+    'grid-builder',
+    'grid-view',
+    'horizontal-drag-gesture-handler',
+    'keyboard-accessory',
+    'list-builder',
+    'list-view',
+    'long-press-gesture-handler',
+    'match-media',
+    'navigation-bar',
+    'nested-scroll-body',
+    'nested-scroll-header',
+    'official-account-publish',
+    'open-container',
+    'open-data-item',
+    'open-data-list',
+    'page-container',
+    'page-meta',
+    'pan-gesture-handler',
+    'root-portal',
+    'scale-gesture-handler',
+    'selection',
+    'share-element',
+    'snapshot',
+    'sticky-header',
+    'sticky-section',
+    'store-product',
+    'store-home',
+    'store-gift',
+    'store-coupon',
+    'subscribe',
+    'tap-gesture-handler',
+    'vertical-drag-gesture-handler',
+    'voip-room',
+    // 'span', //  todo: 临时移除 span 的支持，后续判断 skyline 环境进行区分 ask 190418
+    ...uniCliShared.getNativeTags(process.env.UNI_INPUT_DIR, process.env.UNI_PLATFORM),
+];
+const nodeTransforms = [
+    uniCliShared.transformRef,
+    uniCliShared.transformComponentLink,
+    transformAd,
+    uniCliShared.transformTeleport,
+];
+if (process.env.UNI_APP_X === 'true') {
+    nodeTransforms.push(uniCliShared.transformMPBuiltInTag, uniCliShared.transformDirection, transformLoading);
+}
+const compilerOptions = {
+    nodeTransforms,
+};
+const COMPONENTS_DIR = 'wxcomponents';
+function getMiniProgramOptions(isX) {
+    return {
+        class: {
+            array: true,
+        },
+        slot: {
+            fallbackContent: false,
+            dynamicSlotNames: true,
+        },
+        event: {
+            key: true,
+        },
+        directive: 'wx:',
+        lazyElement: {
+            canvas: [
+                { name: 'bind', arg: ['canvas-id', 'id'] },
+                {
+                    name: 'on',
+                    arg: ['touchstart', 'touchmove', 'touchcancel', 'touchend'],
+                },
+            ],
+            editor: [
+                {
+                    name: 'on',
+                    arg: ['ready'],
+                },
+            ],
+            'scroll-view': [
+                {
+                    name: 'on',
+                    arg: ['dragstart', 'dragging', 'dragend'],
+                },
+            ],
+            'picker-view': [{ name: 'bind', arg: ['value'] }],
+            // iOS 平台需要延迟
+            input: [{ name: 'bind', arg: ['type'] }],
+            textarea: [{ name: 'on', arg: ['input'] }],
+            'movable-view': [{ name: 'bind', arg: ['direction'] }],
+            'store-home': [{ name: 'bind', arg: ['appid'] }],
+        },
+        component: {
+            ':host': true,
+            dir: COMPONENTS_DIR,
+            vShow: uniCliShared.COMPONENT_CUSTOM_HIDDEN,
+            // 在 x 里边，已经把 u-p 补充了 || '' 来规避，理论上非 x 也可以，目前为了兼容性，暂时不开启
+            getPropertySync: isX, // 为了避免 Setting data field "uP" to undefined is invalid 警告
+            normalizeName: (name) => name.startsWith('wx-') ? name.replace('wx-', 'weixin-') : name,
+        },
+        filter: {
+            lang: 'wxs',
+            setStyle: true,
+        },
+    };
+}
+const projectConfigFilename = 'project.config.json';
+const miniProgram = getMiniProgramOptions(process.env.UNI_APP_X === 'true');
+const options = {
+    cdn: 1,
+    vite: {
+        inject: {
+            uni: [initMiniProgramPlugin.resolveMiniProgramRuntime(__dirname, 'uni.api.esm.js'), 'default'],
+            wx: [initMiniProgramPlugin.resolveMiniProgramRuntime(__dirname, 'uni.api.esm.js'), 'wx'],
+        },
+        alias: {
+            'uni-mp-runtime': initMiniProgramPlugin.resolveMiniProgramRuntime(__dirname, 'uni.mp.esm.js'),
+        },
+        copyOptions: {
+            assets: uniCliShared.createCopyComponentDirs(COMPONENTS_DIR),
+            targets: [
+                ...(process.env.UNI_MP_PLUGIN ? [uniCliShared.copyMiniProgramPluginJson] : []),
+                {
+                    src: [
+                        'sitemap.json',
+                        'custom-tab-bar',
+                        'functional-pages',
+                        'project.private.config.json',
+                        projectConfigFilename,
+                        ...getMiniProgramAIPaths(process.env.UNI_INPUT_DIR, process.env.UNI_PLATFORM),
+                    ],
+                    get dest() {
+                        return process.env.UNI_OUTPUT_DIR;
+                    },
+                },
+                ...uniCliShared.copyMiniProgramThemeJson(),
+                uniCliShared.createCopyPluginTarget(['ext.json']),
+            ],
+        },
+    },
+    global: 'wx',
+    app: {
+        darkmode: true,
+        subpackages: true,
+        plugins: true,
+        usingComponents: true,
+        workers: true,
+    },
+    project: {
+        filename: projectConfigFilename,
+        config: ['project.wx.json', 'project.config.json'],
+        source,
+    },
+    template: Object.assign(Object.assign({}, miniProgram), { customElements, filter: Object.assign(Object.assign({}, miniProgram.filter), { lang: 'wxs', extname: '.wxs', generate(filter, filename) {
+                if (filename) {
+                    return `<wxs src="${filename}.wxs" module="${filter.name}"/>`;
+                }
+                return `<wxs module="${filter.name}">
+${filter.code}
+</wxs>`;
+            } }), extname: '.wxml', compilerOptions }),
+    style: {
+        extname: '.wxss',
+    },
+};
+
+const uniMiniProgramWeixinPlugin = {
+    name: 'uni:mp-weixin',
+    config() {
+        return {
+            define: {
+                __VUE_CREATED_DEFERRED__: false,
+            },
+            build: {
+                // css 中不支持引用本地资源
+                assetsInlineLimit: uniCliShared.ASSETS_INLINE_LIMIT,
+            },
+        };
+    },
+};
+var index = [uniMiniProgramWeixinPlugin, ...initMiniProgramPlugin__default.default(options)];
+
+module.exports = index;

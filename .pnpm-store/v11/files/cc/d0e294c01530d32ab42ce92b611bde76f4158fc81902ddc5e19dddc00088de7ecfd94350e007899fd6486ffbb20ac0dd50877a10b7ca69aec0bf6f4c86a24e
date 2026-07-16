@@ -1,0 +1,17 @@
+import { type UniVitePlugin } from '@dcloudio/uni-cli-shared';
+import type { ResolvedConfig } from 'vite';
+export declare const SHARED_DATA_LIB_NAME = "libentry.so";
+export declare function createUniOptions(platform: 'app-android' | 'app-ios' | 'app-harmony'): UniVitePlugin['uni'];
+export declare function isManifest(id: string): boolean;
+export declare function isPages(id: string): boolean;
+export declare function configResolved(config: ResolvedConfig, isAndroidX?: boolean): void;
+export declare function relativeInputDir(filename: string): string;
+export declare function normalizeManifestJson(platform: 'app-android' | 'app-ios' | 'app-harmony', userManifestJson: Record<string, any>): Record<string, any>;
+export declare function updateHarmonyManifestModules(manifest: Record<string, any>, modules: string[]): Record<string, any>;
+export declare function updateManifestModules(platform: 'app-android' | 'app-ios' | 'app-harmony', manifest: Record<string, any>, modules: string[]): Record<string, any>;
+export declare function setGlobalPageOrientation(value: string): void;
+export declare function getGlobalPageOrientation(): string;
+export declare function addExtApiComponents(components: string[]): void;
+export declare function getExtApiComponents(): Set<string>;
+export declare function isVue(filename: string): boolean;
+export declare const DOM2_CSS_CACHE_MAP: Map<string, string>;

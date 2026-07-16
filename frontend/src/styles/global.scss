@@ -1,0 +1,54 @@
+@use './variables.scss' as *;
+@use './mixins.scss' as *;
+
+page {
+  min-height: 100%;
+  background: $tl-bg;
+  color: $tl-text-main;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+view,
+text,
+button,
+input {
+  box-sizing: border-box;
+}
+
+button {
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  line-height: 1;
+  background: transparent;
+}
+
+button::after {
+  border: 0;
+}
+
+.tl-page {
+  @include page-shell;
+  padding: 40rpx $tl-page-padding calc($tl-tabbar-height + 48rpx + $tl-safe-bottom);
+}
+
+.tl-page-title {
+  display: block;
+  margin-bottom: 20rpx;
+  font-size: 48rpx;
+  font-weight: 800;
+  color: $tl-text-main;
+}
+
+.tl-page-subtitle {
+  display: block;
+  margin-bottom: 28rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: $tl-text-secondary;
+}
+
+.tl-stage-card {
+  @include watercolor-card;
+  padding: 28rpx;
+}

@@ -1,0 +1,10 @@
+type AppXPlatform = typeof process.env.UNI_UTS_PLATFORM;
+export declare function isUniAppX(): boolean;
+export declare function isUniAppXAndroid(platform?: AppXPlatform): boolean;
+export declare function isUniAppXIOS(platform?: AppXPlatform): boolean;
+export declare function isUniAppXVapor(): boolean;
+export declare function isUniAppXAndroidVapor(platform?: AppXPlatform): boolean;
+export declare function isUniAppXJsEngine(): boolean;
+export declare function isUniAppXAndroidJsEngine(platform?: AppXPlatform): boolean;
+export declare function isUniAppXAndroidNative(platform?: AppXPlatform): boolean;
+export {};

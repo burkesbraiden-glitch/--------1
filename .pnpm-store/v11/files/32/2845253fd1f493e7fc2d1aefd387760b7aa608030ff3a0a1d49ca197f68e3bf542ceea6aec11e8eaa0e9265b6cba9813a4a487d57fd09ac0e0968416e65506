@@ -1,0 +1,12 @@
+import type { Plugin } from 'postcss';
+import type { Options } from 'autoprefixer';
+import uniPostcssScopedPlugin from './plugins/stylePluginScoped';
+import uniPostcssExternalPlugin from './plugins/stylePluginExternal';
+import uniPostcssPlugin, { type UniAppCssProcessorOptions } from './plugins/uniapp';
+export { uniPostcssPlugin };
+export { uniPostcssScopedPlugin };
+export { uniPostcssExternalPlugin };
+export declare function initPostcssPlugin({ uniApp, autoprefixer, }?: {
+    uniApp?: UniAppCssProcessorOptions;
+    autoprefixer?: Options | false;
+}): Plugin[];

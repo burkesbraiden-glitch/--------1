@@ -1,0 +1,353 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.initAutoImportOptions = void 0;
+const path_1 = __importDefault(require("path"));
+const uni_shared_1 = require("@dcloudio/uni-shared");
+const uts_1 = require("../uts");
+const workers_1 = require("../workers");
+const utils_1 = require("../utils");
+const x_1 = require("../x");
+const uniWebLifeCyclePreset = {
+    from: '@dcloudio/uni-app',
+    imports: [
+        // ssr
+        'ssrRef',
+        'shallowSsrRef',
+        // uni-app lifecycle
+        // App and Page
+        'onShow',
+        'onHide',
+        // App
+        'onLaunch',
+        // web平台如下生命周期和uni.xxx api冲突，发行时改为通过uni-h5导入api实现，运行时通过uni-app导入
+        // 'onAppShow',
+        // 'onAppHide',
+        // 'onError',
+        // 'onPageNotFound',
+        // 'onUnhandledRejection',
+        'onThemeChange',
+        'onKeyboardHeightChange',
+        'onLastPageBackPress',
+        'onExit',
+        // Page
+        'onPageShow',
+        'onPageHide',
+        'onLoad',
+        'onReady',
+        'onUnload',
+        'onResize',
+        'onBackPress',
+        'onPageScroll',
+        'onTabItemTap',
+        'onReachBottom',
+        'onPullDownRefresh',
+        // 其他
+        'onShareTimeline',
+        'onShareAppMessage',
+        'onShareChat', // xhs-share
+        'onCopyUrl',
+        'onUploadDouyinVideo',
+        'onLiveMount',
+        'onTitleClick',
+        // 辅助
+        'renderComponentSlot',
+    ],
+};
+const uniLifeCyclePreset = {
+    from: '@dcloudio/uni-app',
+    imports: [
+        // ssr
+        'ssrRef',
+        'shallowSsrRef',
+        // uni-app lifecycle
+        // App and Page
+        'onShow',
+        'onHide',
+        // App
+        'onLaunch',
+        'onAppShow',
+        'onAppHide',
+        'onError',
+        'onThemeChange',
+        'onKeyboardHeightChange',
+        'onPageNotFound',
+        'onUnhandledRejection',
+        'onLastPageBackPress',
+        'onExit',
+        // Page
+        'onPageShow',
+        'onPageHide',
+        'onLoad',
+        'onReady',
+        'onUnload',
+        'onResize',
+        'onBackPress',
+        'onPageScroll',
+        'onTabItemTap',
+        'onReachBottom',
+        'onPullDownRefresh',
+        // 其他
+        'onShareTimeline',
+        'onShareAppMessage',
+        'onShareChat', // xhs-share
+        'onCopyUrl',
+        'onUploadDouyinVideo',
+        'onLiveMount',
+        'onTitleClick',
+        // 辅助
+        'renderComponentSlot',
+    ],
+};
+const uniH5Preset = {
+    from: '@dcloudio/uni-h5',
+    imports: [
+        'UniElement',
+        'UniElementImpl',
+        'UniButtonElement',
+        'UniCanvasElement',
+        'UniCheckboxElement',
+        'UniCheckboxGroupElement',
+        'UniEditorElement',
+        'UniFormElement',
+        'UniIconElement',
+        'UniImageElement',
+        'UniInputElement',
+        'UniLabelElement',
+        'UniMovableAreaElement',
+        'UniMovableViewElement',
+        'UniNavigatorElement',
+        'UniPickerViewElement',
+        'UniPickerViewColumnElement',
+        'UniProgressElement',
+        'UniRadioElement',
+        'UniRadioGroupElement',
+        'UniRichTextElement',
+        'UniScrollViewElement',
+        'UniSliderElement',
+        'UniSwiperElement',
+        'UniSwiperItemElement',
+        'UniSwitchElement',
+        'UniTextElement',
+        'UniTextareaElement',
+        'UniViewElement',
+        'UniViewElementImpl',
+        'UniListViewElement',
+        'UniListItemElement',
+        'UniStickySectionElement',
+        'UniStickyHeaderElement',
+        'UniVideoElement',
+        'UniWebViewElement',
+        'UniMapElement',
+        'UniCoverViewElement',
+        'UniCoverImageElement',
+        'UniPickerElement',
+    ],
+};
+if (process.env.NODE_ENV === 'development') {
+    uniWebLifeCyclePreset.imports.push(
+    // web平台如下生命周期和uni.xxx api冲突，发行时改为通过uni-h5导入api实现，运行时通过uni-app导入
+    'onAppShow', 'onAppHide', 'onError', 'onPageNotFound', 'onUnhandledRejection');
+}
+else {
+    uniH5Preset.imports.push('onAppShow', 'onAppHide', 'onError', 'onPageNotFound', 'onUnhandledRejection');
+}
+const uniMiniProgramPreset = {
+    from: 'vue',
+    imports: ['UniElement', 'UniElementImpl'],
+};
+const cloudPreset = {
+    from: '@dcloudio/uni-cloud',
+    imports: ['uniCloud', 'UniCloudError'],
+};
+const utsJsPreset = {
+    from: '@dcloudio/uni-shared',
+    imports: ['UTS', 'UTSJSONObject', 'UTSValueIterable', 'UniError'],
+};
+const uniAppLifeCyclePreset = {
+    from: 'vue',
+    imports: [
+        // ssr
+        'ssrRef',
+        'shallowSsrRef',
+        // uni-app lifecycle
+        // App and Page
+        'onShow',
+        'onHide',
+        // App
+        'onAppShow',
+        'onAppHide',
+        'onLaunch',
+        'onError',
+        'onThemeChange',
+        'onLastPageBackPress',
+        // onKeyboardHeightChange,
+        'onPageNotFound',
+        'onUnhandledRejection',
+        'onExit',
+        // Page
+        'onPageShow',
+        'onPageHide',
+        'onLoad',
+        'onReady',
+        'onUnload',
+        'onResize',
+        'onBackPress',
+        'onPageScroll',
+        'onTabItemTap',
+        'onReachBottom',
+        'onPullDownRefresh',
+        // 其他
+        'onShareTimeline',
+        'onShareAppMessage',
+        // onShareChat, // xhs-share
+        // 辅助，用于自定义render函数时，开发者可以调用此方法渲染组件的slot
+        'renderComponentSlot',
+    ],
+};
+const vuePreset = {
+    from: 'vue',
+    imports: [
+        // vue lifecycle
+        'onActivated',
+        'onBeforeMount',
+        'onBeforeUnmount',
+        'onBeforeUpdate',
+        'onErrorCaptured',
+        'onDeactivated',
+        'onMounted',
+        'onServerPrefetch',
+        'onUnmounted',
+        'onUpdated',
+        // uni-app specific lifecycle
+        'onReuse',
+        'onRecycle',
+        // setup helpers
+        'useAttrs',
+        'useSlots',
+        'useComputedStyle',
+        'useRecycleState',
+        // reactivity,
+        'computed',
+        'customRef',
+        'isReadonly',
+        'isRef',
+        'isProxy',
+        'isReactive',
+        'markRaw',
+        'reactive',
+        'readonly',
+        'ref',
+        'shallowReactive',
+        'shallowReadonly',
+        'shallowRef',
+        'triggerRef',
+        'toRaw',
+        'toRef',
+        'toRefs',
+        'toValue',
+        'unref',
+        'watch',
+        'watchEffect',
+        'watchPostEffect',
+        'watchSyncEffect',
+        // component
+        'defineComponent',
+        'defineAsyncComponent',
+        'getCurrentInstance',
+        'inject',
+        'nextTick',
+        'provide',
+        'useCssModule',
+        'createApp',
+        'hasInjectionContext',
+        // render
+        'h',
+        'mergeProps',
+        'cloneVNode',
+        'isVNode',
+        'resolveComponent',
+        'resolveDirective',
+        'withDirectives',
+        'withModifiers',
+        // effect scope
+        'effectScope',
+        'EffectScope',
+        'getCurrentScope',
+        'onScopeDispose',
+        // types 全部全局导入
+        // vapor
+        'getCurrentGenericInstance',
+    ],
+};
+function initAutoImportOptions(platform, { imports = [], ...userOptions }) {
+    rewriteAutoImportOnce();
+    const autoImport = [vuePreset];
+    // JS 引擎的 App 平台统一走 vue 生命周期导入
+    if (platform === 'app-ios' ||
+        platform === 'app-harmony' ||
+        (0, x_1.isUniAppXAndroidJsEngine)(platform)) {
+        autoImport.push(uniAppLifeCyclePreset);
+    }
+    else if (platform === 'web') {
+        autoImport.push(uniWebLifeCyclePreset);
+    }
+    else {
+        autoImport.push(uniLifeCyclePreset);
+    }
+    // 内置框架编译时，不能注入这些内容
+    if (!process.env.UNI_COMPILE_EXT_API_TYPE) {
+        autoImport.push(cloudPreset);
+    }
+    if (platform === 'web') {
+        autoImport.push(uniH5Preset);
+    }
+    else if (platform.startsWith('mp-')) {
+        autoImport.push(uniMiniProgramPreset);
+        if (process.env.UNI_APP_X === 'true') {
+            // 小程序端使用autoImport
+            autoImport.push(utsJsPreset);
+        }
+    }
+    const exclude = [/[\\/]\.git[\\/]/];
+    if (process.env.UNI_INPUT_DIR) {
+        exclude.push(...(0, workers_1.resolveWorkersDir)(process.env.UNI_INPUT_DIR).map((dir) => (0, utils_1.normalizePath)(path_1.default.join(process.env.UNI_INPUT_DIR, dir, '*'))));
+    }
+    return {
+        ...userOptions,
+        include: [/\.[u]?ts$/, /\.[u]?vue/],
+        exclude,
+        imports: imports.concat(
+        // 旧版 Android x 仍由专有编译流程处理，Android Vapor 对齐 iOS 走通用自动导入
+        (0, x_1.isUniAppXAndroidNative)(platform) ? [] : autoImport),
+        dts: false,
+    };
+}
+exports.initAutoImportOptions = initAutoImportOptions;
+const rewriteAutoImportOnce = (0, uni_shared_1.once)(() => {
+    const unimport = require('unimport');
+    const originalCreateUnimport = unimport.createUnimport;
+    unimport.createUnimport = (opts) => {
+        const unimport_ = originalCreateUnimport(opts);
+        const originalScanImportsFromDir = unimport_.scanImportsFromDir;
+        unimport_.scanImportsFromDir = async (dir, options) => {
+            const exports_ = (await originalScanImportsFromDir(dir, options));
+            scanCustomElements(exports_);
+            return exports_;
+        };
+        return unimport_;
+    };
+});
+function scanCustomElements(exports_) {
+    const utsCustomElementsExports = (0, uts_1.getUTSCustomElementsExports)();
+    for (const [key, value] of utsCustomElementsExports.entries()) {
+        value.exports.forEach((export_) => {
+            exports_.push({
+                from: key,
+                name: export_[0],
+            });
+        });
+    }
+}
