@@ -43,6 +43,13 @@ class ExplorationPlan(db.Model):
         passive_deletes=True,
         uselist=False,
     )
+    journey_record = db.relationship(
+        "JourneyRecord",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
     tasks = db.relationship(
         "Task",
         back_populates="plan",
