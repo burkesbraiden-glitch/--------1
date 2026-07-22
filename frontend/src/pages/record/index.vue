@@ -13,88 +13,81 @@
         </button>
       </view>
 
-      <view class="record-summary">
-        <view class="record-summary__tape"></view>
-        <view class="record-summary__sun"></view>
-        <view class="record-summary__leaf"></view>
-        <text class="record-summary__title">{{ journey.summary.title }}</text>
-        <view class="record-summary__location">
-          <text class="record-summary__pin">地</text>
-          <text>{{ journey.summary.destination }}</text>
+      <view class="record-intro">
+        <view class="record-intro__tape"></view>
+        <text class="record-intro__title">探索相册</text>
+        <text class="record-intro__desc">每一次观察和发现，都会慢慢收藏在这里。</text>
+      </view>
+
+      <view v-if="isInitialLoading" class="record-state">
+        <view class="record-state__spinner"></view>
+        <text class="record-state__title">正在整理旅行记录……</text>
+        <text class="record-state__desc">小旅正在翻看这次探索的珍贵回忆</text>
+      </view>
+
+      <view v-else-if="showFullError" class="record-state record-state--error">
+        <text class="record-state__icon">！</text>
+        <text class="record-state__title">旅行记录暂时加载失败</text>
+        <text class="record-state__desc">{{ errorMessage }}</text>
+        <button class="record-state__retry" @click="retryRecords">重新加载</button>
+      </view>
+
+      <view v-else-if="isEmpty" class="record-state record-state--empty">
+        <view class="record-state__album"></view>
+        <text class="record-state__title">还没有旅行记录</text>
+        <text class="record-state__desc">完成观察任务后，旅途中的发现会慢慢收藏在这里。</text>
+      </view>
+
+      <template v-else>
+        <view v-if="error" class="record-refresh-error">
+          <text>{{ errorMessage }}</text>
+          <text class="record-refresh-error__retry" @click="retryRecords">重试</text>
         </view>
-        <view class="record-summary__stats">
-          <view v-for="stat in summaryStats" :key="stat.label" class="record-stat" :class="`record-stat--${stat.theme}`">
-            <view class="record-stat__icon">{{ stat.icon }}</view>
-            <view>
-              <text class="record-stat__label">{{ stat.label }}</text>
-              <text class="record-stat__value">{{ stat.value }}<text class="record-stat__unit">{{ stat.unit }}</text></text>
+
+        <view class="section-title">
+          <view class="section-title__camera"></view>
+          <text>旅行记录</text>
+          <view class="section-title__line"></view>
+          <text class="section-title__star">星</text>
+        </view>
+
+        <view class="record-list">
+          <view
+            v-for="(record, index) in records"
+            :key="record.id"
+            class="record-card"
+            :class="{ 'record-card--reverse': index % 2 === 1 }"
+          >
+            <PolaroidCard
+              class="record-card__photo"
+              :image-path="record.displayCoverImage"
+              :title="record.displayTitle"
+              :description="record.destination"
+              :date-label="record.displayUpdatedAt"
+              :rotation="index % 2 === 0 ? -2 : 2"
+              :placeholder-theme="index % 2 === 0 ? 'roof' : 'gate'"
+              :tape-theme="tapeTheme(index)"
+            />
+
+            <view class="record-card__note">
+              <view class="record-card__head">
+                <text class="record-card__title">{{ record.displayTitle }}</text>
+                <text class="record-card__status" :class="`record-card__status--${record.status}`">
+                  {{ recordStatusText(record) }}
+                </text>
+              </view>
+              <text class="record-card__destination">{{ record.destination || '目的地待补充' }}</text>
+              <view class="record-card__dash"></view>
+              <view class="record-card__stats">
+                <text>完成任务：{{ record.completedTaskCount }} / {{ record.taskCount }}</text>
+                <text>照片：{{ record.photoCount }}</text>
+                <text>笔记：{{ record.noteCount }}</text>
+              </view>
+              <text v-if="record.displayUpdatedAt" class="record-card__updated">更新于 {{ record.displayUpdatedAt }}</text>
             </view>
           </view>
         </view>
-      </view>
-
-      <view class="section-title">
-        <view class="section-title__camera"></view>
-        <text>探索相册</text>
-        <view class="section-title__line"></view>
-        <text class="section-title__star">星</text>
-      </view>
-
-      <view class="album-list">
-        <view
-          v-for="(item, index) in journey.albumItems"
-          :key="item.id"
-          class="album-entry"
-          :class="[`album-entry--${item.type}`, { 'album-entry--reverse': index % 2 === 1 }]"
-        >
-          <PolaroidCard
-            class="album-entry__photo"
-            :image-path="item.displayImagePath"
-            :title="item.type === 'dialogue' ? '' : item.title"
-            :description="item.type === 'dialogue' ? '' : photoDescription(item)"
-            :date-label="item.type === 'dialogue' ? '' : item.dateLabel"
-            :rotation="item.rotation"
-            :placeholder-theme="placeholderTheme(item, index)"
-            :tape-theme="tapeTheme(index)"
-          >
-            <template v-if="item.type === 'dialogue'" #photo>
-              <view class="dialogue-photo">
-                <text class="dialogue-photo__bubble">问</text>
-                <text class="dialogue-photo__line">孩子的问题</text>
-                <text class="dialogue-photo__quote">为什么屋顶这么高？</text>
-              </view>
-            </template>
-          </PolaroidCard>
-
-          <view class="album-note">
-            <view class="album-note__sticker" :class="`album-note__sticker--${tapeTheme(index)}`"></view>
-            <text class="album-note__title">{{ item.title }}</text>
-            <view class="album-note__dash"></view>
-            <text class="album-note__description">{{ item.description }}</text>
-            <text class="album-note__date">{{ item.dateLabel }}</text>
-            <text class="album-note__source">{{ item.source === 'task' ? '来自任务记录' : 'Mock 回忆' }}</text>
-          </view>
-        </view>
-      </view>
-
-      <view class="section-title section-title--growth">
-        <text class="section-title__star">星</text>
-        <text>成长收获</text>
-        <view class="section-title__line"></view>
-        <text class="section-title__star">星</text>
-      </view>
-
-      <view class="growth-grid">
-        <GrowthBadge
-          v-for="skill in growthItems"
-          :key="skill.key"
-          :label="skill.label"
-          :value="skill.value"
-          :description="skill.description"
-          :icon="skill.icon"
-          :theme="skill.theme"
-        />
-      </view>
+      </template>
     </view>
 
     <AiPet />
@@ -105,139 +98,126 @@
 <script>
 import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
-import GrowthBadge from '../../components/GrowthBadge.vue'
 import PolaroidCard from '../../components/PolaroidCard.vue'
+import { useChildStore } from '../../stores/child'
 import { usePetStore } from '../../stores/pet'
-import { usePlanStore } from '../../stores/plan'
 import { useRecordStore } from '../../stores/record'
-import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
-import { ensureCurrentPlanReady } from '../../utils/planRecovery'
+
+function isAuthenticationError(error) {
+  return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
+}
 
 export default {
   components: {
     AiPet,
     AppTabbar,
-    GrowthBadge,
     PolaroidCard,
   },
   computed: {
-    journey() {
-      return this.record.currentJourneyRecord
+    childStore() {
+      return useChildStore()
     },
-    plan() {
-      return usePlanStore()
+    error() {
+      return this.recordStore.error
     },
-    record() {
+    errorMessage() {
+      return this.error?.message || '请检查网络后再试一次'
+    },
+    hasLoaded() {
+      return this.recordStore.hasLoaded
+    },
+    isEmpty() {
+      return this.hasLoaded && !this.loading && !this.error && this.records.length === 0
+    },
+    isInitialLoading() {
+      return this.loading && this.records.length === 0 && !this.hasLoaded
+    },
+    loading() {
+      return this.recordStore.loading
+    },
+    records() {
+      return this.recordStore.records
+    },
+    recordStore() {
       return useRecordStore()
     },
-    summaryStats() {
-      return [
-        {
-          label: '完成任务',
-          value: this.journey.summary.completedTaskCount,
-          unit: '个',
-          icon: '勾',
-          theme: 'orange',
-        },
-        {
-          label: '记录发现',
-          value: this.journey.summary.discoveryCount,
-          unit: '条',
-          icon: '说',
-          theme: 'blue',
-        },
-        {
-          label: '获得勋章',
-          value: this.journey.summary.badgeCount,
-          unit: '枚',
-          icon: '章',
-          theme: 'green',
-        },
-      ]
+    showFullError() {
+      return Boolean(this.error) && this.records.length === 0
     },
-    task() {
-      return useTaskStore()
-    },
-    user() {
+    userStore() {
       return useUserStore()
-    },
-    growthItems() {
-      const skills = this.journey.growthSkills
-
-      return [
-        {
-          key: 'observation',
-          label: '会观察',
-          value: skills.observation,
-          description: '我能认真观察细节',
-          icon: '看',
-          theme: 'yellow',
-        },
-        {
-          key: 'expression',
-          label: '会表达',
-          value: skills.expression,
-          description: '我能说出自己的发现',
-          icon: '说',
-          theme: 'blue',
-        },
-        {
-          key: 'initiative',
-          label: '更主动',
-          value: skills.initiative,
-          description: '我愿意提问和探索',
-          icon: '芽',
-          theme: 'green',
-        },
-      ]
     },
   },
   async onShow() {
     usePetStore().setPageContext('record')
-    await this.restorePlanAndTasks()
-    await this.restoreTaskImages()
-    this.refreshJourneyRecord()
+    await this.loadRecords()
   },
   methods: {
-    async restorePlanAndTasks() {
+    async handleAuthExpired() {
+      this.recordStore.resetRecordState()
+      await this.userStore.logout()
+      uni.reLaunch({
+        url: '/pages/login/index',
+      })
+    },
+    async loadRecords() {
+      if (!this.userStore.isAuthReady || this.userStore.isRestoring) {
+        await this.userStore.restoreSession()
+      }
+      if (!this.userStore.isLoggedIn || !this.userStore.userInfo?.id) {
+        this.recordStore.resetRecordState()
+        uni.reLaunch({
+          url: '/pages/login/index',
+        })
+        return
+      }
+
       try {
-        await ensureCurrentPlanReady({ withTasks: true })
+        await this.childStore.fetchChildren(this.userStore.userInfo.id)
       } catch (error) {
-        if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
-          this.plan.resetSessionState()
-          this.task.resetSessionState()
+        if (isAuthenticationError(error)) {
+          await this.handleAuthExpired()
+          return
         }
       }
-    },
-    async restoreTaskImages() {
-      const imageTasks = this.task.currentPlanTasks.filter((task) =>
-        task.record?.imageUrl && !task.record?.displayImagePath,
-      )
-      await Promise.all(imageTasks.map((task) =>
-        this.task.ensureTaskImageDisplay(task.id).catch(() => null),
-      ))
+
+      const params = { limit: 20, offset: 0 }
+      const childId = this.childStore.currentChild?.id
+      if (Number.isInteger(childId) && childId > 0) {
+        params.childId = childId
+      }
+
+      try {
+        await this.recordStore.loadJourneyRecords(params)
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await this.handleAuthExpired()
+        }
+      }
     },
     openPetChat() {
       const petStore = usePetStore()
       petStore.setPageContext('record')
       petStore.openChat()
     },
-    photoDescription(item) {
-      return item.description.replace(/^发现：/, '')
-    },
-    placeholderTheme(item, index) {
-      if (item.type === 'dialogue') {
-        return 'dialogue'
+    recordStatusText(record) {
+      if (record.status === 'finalized') {
+        return '已封存'
       }
-
-      return item.sourceTaskId === 'palace-gate' || index === 1 ? 'gate' : 'roof'
+      if (record.status === 'draft') {
+        return '整理中'
+      }
+      return '整理中'
     },
-    refreshJourneyRecord() {
-      this.record.generateJourneyRecord({
-        plan: this.plan.currentPlan,
-        tasks: this.task.currentPlanTasks,
-      })
+    async retryRecords() {
+      try {
+        await this.recordStore.retryJourneyRecords()
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await this.handleAuthExpired()
+        }
+      }
     },
     tapeTheme(index) {
       return ['green', 'pink', 'blue'][index % 3]
@@ -288,7 +268,8 @@ export default {
 }
 
 .record-header__spark,
-.record-header__star {
+.record-header__star,
+.section-title__star {
   position: absolute;
   font-size: 24rpx;
   font-weight: 900;
@@ -329,176 +310,128 @@ export default {
   border-radius: 50%;
 }
 
-.record-summary {
+.record-intro,
+.record-state,
+.record-card__note {
   position: relative;
-  padding: 46rpx 28rpx 28rpx;
-  margin-bottom: 34rpx;
   background: rgba(255, 247, 232, 0.9);
   border: 3rpx solid rgba(223, 189, 131, 0.72);
-  border-radius: 28rpx;
-  box-shadow: 10rpx 12rpx 0 rgba(223, 189, 131, 0.16);
+  box-shadow: 8rpx 10rpx 0 rgba(223, 189, 131, 0.14);
 }
 
-.record-summary__tape {
+.record-intro {
+  padding: 40rpx 30rpx 28rpx;
+  margin-bottom: 32rpx;
+  border-radius: 28rpx;
+}
+
+.record-intro__tape {
   position: absolute;
-  top: -18rpx;
-  left: 34rpx;
-  width: 64rpx;
-  height: 42rpx;
+  top: -16rpx;
+  left: 36rpx;
+  width: 74rpx;
+  height: 38rpx;
   background: rgba(255, 208, 119, 0.72);
   border-radius: 8rpx;
   transform: rotate(10deg);
 }
 
-.record-summary__sun {
-  position: absolute;
-  top: 40rpx;
-  right: 58rpx;
-  width: 64rpx;
-  height: 64rpx;
-  border: 5rpx solid #f4aa23;
+.record-intro__title,
+.record-state__title,
+.record-card__title {
+  display: block;
+  font-size: 38rpx;
+  font-weight: 900;
+}
+
+.record-intro__desc,
+.record-state__desc {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 25rpx;
+  line-height: 1.55;
+  color: #6b482d;
+}
+
+.record-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 76rpx 42rpx;
+  text-align: center;
+  border-radius: 30rpx;
+}
+
+.record-state--error {
+  border-color: rgba(217, 75, 18, 0.45);
+}
+
+.record-state__spinner,
+.record-state__album,
+.record-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 86rpx;
+  height: 86rpx;
+  margin-bottom: 24rpx;
   border-radius: 50%;
 }
 
-.record-summary__leaf {
-  position: absolute;
-  right: 18rpx;
-  bottom: 30rpx;
-  width: 58rpx;
-  height: 104rpx;
-  border-left: 6rpx solid #7b9a50;
-  transform: rotate(28deg);
+.record-state__spinner {
+  border: 8rpx solid #fff0bd;
+  border-top-color: #f26a21;
 }
 
-.record-summary__leaf::before,
-.record-summary__leaf::after {
-  position: absolute;
-  left: -4rpx;
-  width: 34rpx;
-  height: 20rpx;
-  content: '';
-  background: #9eb469;
-  border-radius: 30rpx 4rpx 30rpx 4rpx;
-}
-
-.record-summary__leaf::before {
-  top: 18rpx;
-  transform: rotate(-30deg);
-}
-
-.record-summary__leaf::after {
-  top: 50rpx;
-  transform: rotate(24deg);
-}
-
-.record-summary__title {
-  display: block;
-  margin-bottom: 16rpx;
-  font-size: 44rpx;
-  font-weight: 900;
-  line-height: 1.2;
-}
-
-.record-summary__location {
-  display: inline-flex;
-  align-items: center;
-  height: 54rpx;
-  padding: 0 22rpx;
-  margin-bottom: 28rpx;
-  font-size: 26rpx;
-  color: #6b482d;
-  background: #fff0bd;
-  border: 2rpx solid rgba(223, 189, 131, 0.48);
-  border-radius: 999rpx;
-}
-
-.record-summary__pin {
-  margin-right: 10rpx;
-  font-size: 22rpx;
-  font-weight: 900;
-  color: #d94b12;
-}
-
-.record-summary__stats {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16rpx;
-}
-
-.record-stat {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  min-height: 112rpx;
-  padding: 16rpx 14rpx;
-  background: rgba(255, 250, 240, 0.82);
-  border: 2rpx solid rgba(223, 189, 131, 0.42);
+.record-state__album {
+  background: #dfeff8;
+  border: 5rpx solid #73acd3;
   border-radius: 18rpx;
+  transform: rotate(-7deg);
 }
 
-.record-stat__icon {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 48rpx;
-  height: 48rpx;
-  margin-right: 10rpx;
-  font-size: 20rpx;
+.record-state__icon {
+  font-size: 48rpx;
+  color: #fff;
+  background: #f26a21;
+}
+
+.record-state__retry {
+  min-width: 180rpx;
+  margin-top: 30rpx;
+  font-size: 28rpx;
   font-weight: 900;
   color: #fff;
   background: #f26a21;
-  border-radius: 14rpx;
+  border-radius: 999rpx;
 }
 
-.record-stat--blue .record-stat__icon {
-  background: #73acd3;
+.record-refresh-error {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 16rpx 22rpx;
+  margin-bottom: 22rpx;
+  font-size: 23rpx;
+  color: #9a421b;
+  background: #fff1d8;
+  border: 2rpx dashed rgba(217, 75, 18, 0.42);
+  border-radius: 18rpx;
 }
 
-.record-stat--green .record-stat__icon {
-  background: #7b9a50;
-}
-
-.record-stat__label {
-  display: block;
-  margin-bottom: 8rpx;
-  font-size: 22rpx;
-  font-weight: 800;
-}
-
-.record-stat__value {
-  display: block;
-  font-size: 34rpx;
+.record-refresh-error__retry {
+  flex-shrink: 0;
   font-weight: 900;
-  color: #d94b12;
-}
-
-.record-stat--blue .record-stat__value {
-  color: #2f6f94;
-}
-
-.record-stat--green .record-stat__value {
-  color: #55753c;
-}
-
-.record-stat__unit {
-  margin-left: 4rpx;
-  font-size: 22rpx;
-  color: #4a2f1b;
+  text-decoration: underline;
 }
 
 .section-title {
+  position: relative;
   display: flex;
   align-items: center;
-  margin: 26rpx 0 22rpx;
+  margin: 28rpx 0 24rpx;
   font-size: 34rpx;
   font-weight: 900;
-}
-
-.section-title--growth {
-  margin-top: 30rpx;
 }
 
 .section-title__camera {
@@ -519,172 +452,91 @@ export default {
 }
 
 .section-title__star {
-  font-size: 24rpx;
-  color: #f4aa23;
+  position: static;
 }
 
-.album-list {
+.record-list {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: 28rpx;
 }
 
-.album-entry {
+.record-card {
   display: grid;
   grid-template-columns: minmax(0, 0.98fr) minmax(0, 1fr);
   gap: 22rpx;
   align-items: center;
 }
 
-.album-entry--reverse {
+.record-card--reverse {
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.98fr);
 }
 
-.album-entry--reverse .album-entry__photo {
+.record-card--reverse .record-card__photo {
   order: 2;
 }
 
-.album-entry--reverse .album-note {
+.record-card--reverse .record-card__note {
   order: 1;
 }
 
-.album-entry__photo {
+.record-card__note {
   min-width: 0;
+  min-height: 238rpx;
+  padding: 28rpx 22rpx 22rpx;
+  border-width: 2rpx;
+  border-radius: 18rpx;
 }
 
-.album-note {
-  position: relative;
+.record-card__head {
+  display: flex;
+  gap: 10rpx;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.record-card__title {
   min-width: 0;
-  min-height: 228rpx;
-  padding: 34rpx 24rpx 24rpx;
-  background: rgba(255, 250, 240, 0.82);
-  border: 2rpx solid rgba(223, 189, 131, 0.48);
-  border-radius: 16rpx;
-  box-shadow: 8rpx 8rpx 0 rgba(223, 189, 131, 0.12);
+  font-size: 31rpx;
+  line-height: 1.26;
 }
 
-.album-note__sticker {
-  position: absolute;
-  right: 22rpx;
-  bottom: 22rpx;
-  width: 44rpx;
-  height: 44rpx;
-  opacity: 0.72;
-  border: 4rpx solid #f26a21;
-  border-radius: 50% 50% 50% 12rpx;
-  transform: rotate(-18deg);
-}
-
-.album-note__sticker--green {
-  border-color: #7b9a50;
-}
-
-.album-note__sticker--blue {
-  border-color: #73acd3;
-}
-
-.album-note__title {
-  display: block;
-  margin-bottom: 12rpx;
-  font-size: 32rpx;
-  font-weight: 900;
-  line-height: 1.24;
-}
-
-.album-note__dash {
-  width: 100%;
-  height: 2rpx;
-  margin-bottom: 18rpx;
-  border-top: 3rpx dashed rgba(223, 189, 131, 0.5);
-}
-
-.album-note__description {
-  display: block;
-  padding-right: 16rpx;
-  margin-bottom: 24rpx;
-  font-size: 25rpx;
-  line-height: 1.55;
-  color: #5e3c22;
-}
-
-.album-note__date {
-  display: block;
-  font-size: 23rpx;
-  color: #8a6d54;
-}
-
-.album-note__source {
-  display: inline-flex;
-  height: 38rpx;
-  padding: 0 14rpx;
-  margin-top: 14rpx;
+.record-card__status {
+  flex-shrink: 0;
+  padding: 6rpx 12rpx;
   font-size: 20rpx;
-  line-height: 38rpx;
+  font-weight: 900;
   color: #8a4a21;
   background: #fff0bd;
   border-radius: 999rpx;
 }
 
-.dialogue-photo {
+.record-card__status--finalized {
+  color: #55753c;
+  background: #dceecb;
+}
+
+.record-card__destination,
+.record-card__updated {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 23rpx;
+  color: #6b482d;
+}
+
+.record-card__dash {
+  height: 2rpx;
+  margin: 16rpx 0;
+  border-top: 3rpx dashed rgba(223, 189, 131, 0.55);
+}
+
+.record-card__stats {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  padding: 28rpx;
-  background:
-    radial-gradient(circle at 84% 22%, rgba(255, 250, 240, 0.74) 0 26rpx, transparent 27rpx),
-    #dceecb;
-}
-
-.dialogue-photo__bubble {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 82rpx;
-  height: 66rpx;
-  margin-bottom: 18rpx;
-  font-size: 28rpx;
-  font-weight: 900;
-  color: #fff;
-  background: #7b9a50;
-  border-radius: 28rpx 28rpx 28rpx 8rpx;
-}
-
-.dialogue-photo__line {
-  margin-bottom: 12rpx;
-  font-size: 23rpx;
-  font-weight: 900;
-  color: #55753c;
-}
-
-.dialogue-photo__quote {
-  font-size: 24rpx;
-  line-height: 1.45;
-  text-align: center;
-}
-
-.growth-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16rpx;
-}
-
-@media (max-width: 380px) {
-  .record-page__paper {
-    padding-right: 24rpx;
-    padding-left: 24rpx;
-  }
-
-  .record-summary__stats,
-  .growth-grid {
-    gap: 12rpx;
-  }
-
-  .record-stat {
-    padding: 14rpx 10rpx;
-  }
+  gap: 8rpx;
+  font-size: 22rpx;
+  line-height: 1.25;
+  color: #5e3c22;
 }
 
 @media (min-width: 431px) {
@@ -696,17 +548,19 @@ export default {
     font-size: 28px;
   }
 
-  .record-summary__title {
+  .record-intro__title {
     font-size: 25px;
   }
 
-  .album-note__title,
+  .record-card__title,
   .section-title {
     font-size: 19px;
   }
 
-  .album-note__description {
-    font-size: 14px;
+  .record-card__stats,
+  .record-card__destination,
+  .record-card__updated {
+    font-size: 13px;
   }
 }
 </style>

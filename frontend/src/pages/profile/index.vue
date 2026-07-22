@@ -56,7 +56,7 @@
           <view class="profile-page__record-thumb">{{ record.thumb }}</view>
           <view class="profile-page__record-copy">
             <text class="profile-page__record-title">{{ record.title }}</text>
-            <text class="profile-page__record-meta">{{ record.date }}　完成 {{ record.completed }} 个任务　记录 {{ record.discoveries }} 个发现</text>
+            <text class="profile-page__record-meta">{{ record.date }}　共 {{ record.learningRecordCount }} 条旅行记录</text>
           </view>
           <text class="profile-page__arrow">›</text>
         </button>
@@ -287,44 +287,21 @@ export default {
       ]
     },
     learningRecords() {
-      const currentPlan = this.plan.currentPlan
-      const completedCount = this.task.completedCount || 2
-      const discoveryCount = this.record.discoveries.length || 3
-      const primaryTitle = currentPlan?.title || '故宫亲子探索'
-
       return [
         {
-          id: 'current-plan',
-          title: primaryTitle,
-          date: '2024.05.20',
-          completed: Math.max(2, completedCount),
-          discoveries: discoveryCount,
-          thumb: '宫',
-        },
-        {
-          id: 'garden-plan',
-          title: '颐和园观察之旅',
-          date: '2024.04.15',
-          completed: 2,
-          discoveries: 2,
-          thumb: '园',
-        },
-        {
-          id: 'museum-plan',
-          title: '西安博物馆探索',
-          date: '2024.03.10',
-          completed: 3,
-          discoveries: 2,
-          thumb: '俑',
+          id: 'journey-record-count',
+          title: '旅行记录',
+          date: this.record.learningRecordCount > 0 ? '已收集' : '暂未收集',
+          learningRecordCount: this.record.learningRecordCount,
+          thumb: '册',
         },
       ]
     },
     growthBadges() {
-      const skills = this.record.growthSkills || {}
       return [
-        { label: '会观察', description: '善于发现细节', value: skills.observation || 1, icon: '看', theme: 'green' },
-        { label: '会表达', description: '能说出自己的想法', value: skills.expression || 1, icon: '说', theme: 'blue' },
-        { label: '更主动', description: '愿意提问和探索', value: skills.initiative || 1, icon: '芽', theme: 'yellow' },
+        { label: '会观察', description: '善于发现细节', value: 1, icon: '看', theme: 'green' },
+        { label: '会表达', description: '能说出自己的想法', value: 1, icon: '说', theme: 'blue' },
+        { label: '更主动', description: '愿意提问和探索', value: 1, icon: '芽', theme: 'yellow' },
       ]
     },
     menuItems() {
