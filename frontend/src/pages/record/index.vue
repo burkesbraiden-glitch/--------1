@@ -57,6 +57,8 @@
             :key="record.id"
             class="record-card"
             :class="{ 'record-card--reverse': index % 2 === 1 }"
+            hover-class="record-card--pressed"
+            @click="openRecordDetail(record)"
           >
             <PolaroidCard
               class="record-card__photo"
@@ -200,6 +202,15 @@ export default {
       const petStore = usePetStore()
       petStore.setPageContext('record')
       petStore.openChat()
+    },
+    openRecordDetail(record) {
+      const planId = Number(record?.planId)
+      if (!(Number.isInteger(planId) && planId > 0)) {
+        return
+      }
+      uni.navigateTo({
+        url: `/pages/record-detail/index?planId=${planId}`,
+      })
     },
     recordStatusText(record) {
       if (record.status === 'finalized') {
@@ -466,6 +477,11 @@ export default {
   grid-template-columns: minmax(0, 0.98fr) minmax(0, 1fr);
   gap: 22rpx;
   align-items: center;
+}
+
+.record-card--pressed {
+  opacity: 0.78;
+  transform: scale(0.985);
 }
 
 .record-card--reverse {

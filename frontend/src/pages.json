@@ -41,6 +41,12 @@
       }
     },
     {
+      "path": "pages/record-detail/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/profile/index",
       "style": {
         "navigationBarTitleText": "我的",

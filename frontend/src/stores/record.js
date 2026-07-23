@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
-import { fetchJourneyRecords } from '../api/journeyRecords.js'
+import { fetchJourneyRecords, fetchJourneyRecord } from '../api/journeyRecords.js'
 import { downloadAuthenticatedFile } from '../utils/authenticatedFile.js'
 
 let activeLoadPromise = null
+let activeDetailPromise = null
+const DETAIL_IMAGE_CONCURRENCY = 3
 
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : ''
@@ -16,6 +18,11 @@ function normalizeCount(value) {
 function displayDate(value) {
   const date = normalizeText(value)
   return /^\d{4}-\d{2}-\d{2}/.test(date) ? date.slice(0, 10) : ''
+}
+
+function normalizePlanId(value) {
+  const planId = Number(value)
+  return Number.isInteger(planId) && planId > 0 ? planId : null
 }
 
 function coverResourceKey(record) {
@@ -51,6 +58,45 @@ function mapJourneyRecord(record, coverResources) {
   }
 }
 
+function detailImagePath(resources, imageUrl) {
+  return imageUrl ? resources.get(imageUrl)?.displayPath || '' : ''
+}
+
+function mapJourneyRecordDetail(record, resources) {
+  const coverImageUrl = normalizeText(record?.coverImageUrl)
+  const entries = Array.isArray(record?.entries) ? record.entries : []
+
+  return {
+    ...mapJourneyRecord(record, {}),
+    coverImageUrl,
+    displayCoverImage: detailImagePath(resources, coverImageUrl),
+    entries: entries.map((entry) => {
+      const imageUrl = normalizeText(entry?.imageUrl)
+      return {
+        taskId: entry?.taskId ?? null,
+        submissionId: entry?.submissionId ?? null,
+        title: normalizeText(entry?.title),
+        subtitle: normalizeText(entry?.subtitle),
+        sortOrder: normalizeCount(entry?.sortOrder),
+        status: normalizeText(entry?.status),
+        note: typeof entry?.note === 'string' ? entry.note : '',
+        completedAt: entry?.completedAt || null,
+        displayCompletedAt: displayDate(entry?.completedAt),
+        imageUrl,
+        displayImage: detailImagePath(resources, imageUrl),
+      }
+    }),
+  }
+}
+
+function detailImageUrls(record) {
+  const urls = [normalizeText(record?.coverImageUrl)]
+  if (Array.isArray(record?.entries)) {
+    record.entries.forEach((entry) => urls.push(normalizeText(entry?.imageUrl)))
+  }
+  return [...new Set(urls.filter(Boolean))]
+}
+
 export const useRecordStore = defineStore('record', {
   state: () => ({
     records: [],
@@ -63,6 +109,13 @@ export const useRecordStore = defineStore('record', {
     latestRequestId: 0,
     lastQuery: { limit: 20, offset: 0 },
     coverResources: {},
+    currentRecord: null,
+    detailLoading: false,
+    detailError: null,
+    detailHasLoaded: false,
+    detailRequestId: 0,
+    detailPlanId: null,
+    detailImageResources: new Map(),
   }),
   getters: {
     learningRecordCount(state) {
@@ -181,8 +234,117 @@ export const useRecordStore = defineStore('record', {
     retryJourneyRecords() {
       return this.loadJourneyRecords(this.lastQuery)
     },
+    isDetailRequestActive(planId, requestId) {
+      return this.detailPlanId === planId && this.detailRequestId === requestId
+    },
+    async loadJourneyRecordDetailImage(imageUrl, planId, requestId) {
+      if (!imageUrl || this.detailImageResources.has(imageUrl)) {
+        return
+      }
+
+      try {
+        const resource = await downloadAuthenticatedFile(imageUrl)
+        if (!this.isDetailRequestActive(planId, requestId)) {
+          resource?.cleanup?.()
+          return
+        }
+        this.detailImageResources.set(imageUrl, {
+          displayPath: resource?.displayPath || '',
+          cleanup: resource?.cleanup || null,
+        })
+      } catch (error) {
+        // A missing image only falls back to the page placeholder.
+      }
+    },
+    async loadJourneyRecordDetailImages(record, planId, requestId) {
+      const urls = detailImageUrls(record)
+      let cursor = 0
+      const worker = async () => {
+        while (cursor < urls.length) {
+          const imageUrl = urls[cursor]
+          cursor += 1
+          await this.loadJourneyRecordDetailImage(imageUrl, planId, requestId)
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(DETAIL_IMAGE_CONCURRENCY, urls.length) }, worker))
+    },
+    loadJourneyRecordDetail(planId) {
+      const validPlanId = normalizePlanId(planId)
+      if (!(Number.isInteger(validPlanId) && validPlanId > 0)) {
+        return Promise.resolve(null)
+      }
+      if (this.detailLoading && this.detailPlanId === validPlanId && activeDetailPromise) {
+        return activeDetailPromise
+      }
+      if (this.detailPlanId !== validPlanId) {
+        this.clearJourneyRecordDetail()
+      }
+
+      const requestId = this.detailRequestId + 1
+      this.detailRequestId = requestId
+      this.detailPlanId = validPlanId
+      this.detailLoading = true
+      this.detailError = null
+
+      const promise = fetchJourneyRecord(validPlanId)
+        .then(async (data) => {
+          if (this.detailPlanId !== validPlanId || this.detailRequestId !== requestId) {
+            return this.currentRecord
+          }
+          if (!data?.journeyRecord || typeof data.journeyRecord !== 'object' || !Array.isArray(data?.journeyRecord?.entries)) {
+            throw { code: 'INVALID_RESPONSE', message: '旅行记录详情数据格式异常' }
+          }
+
+          await this.loadJourneyRecordDetailImages(data.journeyRecord, validPlanId, requestId)
+          if (this.detailPlanId !== validPlanId || this.detailRequestId !== requestId) {
+            return this.currentRecord
+          }
+
+          this.currentRecord = mapJourneyRecordDetail(data.journeyRecord, this.detailImageResources)
+          this.detailHasLoaded = true
+          this.detailError = null
+          return this.currentRecord
+        })
+        .catch((error) => {
+          if (this.isDetailRequestActive(validPlanId, requestId)) {
+            this.detailError = error
+            this.detailHasLoaded = true
+          }
+          throw error
+        })
+        .finally(() => {
+          if (this.isDetailRequestActive(validPlanId, requestId)) {
+            this.detailLoading = false
+          }
+          if (activeDetailPromise === promise) {
+            activeDetailPromise = null
+          }
+        })
+
+      activeDetailPromise = promise
+      return promise
+    },
+    retryJourneyRecordDetail() {
+      const validPlanId = normalizePlanId(this.detailPlanId)
+      if (!(Number.isInteger(validPlanId) && validPlanId > 0)) {
+        return Promise.resolve(null)
+      }
+      return this.loadJourneyRecordDetail(validPlanId)
+    },
+    clearJourneyRecordDetail() {
+      this.detailRequestId += 1
+      this.detailImageResources.forEach((resource) => resource?.cleanup?.())
+      this.detailImageResources.clear()
+      this.currentRecord = null
+      this.detailLoading = false
+      this.detailError = null
+      this.detailHasLoaded = false
+      this.detailPlanId = null
+      activeDetailPromise = null
+    },
     resetRecordState() {
       this.latestRequestId += 1
+      this.clearJourneyRecordDetail()
       Object.keys(this.coverResources).forEach((key) => this.cleanupCoverResource(key))
       this.records = []
       this.total = 0
