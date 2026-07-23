@@ -127,6 +127,7 @@
 <script>
 import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
+import { createJourneyRecord } from '../../api/journeyRecords.js'
 import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useTaskStore } from '../../stores/task'
@@ -449,6 +450,17 @@ export default {
     async handleNoteBlur() {
       await this.flushNoteSave()
     },
+    async syncJourneyRecordAfterCompletion(planId) {
+      try {
+        const validPlanId = Number(planId)
+        if (!(Number.isInteger(validPlanId) && validPlanId > 0)) {
+          return null
+        }
+        return await createJourneyRecord(validPlanId)
+      } catch (error) {
+        return null
+      }
+    },
     async completeTask() {
       if (!this.canComplete || !this.currentTask.id || this.submissionState.isCompleting) {
         return
@@ -459,6 +471,7 @@ export default {
         if (task) {
           this.noteDraft = task.record?.note || ''
           this.noteHasLocalEdits = false
+          void this.syncJourneyRecordAfterCompletion(task.planId)
         }
       } catch (error) {
         this.showToast(this.taskErrorText(error, '任务完成失败，请稍后重试'))
