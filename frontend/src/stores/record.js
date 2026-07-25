@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { fetchJourneyRecords, fetchJourneyRecord } from '../api/journeyRecords.js'
+import { fetchJourneyRecords, fetchJourneyRecord, updateJourneyRecord } from '../api/journeyRecords.js'
 import { downloadAuthenticatedFile } from '../utils/authenticatedFile.js'
 
 let activeLoadPromise = null
@@ -23,6 +23,16 @@ function displayDate(value) {
 function normalizePlanId(value) {
   const planId = Number(value)
   return Number.isInteger(planId) && planId > 0 ? planId : null
+}
+
+function normalizeDraftText(value) {
+  const text = normalizeText(value)
+  return text || null
+}
+
+function normalizeSubmissionId(value) {
+  const submissionId = Number(value)
+  return Number.isInteger(submissionId) && submissionId > 0 ? submissionId : null
 }
 
 function coverResourceKey(record) {
@@ -116,6 +126,9 @@ export const useRecordStore = defineStore('record', {
     detailRequestId: 0,
     detailPlanId: null,
     detailImageResources: new Map(),
+    saving: false,
+    saveError: null,
+    saveRequestId: 0,
   }),
   getters: {
     learningRecordCount(state) {
@@ -268,6 +281,35 @@ export const useRecordStore = defineStore('record', {
       }
       await Promise.all(Array.from({ length: Math.min(DETAIL_IMAGE_CONCURRENCY, urls.length) }, worker))
     },
+    cleanupUnusedDetailImages(record) {
+      const activeUrls = new Set(detailImageUrls(record))
+      this.detailImageResources.forEach((resource, imageUrl) => {
+        if (!activeUrls.has(imageUrl)) {
+          resource?.cleanup?.()
+          this.detailImageResources.delete(imageUrl)
+        }
+      })
+    },
+    async syncJourneyRecordListItem(record) {
+      const planId = normalizePlanId(record?.planId)
+      const recordIndex = this.records.findIndex((item) => normalizePlanId(item?.planId) === planId)
+      if (recordIndex < 0) {
+        return
+      }
+
+      const previousRecord = this.records[recordIndex]
+      const previousKey = coverResourceKey(previousRecord)
+      const nextKey = coverResourceKey(record)
+      if (previousKey && previousKey !== nextKey) {
+        this.cleanupCoverResource(previousKey)
+      }
+
+      const mappedRecord = await this.loadRecordCover(record, this.latestRequestId)
+      const currentIndex = this.records.findIndex((item) => normalizePlanId(item?.planId) === planId)
+      if (currentIndex >= 0) {
+        this.records.splice(currentIndex, 1, mappedRecord)
+      }
+    },
     loadJourneyRecordDetail(planId) {
       const validPlanId = normalizePlanId(planId)
       if (!(Number.isInteger(validPlanId) && validPlanId > 0)) {
@@ -331,6 +373,90 @@ export const useRecordStore = defineStore('record', {
       }
       return this.loadJourneyRecordDetail(validPlanId)
     },
+    async saveJourneyRecordDraft(planId, changes = {}) {
+      const validPlanId = normalizePlanId(planId)
+      const currentRecord = this.currentRecord
+      if (!validPlanId || normalizePlanId(currentRecord?.planId) !== validPlanId) {
+        this.saveError = { code: 'INVALID_RECORD', message: '旅行记录已更新，请重新打开后再试。' }
+        return { saved: false, journeyRecord: currentRecord }
+      }
+      if (currentRecord.status !== 'draft') {
+        this.saveError = { code: 'RECORD_FINALIZED', message: '这份旅行记录已经封存，不能再修改。' }
+        return { saved: false, journeyRecord: currentRecord }
+      }
+      if (this.saving) {
+        return { saved: false, journeyRecord: currentRecord }
+      }
+
+      const allowedFields = ['customTitle', 'summary', 'coverSubmissionId']
+      const payload = {}
+      for (const field of allowedFields) {
+        if (!Object.prototype.hasOwnProperty.call(changes, field)) {
+          continue
+        }
+
+        if (field === 'coverSubmissionId') {
+          if (changes[field] !== null && !normalizeSubmissionId(changes[field])) {
+            this.saveError = { code: 'INVALID_COVER', message: '封面选择无效，请重新选择。' }
+            return { saved: false, journeyRecord: currentRecord }
+          }
+          const nextValue = changes[field] === null ? null : normalizeSubmissionId(changes[field])
+          const currentValue = normalizeSubmissionId(currentRecord[field])
+          if (nextValue !== currentValue) {
+            payload[field] = nextValue
+          }
+          continue
+        }
+
+        const nextValue = normalizeDraftText(changes[field])
+        const currentValue = normalizeDraftText(currentRecord[field])
+        if (nextValue !== currentValue) {
+          payload[field] = nextValue
+        }
+      }
+
+      if (!Object.keys(payload).length) {
+        this.saveError = null
+        return { saved: false, journeyRecord: currentRecord }
+      }
+
+      const detailRequestId = this.detailRequestId
+      const saveRequestId = this.saveRequestId + 1
+      this.saveRequestId = saveRequestId
+      this.saving = true
+      this.saveError = null
+      try {
+        const data = await updateJourneyRecord(validPlanId, payload)
+        const savedRecord = data?.journeyRecord
+        if (!savedRecord || typeof savedRecord !== 'object' || !Array.isArray(savedRecord.entries)) {
+          throw { code: 'INVALID_RESPONSE', message: '旅行记录保存结果异常' }
+        }
+
+        await this.syncJourneyRecordListItem(savedRecord)
+
+        let mappedRecord = null
+        if (this.isDetailRequestActive(validPlanId, detailRequestId)) {
+          await this.loadJourneyRecordDetailImages(savedRecord, validPlanId, detailRequestId)
+          if (this.isDetailRequestActive(validPlanId, detailRequestId)) {
+            this.cleanupUnusedDetailImages(savedRecord)
+            mappedRecord = mapJourneyRecordDetail(savedRecord, this.detailImageResources)
+            this.currentRecord = mappedRecord
+            this.detailError = null
+          }
+        }
+
+        return { saved: true, journeyRecord: mappedRecord }
+      } catch (error) {
+        if (this.saveRequestId === saveRequestId) {
+          this.saveError = error
+        }
+        throw error
+      } finally {
+        if (this.saveRequestId === saveRequestId) {
+          this.saving = false
+        }
+      }
+    },
     clearJourneyRecordDetail() {
       this.detailRequestId += 1
       this.detailImageResources.forEach((resource) => resource?.cleanup?.())
@@ -340,6 +466,9 @@ export const useRecordStore = defineStore('record', {
       this.detailError = null
       this.detailHasLoaded = false
       this.detailPlanId = null
+      this.saveRequestId += 1
+      this.saving = false
+      this.saveError = null
       activeDetailPromise = null
     },
     resetRecordState() {
