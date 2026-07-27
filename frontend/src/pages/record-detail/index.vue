@@ -38,6 +38,7 @@
           <text class="record-detail-title-card__destination">⌖ {{ record.destination || '目的地待补充' }}</text>
           <view class="record-detail-title-card__meta">
             <text class="record-detail-status" :class="`record-detail-status--${record.status}`">{{ statusText }}</text>
+            <text v-if="record.status === 'finalized' && record.displayFinalizedAt">封存于 {{ record.displayFinalizedAt }}</text>
             <text v-if="record.displayUpdatedAt">更新于 {{ record.displayUpdatedAt }}</text>
           </view>
         </view>
@@ -136,8 +137,18 @@
             </view>
           </view>
 
-          <button class="record-detail-editor__save" :disabled="!hasDraftChanges || saving" @click="saveDraftChanges">
+          <button class="record-detail-editor__save" :disabled="!hasDraftChanges || saving || finalizing" @click="saveDraftChanges">
             {{ saving ? '正在保存…' : '保存修改' }}
+          </button>
+        </view>
+
+        <view v-if="record.status === 'draft'" class="record-detail-finalize-action">
+          <text class="record-detail-finalize-action__hint">整理完成后可以封存，这一步将不能撤销。</text>
+          <view v-if="finalizeError" class="record-detail-editor__error">
+            <text>{{ finalizeErrorMessage }}</text>
+          </view>
+          <button class="record-detail-finalize-action__button" :disabled="saving || finalizing" @click="confirmFinalizeRecord">
+            {{ finalizing ? '正在封存…' : '封存这份旅行记录' }}
           </button>
         </view>
 
@@ -240,6 +251,12 @@ export default {
     saveErrorMessage() {
       return this.saveError?.message || '保存失败，请稍后重试'
     },
+    finalizeError() {
+      return this.recordStore.finalizeError
+    },
+    finalizeErrorMessage() {
+      return this.finalizeError?.message || '封存失败，请稍后重试'
+    },
     errorMessage() {
       return this.detailError?.message || '请检查网络后再试一次。'
     },
@@ -254,6 +271,9 @@ export default {
     },
     saving() {
       return this.recordStore.saving
+    },
+    finalizing() {
+      return this.recordStore.finalizing
     },
     showFullError() {
       return Boolean(this.detailError) && !this.record
@@ -340,7 +360,7 @@ export default {
       this.clearSaveError()
     },
     async saveDraftChanges() {
-      if (!this.record || this.record.status !== 'draft' || this.saving) {
+      if (!this.record || this.record.status !== 'draft' || this.saving || this.finalizing) {
         return
       }
 
@@ -361,6 +381,36 @@ export default {
         uni.showToast({ title: '旅行记录已保存', icon: 'success' })
       } catch (error) {
         uni.showToast({ title: this.saveErrorMessage, icon: 'none' })
+      }
+    },
+    confirmFinalizeRecord() {
+      if (!this.record || this.record.status !== 'draft' || this.saving || this.finalizing) {
+        return
+      }
+      uni.showModal({
+        title: '确认封存',
+        content: '封存后将不能再修改标题、摘要和封面。',
+        confirmText: '确认封存',
+        cancelText: '再想想',
+        success: (result) => {
+          if (result.confirm) {
+            this.finalizeRecord()
+          }
+        },
+      })
+    },
+    async finalizeRecord() {
+      if (!this.record || this.record.status !== 'draft' || this.saving || this.finalizing) {
+        return
+      }
+      try {
+        const result = await this.recordStore.finalizeJourneyRecordDraft(this.routePlanId)
+        if (!result?.finalized || !result.journeyRecord) {
+          return
+        }
+        uni.showToast({ title: '旅行记录已封存', icon: 'success' })
+      } catch (error) {
+        uni.showToast({ title: this.finalizeErrorMessage, icon: 'none' })
       }
     },
     async handleAuthExpired() {
@@ -828,6 +878,38 @@ export default {
 .record-detail-editor__save[disabled] {
   color: #9b8068;
   background: #ead8b8;
+}
+
+.record-detail-finalize-action {
+  padding: 26rpx 24rpx;
+  margin: -8rpx 0 34rpx;
+  background: rgba(255, 245, 226, 0.9);
+  border: 2rpx dashed rgba(163, 98, 62, 0.58);
+  border-radius: 22rpx;
+}
+
+.record-detail-finalize-action__hint {
+  display: block;
+  margin-bottom: 18rpx;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: #8a5a3d;
+}
+
+.record-detail-finalize-action__button {
+  width: 100%;
+  font-size: 27rpx;
+  font-weight: 900;
+  color: #995031;
+  background: #fff6e7;
+  border: 2rpx solid rgba(163, 98, 62, 0.62);
+  border-radius: 999rpx;
+}
+
+.record-detail-finalize-action__button[disabled] {
+  color: #9b8068;
+  background: #ead8b8;
+  border-color: #ead8b8;
 }
 
 .record-detail-section-head {
