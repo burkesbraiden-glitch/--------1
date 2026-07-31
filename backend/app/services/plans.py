@@ -112,9 +112,25 @@ def get_child_for_plan(user, payload):
 
 def validate_create_payload(payload):
     validate_no_forbidden_fields(payload, CREATE_FORBIDDEN_FIELDS)
+    destination = normalize_required_string(payload, "destination", 120)
+    raw_title = payload.get("title")
+    if raw_title is None:
+        title = f"{destination}亲子探索"
+    elif not isinstance(raw_title, str):
+        raise PlanError("VALIDATION_ERROR", "title must be a string", 400)
+    else:
+        title = raw_title.strip() or f"{destination}亲子探索"
+
+    if len(title) > 120:
+        raise PlanError(
+            "VALIDATION_ERROR",
+            "title must be 1 to 120 characters",
+            400,
+        )
+
     return {
-        "title": normalize_required_string(payload, "title", 120),
-        "destination": normalize_required_string(payload, "destination", 120),
+        "title": title,
+        "destination": destination,
         "duration": normalize_required_string(payload, "duration", 32),
         "interests": normalize_interests(payload),
     }

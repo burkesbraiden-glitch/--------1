@@ -140,6 +140,11 @@
         </view>
 
         <view class="plan-sheet__field">
+          <text class="plan-sheet__label">计划标题（选填）</text>
+          <input v-model="planForm.title" maxlength="120" placeholder="给这次探索起个名字" />
+        </view>
+
+        <view class="plan-sheet__field">
           <text class="plan-sheet__label">孩子年龄</text>
           <view class="plan-sheet__age-list">
             <view
@@ -207,6 +212,7 @@ export default {
       ],
       interestOptions: ['古代生活', '建筑礼仪', '观察表达'],
       planForm: {
+        title: '',
         destination: '故宫博物院',
         ageGroup: '7-12',
         duration: '3小时',
@@ -281,6 +287,7 @@ export default {
     },
     openPlanSheet() {
       this.planForm = {
+        title: '',
         destination: this.searchKeyword.trim() || '故宫博物院',
         ageGroup: this.child.ageGroup,
         duration: '3小时',
@@ -361,15 +368,19 @@ export default {
           return
         }
 
+        const normalizedTitle = this.planForm.title.trim()
+        const payload = {
+          destination: this.planForm.destination.trim() || '故宫博物院',
+          duration: this.planForm.duration.trim() || '3小时',
+          interests: [...this.planForm.interests],
+          childId: this.child.currentChild.id,
+          ageGroup: this.child.currentChild.ageGroup,
+        }
+        if (normalizedTitle) {
+          payload.title = normalizedTitle
+        }
         const createdPlan = await this.plan.createPlan(
-          {
-            title: '故宫亲子探索',
-            destination: this.planForm.destination.trim() || '故宫博物院',
-            duration: this.planForm.duration.trim() || '3小时',
-            interests: [...this.planForm.interests],
-            childId: this.child.currentChild.id,
-            ageGroup: this.child.currentChild.ageGroup,
-          },
+          payload,
           this.user.userInfo.id,
         )
         this.planSheetOpen = false

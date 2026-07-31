@@ -1,5 +1,8 @@
+from contextlib import contextmanager
+
 import pytest
 from flask_jwt_extended import create_access_token
+from sqlalchemy import event
 
 from app.extensions import db
 from app.models import Child, ExplorationPlan, Task, User
@@ -94,6 +97,23 @@ def valid_payload(**overrides):
     return payload
 
 
+@contextmanager
+def assign_sqlite_plan_ids():
+    next_plan_id = 1000
+
+    def assign_plan_id(mapper, connection, target):
+        nonlocal next_plan_id
+        if target.id is None:
+            target.id = next_plan_id
+            next_plan_id += 1
+
+    event.listen(ExplorationPlan, "before_insert", assign_plan_id)
+    try:
+        yield
+    finally:
+        event.remove(ExplorationPlan, "before_insert", assign_plan_id)
+
+
 def test_post_plan_requires_token(client):
     response = client.post("/api/v1/plans", json=valid_payload())
 
@@ -101,32 +121,131 @@ def test_post_plan_requires_token(client):
     assert response.get_json()["error"]["code"] == "UNAUTHORIZED"
 
 
-def test_post_plan_requires_title(client, app, plans_db):
+def test_post_plan_uses_destination_title_when_title_is_omitted(client, app, plans_db):
     with app.app_context():
         create_user(1, "13800138000")
+        create_child(10, 1)
 
-    response = client.post(
-        "/api/v1/plans",
-        json={"destination": "故宫博物院", "duration": "3小时"},
-        headers=auth_headers(app, 1),
-    )
+    payload = valid_payload(destination="故宫")
+    payload.pop("title")
+
+    with assign_sqlite_plan_ids():
+        response = client.post(
+            "/api/v1/plans",
+            json=payload,
+            headers=auth_headers(app, 1),
+        )
+
+    assert response.status_code == 201
+    assert response.get_json()["data"]["plan"]["title"] == "故宫亲子探索"
+    with app.app_context():
+        assert ExplorationPlan.query.one().title == "故宫亲子探索"
+
+
+def test_post_plan_uses_destination_title_when_title_is_blank(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+
+    with assign_sqlite_plan_ids():
+        response = client.post(
+            "/api/v1/plans",
+            json=valid_payload(title="   ", destination="颐和园"),
+            headers=auth_headers(app, 1),
+        )
+
+    assert response.status_code == 201
+    assert response.get_json()["data"]["plan"]["title"] == "颐和园亲子探索"
+    with app.app_context():
+        assert ExplorationPlan.query.one().title == "颐和园亲子探索"
+
+
+def test_post_plan_uses_destination_title_when_title_is_empty_string(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+
+    with assign_sqlite_plan_ids():
+        response = client.post(
+            "/api/v1/plans",
+            json=valid_payload(title="", destination="天坛"),
+            headers=auth_headers(app, 1),
+        )
+
+    assert response.status_code == 201
+    assert response.get_json()["data"]["plan"]["title"] == "天坛亲子探索"
+    with app.app_context():
+        assert ExplorationPlan.query.one().title == "天坛亲子探索"
+
+
+def test_post_plan_trims_custom_title_before_saving(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+
+    with assign_sqlite_plan_ids():
+        response = client.post(
+            "/api/v1/plans",
+            json=valid_payload(title="  第一次走进故宫  "),
+            headers=auth_headers(app, 1),
+        )
+
+    assert response.status_code == 201
+    assert response.get_json()["data"]["plan"]["title"] == "第一次走进故宫"
+    with app.app_context():
+        assert ExplorationPlan.query.one().title == "第一次走进故宫"
+
+
+def test_post_plan_rejects_title_longer_than_120_without_side_effects(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        before_plan_count = ExplorationPlan.query.count()
+        before_task_count = Task.query.count()
+
+    with assign_sqlite_plan_ids():
+        response = client.post(
+            "/api/v1/plans",
+            json=valid_payload(title="旅" * 121),
+            headers=auth_headers(app, 1),
+        )
 
     assert response.status_code == 400
     assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    with app.app_context():
+        assert ExplorationPlan.query.count() == before_plan_count
+        assert Task.query.count() == before_task_count
 
 
-def test_post_plan_rejects_blank_title(client, app, plans_db):
+def test_post_plan_applies_title_length_limit_after_trimming(client, app, plans_db):
     with app.app_context():
         create_user(1, "13800138000")
+        create_child(10, 1)
 
-    response = client.post(
-        "/api/v1/plans",
-        json=valid_payload(title="   "),
-        headers=auth_headers(app, 1),
-    )
+    with assign_sqlite_plan_ids():
+        max_length_response = client.post(
+            "/api/v1/plans",
+            json=valid_payload(title="  " + ("旅" * 120) + "  "),
+            headers=auth_headers(app, 1),
+        )
 
-    assert response.status_code == 400
-    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert max_length_response.status_code == 201
+    assert max_length_response.get_json()["data"]["plan"]["title"] == "旅" * 120
+    with app.app_context():
+        assert ExplorationPlan.query.one().title == "旅" * 120
+        before_plan_count = ExplorationPlan.query.count()
+
+    with assign_sqlite_plan_ids():
+        over_limit_response = client.post(
+            "/api/v1/plans",
+            json=valid_payload(title="  " + ("旅" * 121) + "  "),
+            headers=auth_headers(app, 1),
+        )
+
+    assert over_limit_response.status_code == 400
+    assert over_limit_response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    with app.app_context():
+        assert ExplorationPlan.query.count() == before_plan_count
 
 
 def test_post_plan_requires_destination(client, app, plans_db):
