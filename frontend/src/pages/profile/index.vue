@@ -442,6 +442,7 @@ export default {
         this.plan.resetSessionState()
         this.guide.resetSessionState()
         this.task.resetSessionState()
+        this.record.resetRecordState()
         this.user.logout().finally(() => {
           this.child.resetSessionState()
           this.plan.resetSessionState()
