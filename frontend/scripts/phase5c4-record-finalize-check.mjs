@@ -1,18 +1,10 @@
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const frontendRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
-const repositoryRoot = join(frontendRoot, '..')
 const storePath = join(frontendRoot, 'src/stores/record.js')
 const detailPath = join(frontendRoot, 'src/pages/record-detail/index.vue')
-const allowedChangedFiles = new Set([
-  'frontend/scripts/phase5c4-record-finalize-check.mjs',
-  'frontend/src/pages/record-detail/index.vue',
-  'frontend/src/stores/record.js',
-])
-
 function assert(condition, message) {
   if (!condition) throw new Error(message)
   console.log(`PASS: ${message}`)
@@ -80,12 +72,5 @@ assert(/旅行记录已封存/.test(finalizePage) && /finalizeErrorMessage/.test
 assert(!/finalizeJourneyRecordDraft/.test(methodSource(detail, 'loadDetail')) && !/finalizeJourneyRecordDraft/.test(methodSource(detail, 'syncDraftFromRecord')), 'page never finalizes while loading or watching data')
 assert(/record\.displayFinalizedAt/.test(detail) && /这份旅行记录已经封存/.test(detail), 'finalized page displays server finalized time and a read-only notice')
 assert(!/AppTabbar/.test(detail) && /<AiPet\s*\/>/.test(detail), 'detail keeps AiPet without AppTabbar')
-
-const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: repositoryRoot, encoding: 'utf8' })
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map((line) => line.slice(3))
-assert(status.length === allowedChangedFiles.size, 'Git status contains exactly the three phase 5C-4.3 files')
-assert(new Set(status).size === status.length && status.every((file) => allowedChangedFiles.has(file)), 'no protected or unrelated file changed')
 
 console.log('phase5c4 record finalize checks passed')

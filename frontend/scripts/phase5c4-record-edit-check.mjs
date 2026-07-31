@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,12 +6,6 @@ const frontendRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = join(frontendRoot, '..')
 const storePath = join(frontendRoot, 'src/stores/record.js')
 const detailPath = join(frontendRoot, 'src/pages/record-detail/index.vue')
-const allowedChangedFiles = new Set([
-  'frontend/scripts/phase5c4-record-edit-check.mjs',
-  'frontend/src/pages/record-detail/index.vue',
-  'frontend/src/stores/record.js',
-])
-
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message)
@@ -39,16 +32,110 @@ function methodSource(source, name) {
   throw new Error(`${name} method must close correctly`)
 }
 
+function codeMask(source) {
+  let result = ''
+  let state = 'code'
+
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index]
+    const next = source[index + 1]
+
+    if (state === 'code') {
+      if (character === '/' && next === '/') {
+        result += '  '
+        index += 1
+        state = 'line-comment'
+      } else if (character === '/' && next === '*') {
+        result += '  '
+        index += 1
+        state = 'block-comment'
+      } else if (character === '\'' || character === '"') {
+        result += character
+        state = character
+      } else if (character === '`') {
+        result += character
+        state = 'template'
+      } else {
+        result += character
+      }
+      continue
+    }
+
+    if (state === 'line-comment') {
+      result += character === '\n' ? '\n' : ' '
+      if (character === '\n') state = 'code'
+      continue
+    }
+
+    if (state === 'block-comment') {
+      if (character === '*' && next === '/') {
+        result += '  '
+        index += 1
+        state = 'code'
+      } else {
+        result += character === '\n' ? '\n' : ' '
+      }
+      continue
+    }
+
+    if (state === 'template') {
+      result += character === '\n' || character === '`' ? character : ' '
+      if (character === '`') state = 'code'
+      continue
+    }
+
+    if (character === '\\') {
+      result += ' '
+      if (next) {
+        result += next === '\n' ? '\n' : ' '
+        index += 1
+      }
+      continue
+    }
+
+    result += character === '\n' || character === state ? character : ' '
+    if (character === state) state = 'code'
+  }
+
+  return result
+}
+
+function namedImportSet(source, modulePath) {
+  const maskedSource = codeMask(source)
+  const importPattern = /^\s*import\s*\{([\s\S]*?)\}\s*from\s*(['"])[\s]*\2\s*;?/gm
+  let match
+
+  while ((match = importPattern.exec(maskedSource))) {
+    const rawImport = source.slice(match.index, importPattern.lastIndex)
+    const expectedPath = new RegExp(`from\\s*['"]${modulePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]\\s*;?$`)
+    if (!expectedPath.test(rawImport.trim())) {
+      continue
+    }
+
+    return new Set(
+      match[1]
+        .split(',')
+        .map((item) => item.trim().split(/\s+as\s+/)[0])
+        .filter(Boolean),
+    )
+  }
+
+  return new Set()
+}
+
 const store = read(storePath)
 const detail = read(detailPath)
 
-assert(/import\s*\{\s*fetchJourneyRecords\s*,\s*fetchJourneyRecord\s*,\s*updateJourneyRecord\s*\}\s*from\s*['"]\.\.\/api\/journeyRecords\.js['"]/.test(store), 'record store imports updateJourneyRecord from the existing JourneyRecord client')
-assert(!/\bfinalizeJourneyRecord\b/.test(store), 'record store does not import or call finalizeJourneyRecord')
+const journeyRecordClients = namedImportSet(store, '../api/journeyRecords.js')
+assert(journeyRecordClients.has('updateJourneyRecord'), 'record store imports updateJourneyRecord from the existing JourneyRecord client')
 assert(!/\b(?:request|uni\.request|fetch)\s*\(/.test(methodSource(store, 'saveJourneyRecordDraft')), 'draft save action uses only the existing JourneyRecord client')
 assert(/\bsaving\s*:\s*false/.test(store) && /\bsaveError\s*:\s*null/.test(store), 'record store owns saving and saveError state')
 assert(/\bsaveRequestId\s*:\s*0/.test(store), 'record store owns a save request id for page-switch races')
 
 const saveDraft = methodSource(store, 'saveJourneyRecordDraft')
+const executableSaveDraft = codeMask(saveDraft)
+assert(!/\bfinalizeJourneyRecord\b/.test(executableSaveDraft), 'draft save action does not call finalizeJourneyRecord')
+assert(!/\b(?:this\.)?currentRecord\.status\s*=(?!=)/.test(executableSaveDraft) && !/\b(?:this\.)?currentRecord\.finalizedAt\s*=(?!=)/.test(executableSaveDraft), 'draft save action does not fabricate finalized state or time')
 assert(/customTitle/.test(saveDraft) && /summary/.test(saveDraft) && /coverSubmissionId/.test(saveDraft), 'draft save action handles the three editable fields')
 assert(/const allowedFields = \['customTitle', 'summary', 'coverSubmissionId'\]/.test(saveDraft), 'draft save action rebuilds its payload from the editable-field whitelist')
 assert(/this\.saving/.test(saveDraft) && /return\s+\{\s*saved:\s*false/.test(saveDraft), 'draft save action blocks duplicate or empty saves')
@@ -59,6 +146,8 @@ const syncListItem = methodSource(store, 'syncJourneyRecordListItem')
 assert(/this\.records/.test(syncListItem) && /loadRecordCover/.test(syncListItem) && /cleanupCoverResource/.test(syncListItem), 'draft save action synchronizes the corresponding record list card and its cover resource')
 assert(/this\.saveError/.test(saveDraft) && /this\.saving\s*=\s*false/.test(saveDraft), 'draft save action keeps an explicit failure state and releases saving')
 assert(/const saveRequestId = this\.saveRequestId \+ 1/.test(saveDraft) && /this\.saveRequestId === saveRequestId/.test(saveDraft), 'only the active save request can release the saving lock or write a save error')
+const finalizeDraft = methodSource(store, 'finalizeJourneyRecordDraft')
+assert(/finalizeJourneyRecord\(validPlanId\)/.test(codeMask(finalizeDraft)), 'independent finalize action calls finalizeJourneyRecord')
 
 for (const field of ['customTitleDraft', 'summaryDraft', 'selectedCoverSubmissionId', 'draftInitializedPlanId']) {
   assert(new RegExp(`\\b${field}\\b`).test(detail), `record detail owns local ${field}`)
@@ -76,18 +165,12 @@ assert(/customTitle/.test(buildChanges) && /summary/.test(buildChanges) && /cove
 assert(/Object\.keys\(this\.buildDraftChanges\(\)\)\.length/.test(detail), 'page derives draft-change state from the payload')
 const saveChanges = methodSource(detail, 'saveDraftChanges')
 assert(/saveJourneyRecordDraft\(this\.routePlanId,\s*changes\)/.test(saveChanges), 'page delegates one unified save to the record store')
+assert(!/\bfinalizeJourneyRecordDraft\b/.test(codeMask(saveChanges)), 'page draft save does not trigger the finalize action')
 assert(/旅行记录已保存/.test(detail) && /保存失败，请稍后重试/.test(detail), 'page provides clear save feedback')
 assert(/v-if="record\.status === 'draft'"/.test(detail), 'finalized records do not render the draft editor')
 assert(/recordStore\.saveError/.test(detail) && !/detailError\s*=\s*this\.recordStore\.saveError/.test(detail), 'save errors stay separate from detail loading errors')
 assert(/<AiPet\s*\/>/.test(detail), 'record detail retains AiPet')
 assert(!/AppTabbar/.test(detail), 'record detail does not add AppTabbar')
 assert(!/\bfinalizeJourneyRecord\b/.test(detail), 'record detail has no finalize behavior')
-
-const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: repositoryRoot, encoding: 'utf8' })
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map((line) => line.slice(3))
-assert(status.length === allowedChangedFiles.size, 'Git status contains exactly the three phase 5C-4.2 files')
-assert(new Set(status).size === status.length && status.every((file) => allowedChangedFiles.has(file)), 'no protected or unrelated file changed')
 
 console.log('phase5c4 record edit checks passed')

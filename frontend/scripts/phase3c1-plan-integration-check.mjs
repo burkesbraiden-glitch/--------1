@@ -15,6 +15,21 @@ function assert(condition, message) {
   }
 }
 
+function methodSource(source, name) {
+  const match = source.match(new RegExp(`^\\s*(?:async\\s+)?${name}\\s*\\([^)]*\\)\\s*\\{`, 'm'))
+  assert(match, `Missing ${name} method`)
+
+  let depth = 1
+  const start = match.index + match[0].length
+  for (let index = start; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1
+    if (source[index] === '}') depth -= 1
+    if (depth === 0) return source.slice(match.index, index + 1)
+  }
+
+  throw new Error(`${name} method must close correctly`)
+}
+
 const plansApiPath = join(src, 'api/plans.js')
 assert(existsSync(plansApiPath), 'Missing src/api/plans.js')
 
@@ -88,7 +103,16 @@ assert(tasksPage.includes('ensureTasks'), 'Tasks page must initialize real tasks
 assert(tasksPage.includes('ensureCurrentPlanReady'), 'Tasks page must restore real currentPlan')
 
 const recordPage = read('pages/record/index.vue')
-assert(recordPage.includes('ensureCurrentPlanReady'), 'Record page must restore real currentPlan before generating record')
+const recordStore = read('stores/record.js')
+const recordOnShow = methodSource(recordPage, 'onShow')
+const loadRecords = methodSource(recordPage, 'loadRecords')
+const openRecordDetail = methodSource(recordPage, 'openRecordDetail')
+const loadJourneyRecords = methodSource(recordStore, 'loadJourneyRecords')
+assert(/await\s+this\.loadRecords\(\)/.test(recordOnShow), 'Record page must load journey records when shown')
+assert(/await\s+this\.recordStore\.loadJourneyRecords\(params\)/.test(loadRecords), 'Record page must load records through the record store')
+assert(/fetchJourneyRecords\(query\)/.test(loadJourneyRecords) && /this\.records\s*=\s*records/.test(loadJourneyRecords), 'Record store must load and store real JourneyRecord list data')
+assert(!recordPage.includes('usePlanStore') && !/generateRecord|buildRecord|createLocalRecord|localTaskSessions|localTaskDrafts|mockRecords/.test(recordPage), 'Record page must not depend on currentPlan or local record generation')
+assert(/record\?\.planId/.test(openRecordDetail) && /record-detail\/index\?planId=\$\{planId\}/.test(openRecordDetail), 'Record detail navigation must use each record planId')
 
 const guidePage = read('pages/guide/index.vue')
 assert(!guidePage.includes('mockPlans[0]'), 'Guide page must not use mockPlans[0] as real fallback')
