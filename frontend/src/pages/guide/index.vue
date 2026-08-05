@@ -139,6 +139,7 @@ import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
+import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
@@ -235,8 +236,7 @@ export default {
         await this.guideStore.ensureGuide(planId)
       } catch (error) {
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
-          this.planStore.resetSessionState()
-          this.guideStore.resetSessionState()
+          await endUserSession()
         }
       }
     },

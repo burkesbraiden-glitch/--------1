@@ -133,11 +133,16 @@ import { usePlanStore } from '../../stores/plan'
 import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
+import { endUserSession } from '../../utils/sessionBoundary'
 
 const statusMap = {
   'not-started': '未完成',
   'in-progress': '进行中',
   completed: '已完成',
+}
+
+function isAuthenticationError(error) {
+  return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
 }
 
 export default {
@@ -270,15 +275,22 @@ export default {
         await ensureCurrentPlanReady({ withTasks: true })
       } catch (error) {
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
-          this.plan.resetSessionState()
-          this.task.resetSessionState()
+          await endUserSession()
         }
       }
     },
     async recoverCurrentTask() {
       let task = await this.task.ensureCurrentTask(this.routeTaskId)
       if (!task && this.plan.currentPlan?.id && this.routeTaskId) {
-        task = await this.task.fetchTaskDetail(this.plan.currentPlan.id, this.routeTaskId)
+        try {
+          task = await this.task.fetchTaskDetail(this.plan.currentPlan.id, this.routeTaskId)
+        } catch (error) {
+          if (isAuthenticationError(error)) {
+            await endUserSession()
+            return null
+          }
+          throw error
+        }
       }
       return task
     },
@@ -333,6 +345,10 @@ export default {
         await this.task.ensureTasks(startedPlan.id, startedPlan.status)
         this.showToast('探索已开始，可以记录任务了')
       } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return
+        }
         this.showToast(this.taskErrorText(error, '无法开始探索，请稍后重试'))
       } finally {
         this.isStartingPlan = false
@@ -348,6 +364,10 @@ export default {
           this.noteDraft = task.record?.note || ''
         }
       } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return
+        }
         this.showToast(this.taskErrorText(error, '任务开始失败，请稍后重试'))
       }
     },
@@ -426,6 +446,10 @@ export default {
         }
         return task
       } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return null
+        }
         this.showToast(this.taskErrorText(error, '记录保存失败，请重试'))
         return null
       } finally {
@@ -458,6 +482,9 @@ export default {
         }
         return await createJourneyRecord(validPlanId)
       } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+        }
         return null
       }
     },
@@ -474,6 +501,10 @@ export default {
           void this.syncJourneyRecordAfterCompletion(task.planId)
         }
       } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return
+        }
         this.showToast(this.taskErrorText(error, '任务完成失败，请稍后重试'))
       }
     },

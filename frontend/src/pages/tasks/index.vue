@@ -105,6 +105,7 @@ import { usePlanStore } from '../../stores/plan'
 import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
+import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
@@ -194,8 +195,7 @@ export default {
         }
       } catch (error) {
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
-          this.planStore.resetSessionState()
-          this.task.resetSessionState()
+          await endUserSession()
         }
       }
     },
@@ -214,8 +214,7 @@ export default {
         this.showToast('探索已开始，可以记录任务了')
       } catch (error) {
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
-          this.planStore.resetSessionState()
-          this.task.resetSessionState()
+          await endUserSession()
           return
         }
         this.showToast(this.taskErrorText(error, '无法开始探索，请稍后重试'))

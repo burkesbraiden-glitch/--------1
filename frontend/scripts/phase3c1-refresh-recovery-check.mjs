@@ -1,8 +1,20 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { extname, join } from 'node:path'
+import { registerHooks } from 'node:module'
 import { createPinia, setActivePinia } from 'pinia'
 
 process.env.NODE_NO_WARNINGS = '1'
+
+// uni-app/Vite accepts extensionless local JavaScript imports; keep this Node-only
+// regression runner aligned so it can execute the real Task Store recovery path.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith('.') && !extname(specifier)) {
+      return nextResolve(`${specifier}.js`, context)
+    }
+    return nextResolve(specifier, context)
+  },
+})
 
 const root = process.cwd()
 const src = join(root, 'src')
@@ -192,6 +204,180 @@ function methodSource(source, name) {
   return null
 }
 
+function blockSource(source, openBraceIndex) {
+  const masked = codeMask(source)
+  let depth = 0
+  for (let index = openBraceIndex; index < masked.length; index += 1) {
+    if (masked[index] === '{') depth += 1
+    if (masked[index] === '}') depth -= 1
+    if (depth === 0 && index > openBraceIndex) return source.slice(openBraceIndex, index + 1)
+  }
+  return null
+}
+
+function depthAt(masked, openBraceIndex, targetIndex) {
+  let depth = 1
+  for (let index = openBraceIndex + 1; index < targetIndex; index += 1) {
+    if (masked[index] === '{') depth += 1
+    if (masked[index] === '}') depth -= 1
+  }
+  return depth
+}
+
+function directMethodSource(source, objectName, methodName) {
+  const masked = codeMask(source)
+  const container = new RegExp(`\\b${objectName}\\s*:\\s*\\{`).exec(masked)
+  if (!container) return null
+
+  const containerBrace = container.index + container[0].lastIndexOf('{')
+  const methodPattern = new RegExp(`(?:async\\s+)?${methodName}\\s*\\([^)]*\\)\\s*\\{`, 'g')
+  let match
+  while ((match = methodPattern.exec(masked))) {
+    if (match.index > containerBrace && depthAt(masked, containerBrace, match.index) === 1) {
+      const methodBrace = match.index + match[0].lastIndexOf('{')
+      return blockSource(source, methodBrace)
+    }
+  }
+  return null
+}
+
+function namedImportSet(source, modulePath) {
+  const masked = codeMask(source)
+  const pattern = /\bimport\s*\{[\s\S]*?\}\s*from\s*(['"])\s*\1\s*;?/g
+  const names = new Set()
+  let match
+
+  while ((match = pattern.exec(masked))) {
+    const rawImport = source.slice(match.index, match.index + match[0].length)
+    const moduleMatch = rawImport.match(/\bfrom\s*(['"])([^'"]+)\1/)
+    if (!moduleMatch || moduleMatch[2] !== modulePath) continue
+
+    const namesMatch = rawImport.match(/\bimport\s*\{([\s\S]*?)\}\s*from/)
+    if (!namesMatch) continue
+    for (const item of namesMatch[1].split(',')) {
+      names.add(item.trim().split(/\s+as\s+/)[0])
+    }
+  }
+
+  return names
+}
+
+function hasNamedImport(source, modulePaths, name) {
+  return modulePaths.some((modulePath) => namedImportSet(source, modulePath).has(name))
+}
+
+function logoutBranchSource(method) {
+  const masked = codeMask(method)
+  const pattern = /\bif\s*\(\s*key\s*===\s*(['"])\s*\1\s*\)\s*\{/g
+  let match
+  while ((match = pattern.exec(masked))) {
+    const branchBrace = match.index + match[0].lastIndexOf('{')
+    const rawCondition = method.slice(match.index, branchBrace)
+    if (/['"]logout['"]/.test(rawCondition)) return blockSource(method, branchBrace)
+  }
+  return null
+}
+
+function hasDirectCall(block, name) {
+  if (!block) return false
+  const masked = codeMask(block)
+  const openingBrace = masked.indexOf('{')
+  const pattern = new RegExp(`\\b${name}\\s*\\(`, 'g')
+  let match
+  while ((match = pattern.exec(masked))) {
+    const statementStart = Math.max(masked.lastIndexOf(';', match.index), masked.lastIndexOf('{', match.index), masked.lastIndexOf('}', match.index)) + 1
+    if (depthAt(masked, openingBrace, match.index) === 1 && !/(?:=>|\bfunction\b)/.test(masked.slice(statementStart, match.index))) return true
+  }
+  return false
+}
+
+function exportedFunctionSource(source, name) {
+  const masked = codeMask(source)
+  const match = new RegExp(`\\bexport\\s+(?:async\\s+)?function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`).exec(masked)
+  if (!match) return null
+  return blockSource(source, match.index + match[0].lastIndexOf('{'))
+}
+
+function immediateCleanupSource(functionSource) {
+  if (!functionSource) return null
+  const masked = codeMask(functionSource)
+  const match = /\(\s*async\s*\(\s*\)\s*=>\s*\{/.exec(masked)
+  if (!match) return null
+  const openBrace = match.index + match[0].lastIndexOf('{')
+  const cleanup = blockSource(functionSource, openBrace)
+  if (!cleanup) return null
+  const end = openBrace + cleanup.length
+  return /^\s*\)\s*\(\s*\)/.test(masked.slice(end)) ? cleanup : null
+}
+
+function helperStoreAction(cleanup, factory, action) {
+  if (!cleanup) return -1
+  const masked = codeMask(cleanup)
+  const factoryMatch = new RegExp(`\\b(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*${factory}\\s*\\(\\s*\\)`).exec(masked)
+  if (!factoryMatch) return -1
+
+  const actionPattern = new RegExp(`\\b${factoryMatch[1]}\\.${action}\\s*\\(`, 'g')
+  const actionMatch = actionPattern.exec(masked)
+  if (!actionMatch) return -1
+
+  const between = masked.slice(factoryMatch.index, actionMatch.index)
+  return /(?:\bfunction\b|=>)/.test(between) ? -1 : actionMatch.index
+}
+
+function hasProfileLogoutInvocation(profileSource) {
+  const template = profileSource.slice(0, profileSource.indexOf('<script')).replace(/<!--[\s\S]*?-->/g, '')
+  const handleMenu = directMethodSource(profileSource, 'methods', 'handleMenu')
+  const logoutBranch = logoutBranchSource(handleMenu)
+  return /@click\s*=\s*['"]handleMenu\(item\.key\)['"]/.test(template) && hasDirectCall(logoutBranch, 'endUserSession')
+}
+
+function assertSessionBoundaryRuleExamples() {
+  const executable = `<template><button @click="handleMenu(item.key)" /></template><script>export default { methods: { handleMenu(key) { if (key === 'logout') { endUserSession() } } } }</script>`
+  assert(hasProfileLogoutInvocation(executable), 'shared logout rule must accept the executable menu path')
+  assert(
+    !hasProfileLogoutInvocation(`<template><button @click="handleMenu(item.key)" /></template><script>export default { methods: { handleMenu(key) { if (key === 'logout') { // endUserSession()\n const note = 'endUserSession()' } } } }</script>`),
+    'shared logout rule must ignore comments and strings',
+  )
+  assert(
+    !hasProfileLogoutInvocation(`<template><button @click="handleMenu(item.key)" /></template><script>export default { methods: { handleMenu(key) { if (key === 'logout') { const unusedLogout = () => endUserSession() } } } }</script>`),
+    'shared logout rule must reject an unused nested callback',
+  )
+}
+
+function assertProfileUsesSharedSessionBoundary(profileSource, boundarySource) {
+  assertSessionBoundaryRuleExamples()
+  assert(hasProfileLogoutInvocation(profileSource), 'Profile logout must remain reachable from its template and directly delegate the real logout branch')
+  assert(
+    hasNamedImport(profileSource, ['../../utils/sessionBoundary', '../../utils/sessionBoundary.js'], 'endUserSession'),
+    'Profile logout must import endUserSession from the formal sessionBoundary module',
+  )
+
+  for (const [storeModule, storeFactory] of [
+    ['../stores/plan', 'usePlanStore'],
+    ['../stores/task', 'useTaskStore'],
+    ['../stores/user', 'useUserStore'],
+  ]) {
+    assert(
+      hasNamedImport(boundarySource, [storeModule, `${storeModule}.js`], storeFactory),
+      `sessionBoundary must import ${storeFactory} from its formal Store module`,
+    )
+  }
+
+  const cleanup = immediateCleanupSource(exportedFunctionSource(boundarySource, 'endUserSession'))
+  assert(cleanup, 'sessionBoundary endUserSession must execute its cleanup in an immediate async flow')
+  const planReset = helperStoreAction(cleanup, 'usePlanStore', 'resetSessionState')
+  const taskReset = helperStoreAction(cleanup, 'useTaskStore', 'resetSessionState')
+  const userLogout = helperStoreAction(cleanup, 'useUserStore', 'logout')
+  const navigation = codeMask(cleanup).search(/\buni\.reLaunch\s*\(/)
+
+  assert(planReset >= 0, 'sessionBoundary must call the formal Plan resetSessionState action')
+  assert(taskReset >= 0, 'sessionBoundary must call the formal Task resetSessionState action')
+  assert(userLogout >= 0, 'sessionBoundary must call the formal User logout action')
+  assert(navigation >= 0 && /url:\s*['"]\/pages\/login\/index['"]/.test(cleanup), 'sessionBoundary must reLaunch to the login page')
+  assert(planReset < userLogout && taskReset < userLogout, 'Plan and Task reset must happen before User logout')
+  assert(planReset < navigation && taskReset < navigation && userLogout < navigation, 'session cleanup must complete before login navigation')
+}
+
 function hasRecordRecoveryChain(pageSource, storeSource) {
   const executablePage = codeMask(pageSource)
   const onShow = methodSource(pageSource, 'onShow')
@@ -256,6 +442,7 @@ const taskDetailPage = read('pages/task-detail/index.vue')
 const planStoreSource = read('stores/plan.js')
 const taskStoreSource = read('stores/task.js')
 const profilePage = read('pages/profile/index.vue')
+const sessionBoundarySource = read('utils/sessionBoundary.js')
 const recordStoreSource = read('stores/record.js')
 const journeyRecordsApi = read('api/journeyRecords.js')
 
@@ -295,8 +482,7 @@ assert(guidePage.includes('ensureCurrentPlanReady'), 'Guide page must still rest
 assert(!taskStoreSource.includes('setStorageSync') && !taskStoreSource.includes('getStorageSync'), 'task drafts must remain in memory only')
 assert(planStoreSource.includes('clearInMemoryState'), 'planStore must separate in-memory clear from selection reset')
 assert(planStoreSource.includes('sameUserId'), 'fetchPlans must normalize userId comparisons')
-assert(profilePage.includes('plan.resetSessionState'), 'logout must still clear plan selection')
-assert(profilePage.includes('task.resetSessionState'), 'logout must still clear task sessions')
+assertProfileUsesSharedSessionBoundary(profilePage, sessionBoundarySource)
 assert(readProject('README.md').includes('frontend/src/package.json'), 'README must document why frontend/src/package.json exists')
 
 setActivePinia(createPinia())

@@ -120,6 +120,7 @@ import { usePlanStore } from '../../stores/plan'
 import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
+import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
@@ -203,12 +204,7 @@ export default {
       })
     },
     async handleAuthExpired() {
-      this.planStore.resetSessionState()
-      this.taskStore.resetSessionState()
-      await this.userStore.logout()
-      uni.reLaunch({
-        url: '/pages/login/index',
-      })
+      await endUserSession()
     },
     async loadPlans(force = false) {
       try {

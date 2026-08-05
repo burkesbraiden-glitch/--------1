@@ -195,6 +195,7 @@ import { useChildStore } from '../../stores/child'
 import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useUserStore } from '../../stores/user'
+import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
@@ -327,11 +328,7 @@ export default {
       return messages[error?.code] || error?.message || '创建失败，请稍后重试'
     },
     async handleAuthExpired() {
-      this.plan.resetSessionState()
-      await this.user.logout()
-      uni.reLaunch({
-        url: '/pages/login/index',
-      })
+      await endUserSession()
     },
     async submitPlan() {
       if (this.isCreatingPlan) {

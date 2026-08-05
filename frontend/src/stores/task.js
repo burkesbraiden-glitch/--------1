@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import * as tasksApi from '../api/tasks.js'
 import { usePlanStore } from './plan.js'
 import { useUserStore } from './user.js'
+import { endUserSession } from '../utils/sessionBoundary'
 
 const ensurePromises = new Map()
 const submissionQueues = new Map()
@@ -451,13 +452,7 @@ export const useTaskStore = defineStore('task', {
         return
       }
       if (['UNAUTHORIZED', 'INVALID_TOKEN', 'TOKEN_EXPIRED'].includes(error?.code) || error?.statusCode === 401) {
-        const userStore = useUserStore()
-        this.resetSessionState()
-        userStore.logout().finally(() => {
-          if (typeof uni !== 'undefined' && uni.reLaunch) {
-            uni.reLaunch({ url: '/pages/login/index' })
-          }
-        })
+        endUserSession()
       }
     },
     ensureTaskImageDisplay(taskId, { force = false } = {}) {

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const profilePath = join(root, 'src/pages/profile/index.vue')
+const sessionBoundaryPath = join(root, 'src/utils/sessionBoundary.js')
 const recordStorePath = join(root, 'src/stores/record.js')
 const userStorePath = join(root, 'src/stores/user.js')
 const childStorePath = join(root, 'src/stores/child.js')
@@ -189,19 +190,80 @@ function namedImportSet(source, modulePath) {
 
 function logoutBranchSource(handler) {
   const commentsMasked = commentMask(handler)
-  const match = /if\s*\(\s*key\s*===\s*['"]logout['"]\s*\)\s*\{/.exec(commentsMasked)
-  assert(match, 'the template-bound menu handler has an executable logout branch')
-  return blockSource(handler, match.index + match[0].length - 1, 'logout branch must close correctly')
+  const executable = codeMask(handler)
+  const pattern = /if\s*\(\s*key\s*===\s*['"]logout['"]\s*\)\s*\{/g
+  let match
+
+  while ((match = pattern.exec(commentsMasked))) {
+    if (executable.slice(match.index, match.index + 2) === 'if') {
+      return blockSource(handler, match.index + match[0].length - 1, 'logout branch must close correctly')
+    }
+  }
+
+  throw new Error('the template-bound menu handler has an executable logout branch')
 }
 
-function hasResetBeforeLoginNavigation(source) {
-  const executable = codeMask(source)
-  const resetIndex = executable.search(/\bthis\.record\.resetRecordState\s*\(\s*\)/)
+function functionSource(source, name) {
+  const masked = codeMask(source)
+  const match = masked.match(new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`, 'm'))
+  assert(match, `${name} function exists`)
+  return blockSource(source, match.index + match[0].length - 1, `${name} function must close correctly`)
+}
+
+function hasSharedSessionCall(source) {
+  return /\bendUserSession\s*\(\s*\)/.test(executableBoundaryMask(source))
+}
+
+function matchingBraceIndex(masked, openBraceIndex) {
+  let depth = 0
+
+  for (let index = openBraceIndex; index < masked.length; index += 1) {
+    if (masked[index] === '{') depth += 1
+    if (masked[index] === '}') depth -= 1
+    if (depth === 0 && index > openBraceIndex) return index
+  }
+
+  return -1
+}
+
+function executableBoundaryMask(source) {
+  const masked = codeMask(source)
+  const hiddenRanges = []
+  const nestedFunctionPattern = /(?:async\s+)?function\s+[A-Za-z_$][\w$]*\s*\([^)]*\)\s*\{/g
+  const arrowFunctionPattern = /=>\s*\{/g
+
+  for (const match of masked.matchAll(nestedFunctionPattern)) {
+    const openBraceIndex = match.index + match[0].lastIndexOf('{')
+    const closeBraceIndex = matchingBraceIndex(masked, openBraceIndex)
+    if (closeBraceIndex >= 0) hiddenRanges.push([openBraceIndex, closeBraceIndex])
+  }
+
+  for (const match of masked.matchAll(arrowFunctionPattern)) {
+    const openBraceIndex = match.index + match[0].lastIndexOf('{')
+    const closeBraceIndex = matchingBraceIndex(masked, openBraceIndex)
+    if (closeBraceIndex < 0) continue
+
+    const afterBody = masked.slice(closeBraceIndex + 1)
+    const isImmediatelyInvoked = /^\s*\)\s*\(/.test(afterBody)
+    if (!isImmediatelyInvoked) hiddenRanges.push([openBraceIndex, closeBraceIndex])
+  }
+
+  const executable = [...masked]
+  for (const [openBraceIndex, closeBraceIndex] of hiddenRanges) {
+    for (let index = openBraceIndex + 1; index < closeBraceIndex; index += 1) {
+      if (executable[index] !== '\n') executable[index] = ' '
+    }
+  }
+
+  return executable.join('')
+}
+
+function hasRecordResetBeforeLogoutAndLogin(source) {
+  const executable = executableBoundaryMask(source)
+  const resetIndex = executable.search(/\brecordStore\.resetRecordState\s*\(\s*\)/)
+  const logoutIndex = executable.search(/\buserStore\.logout\s*\(\s*\)/)
   const navigationIndex = executable.search(/\buni\.reLaunch\s*\(/)
-  const nearestFunction = executable.lastIndexOf('function', resetIndex)
-  const nearestClosedBlock = executable.lastIndexOf('}', resetIndex)
-  const resetIsInUnusedFunction = nearestFunction > nearestClosedBlock
-  return resetIndex >= 0 && navigationIndex >= 0 && resetIndex < navigationIndex && !resetIsInUnusedFunction
+  return resetIndex >= 0 && logoutIndex >= 0 && navigationIndex >= 0 && resetIndex < logoutIndex && logoutIndex < navigationIndex
 }
 
 function hasOfficialLoginNavigation(source) {
@@ -215,20 +277,50 @@ function hasOfficialLoginNavigation(source) {
 
 function assertBoundaryExamples() {
   assert(
-    hasResetBeforeLoginNavigation("this.record.resetRecordState(); uni.reLaunch({ url: '/pages/login/index' })"),
-    'logout boundary accepts a reset before login navigation',
+    hasSharedSessionCall('endUserSession()'),
+    'logout boundary accepts an executable shared-session call',
   )
   for (const [name, sample] of [
-    ['missing reset', "uni.reLaunch({ url: '/pages/login/index' })"],
-    ['navigation before reset', "uni.reLaunch({ url: '/pages/login/index' }); this.record.resetRecordState()"],
-    ['comment or string only', "// this.record.resetRecordState()\\nconst note = 'this.record.resetRecordState()'; uni.reLaunch({ url: '/pages/login/index' })"],
-    ['unused cleanup helper', "function unused() { this.record.resetRecordState() } uni.reLaunch({ url: '/pages/login/index' })"],
+    ['comment only', '// endUserSession()'],
+    ['string only', "const note = 'endUserSession()'"],
+    ['unused nested named function', 'function unusedBoundary() { endUserSession() }'],
+    ['unused nested arrow function', 'const unusedBoundary = () => { endUserSession() }'],
   ]) {
-    assert(!hasResetBeforeLoginNavigation(sample), `logout boundary rejects ${name}`)
+    assert(!hasSharedSessionCall(sample), `logout boundary rejects ${name}`)
   }
+
+  assert(
+    hasRecordResetBeforeLogoutAndLogin("recordStore.resetRecordState(); userStore.logout(); uni.reLaunch({ url: '/pages/login/index' })"),
+    'session boundary accepts Record reset before logout and login navigation',
+  )
+  assert(
+    !hasRecordResetBeforeLogoutAndLogin("uni.reLaunch({ url: '/pages/login/index' }); recordStore.resetRecordState(); userStore.logout()"),
+    'session boundary rejects navigation before Record reset and logout',
+  )
+  assert(
+    !hasRecordResetBeforeLogoutAndLogin(`
+      function unusedCleanup() {
+        recordStore.resetRecordState()
+        userStore.logout()
+        uni.reLaunch({ url: '/pages/login/index' })
+      }
+    `),
+    'session boundary rejects reset, logout, and navigation inside an unused nested named function',
+  )
+  assert(
+    !hasRecordResetBeforeLogoutAndLogin(`
+      const alsoUnused = () => {
+        recordStore.resetRecordState()
+        userStore.logout()
+        uni.reLaunch({ url: '/pages/login/index' })
+      }
+    `),
+    'session boundary rejects reset, logout, and navigation inside an unused nested arrow function',
+  )
 }
 
 const profile = read(profilePath)
+const sessionBoundary = read(sessionBoundaryPath)
 const recordStore = read(recordStorePath)
 const userStore = read(userStorePath)
 const childStore = read(childStorePath)
@@ -241,7 +333,7 @@ const executableRecordStore = codeMask(recordStore)
 
 assertBoundaryExamples()
 
-assert(namedImportSet(profile, '../../stores/record').has('useRecordStore'), 'profile imports the real Record Store')
+assert(namedImportSet(profile, '../../stores/record').has('useRecordStore'), 'profile retains the real Record Store for its learning-record display')
 const recordAccessor = methodSource(executableProfile, 'record')
 assert(/\buseRecordStore\s*\(\s*\)/.test(recordAccessor), 'profile instantiates the real Record Store as record')
 
@@ -255,13 +347,12 @@ assert(/detailImageResources\.forEach/.test(clearJourneyRecordDetail) && /detail
 
 assert(namedImportSet(profile, '../../stores/user').has('useUserStore'), 'profile imports the real User Store')
 assert(/clearLocalAuth\s*\(\s*\)/.test(methodSource(codeMask(userStore), 'logout')), 'User Store logout clears official auth state')
-for (const [name, source, modulePath] of [
-  ['Child', childStore, '../../stores/child'],
-  ['Plan', planStore, '../../stores/plan'],
-  ['Guide', guideStore, '../../stores/guide'],
-  ['Task', taskStore, '../../stores/task'],
+for (const [name, source] of [
+  ['Child', childStore],
+  ['Plan', planStore],
+  ['Guide', guideStore],
+  ['Task', taskStore],
 ]) {
-  assert(namedImportSet(profile, modulePath).has(`use${name}Store`), `profile imports the real ${name} Store`)
   assert(/resetSessionState\s*\(/.test(codeMask(source)), `${name} Store exposes its existing session reset`)
 }
 
@@ -270,18 +361,27 @@ assert(/@click="handleMenu\(item\.key\)"/.test(template), 'the logout menu is bo
 assert(/key:\s*['"]logout['"]\s*,\s*label:\s*['"]退出登录['"]/.test(profile), 'the menu declares the real logout item')
 const handleMenu = methodSource(profile, 'handleMenu')
 const logoutBranch = logoutBranchSource(handleMenu)
-const executableLogoutBranch = codeMask(logoutBranch)
+assert(namedImportSet(profile, '../../utils/sessionBoundary').has('endUserSession'), 'profile imports the shared session boundary')
+assert(hasSharedSessionCall(logoutBranch), 'normal logout delegates through the shared session boundary')
 
-for (const storeName of ['child', 'plan', 'guide', 'task']) {
-  assert(new RegExp(`this\\.${storeName}\\.resetSessionState\\s*\\(\\s*\\)`).test(executableLogoutBranch), `normal logout resets the ${storeName} Store`)
-}
-assert(/this\.user\.logout\s*\(\s*\)/.test(executableLogoutBranch), 'normal logout calls the official User Store logout')
-assert(hasOfficialLoginNavigation(logoutBranch), 'normal logout navigates to the official login page')
-
-assert(/handleAuthExpired\s*\([^)]*\)\s*\{[\s\S]*?recordStore\.resetRecordState\s*\(\s*\)[\s\S]*?uni\.reLaunch/.test(codeMask(recordList)), 'JourneyRecord 401 handling already resets state before login navigation')
+assert(namedImportSet(recordList, '../../utils/sessionBoundary').has('endUserSession'), 'Record List imports the shared session boundary')
+const recordListAuthExpired = methodSource(recordList, 'handleAuthExpired')
+assert(hasSharedSessionCall(recordListAuthExpired), 'Record List 401 handler delegates through the shared session boundary')
+const recordListLoadRecords = methodSource(recordList, 'loadRecords')
 assert(
-  hasResetBeforeLoginNavigation(logoutBranch),
-  'normal logout resets JourneyRecord state before login navigation',
+  /\bif\s*\(\s*isAuthenticationError\s*\(\s*error\s*\)\s*\)\s*\{\s*await\s+this\.handleAuthExpired\s*\(\s*\)/.test(codeMask(recordListLoadRecords)),
+  'Record List real authentication-error branch enters its shared session handler',
 )
+
+assert(namedImportSet(sessionBoundary, '../stores/record').has('useRecordStore'), 'shared session boundary imports the formal Record Store')
+assert(namedImportSet(sessionBoundary, '../stores/user').has('useUserStore'), 'shared session boundary imports the formal User Store')
+const endUserSession = functionSource(sessionBoundary, 'endUserSession')
+const executableSessionBoundary = codeMask(endUserSession)
+assert(/\b(?:const|let)\s+recordStore\s*=\s*useRecordStore\s*\(\s*\)/.test(executableSessionBoundary), 'shared session boundary instantiates the formal Record Store')
+assert(/\brecordStore\.resetRecordState\s*\(\s*\)/.test(executableSessionBoundary), 'shared session boundary calls the Record Store reset')
+assert(/\b(?:const|let)\s+userStore\s*=\s*useUserStore\s*\(\s*\)/.test(executableSessionBoundary), 'shared session boundary instantiates the formal User Store')
+assert(/\buserStore\.logout\s*\(\s*\)/.test(executableSessionBoundary), 'shared session boundary calls the official User logout')
+assert(hasOfficialLoginNavigation(endUserSession), 'shared session boundary navigates to the official login page')
+assert(hasRecordResetBeforeLogoutAndLogin(endUserSession), 'shared session boundary resets Record state before User logout and login navigation')
 
 console.log('phase6a1 record logout isolation checks passed')

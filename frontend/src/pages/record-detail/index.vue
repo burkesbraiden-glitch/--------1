@@ -205,6 +205,7 @@ import PolaroidCard from '../../components/PolaroidCard.vue'
 import { usePetStore } from '../../stores/pet'
 import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
+import { endUserSession } from '../../utils/sessionBoundary'
 
 function isAuthenticationError(error) {
   return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
@@ -380,6 +381,10 @@ export default {
         this.syncDraftFromRecord(result.journeyRecord)
         uni.showToast({ title: '旅行记录已保存', icon: 'success' })
       } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return
+        }
         uni.showToast({ title: this.saveErrorMessage, icon: 'none' })
       }
     },
@@ -410,15 +415,15 @@ export default {
         }
         uni.showToast({ title: '旅行记录已封存', icon: 'success' })
       } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return
+        }
         uni.showToast({ title: this.finalizeErrorMessage, icon: 'none' })
       }
     },
     async handleAuthExpired() {
-      this.recordStore.resetRecordState()
-      await this.userStore.logout()
-      uni.reLaunch({
-        url: '/pages/login/index',
-      })
+      await endUserSession()
     },
     async loadDetail() {
       if (!this.routePlanId) {

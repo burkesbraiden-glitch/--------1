@@ -203,12 +203,10 @@ import AppTabbar from '../../components/AppTabbar.vue'
 import GrowthBadge from '../../components/GrowthBadge.vue'
 import { mockFavorites } from '../../mock/favorites'
 import { useChildStore } from '../../stores/child'
-import { useGuideStore } from '../../stores/guide'
 import { usePetStore } from '../../stores/pet'
-import { usePlanStore } from '../../stores/plan'
 import { useRecordStore } from '../../stores/record'
-import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
+import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
@@ -239,15 +237,6 @@ export default {
     },
     user() {
       return useUserStore()
-    },
-    plan() {
-      return usePlanStore()
-    },
-    guide() {
-      return useGuideStore()
-    },
-    task() {
-      return useTaskStore()
     },
     record() {
       return useRecordStore()
@@ -348,10 +337,7 @@ export default {
         await this.child.fetchChildren(this.user.userInfo.id)
       } catch (error) {
         if (['UNAUTHORIZED', 'INVALID_TOKEN', 'TOKEN_EXPIRED'].includes(error?.code) || error?.statusCode === 401) {
-          await this.user.logout()
-          uni.reLaunch({
-            url: '/pages/login/index',
-          })
+          await endUserSession()
         }
       }
     },
@@ -438,20 +424,7 @@ export default {
       }
 
       if (key === 'logout') {
-        this.child.resetSessionState()
-        this.plan.resetSessionState()
-        this.guide.resetSessionState()
-        this.task.resetSessionState()
-        this.record.resetRecordState()
-        this.user.logout().finally(() => {
-          this.child.resetSessionState()
-          this.plan.resetSessionState()
-          this.guide.resetSessionState()
-          this.task.resetSessionState()
-          uni.reLaunch({
-            url: '/pages/login/index',
-          })
-        })
+        endUserSession()
         return
       }
 
