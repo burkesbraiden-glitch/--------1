@@ -3,9 +3,10 @@ from contextlib import contextmanager
 import pytest
 from flask_jwt_extended import create_access_token
 from sqlalchemy import event
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
-from app.models import Child, ExplorationPlan, Task, User
+from app.models import Child, ExplorationPlan, Task, TaskSubmission, User
 
 
 @pytest.fixture()
@@ -82,6 +83,30 @@ def create_task(task_id, plan_id, order=1, title="找屋顶上的小兽"):
     db.session.add(task)
     db.session.commit()
     return task
+
+
+def create_submission(submission_id, task_id, status="completed", note="", image_url=None):
+    submission = TaskSubmission(
+        id=submission_id,
+        task_id=task_id,
+        status=status,
+        note=note,
+        image_url=image_url,
+    )
+    db.session.add(submission)
+    db.session.commit()
+    return submission
+
+
+def create_complete_task_set(plan_id, *, submission_statuses=("completed", "completed", "completed")):
+    tasks = [
+        create_task(1000, plan_id, order=1),
+        create_task(1001, plan_id, order=2, title="拍一扇宫门"),
+        create_task(1002, plan_id, order=3, title="讲一个故事"),
+    ]
+    for index, (task, status) in enumerate(zip(tasks, submission_statuses), start=1):
+        create_submission(5000 + index, task.id, status=status)
+    return tasks
 
 
 def valid_payload(**overrides):
@@ -599,3 +624,189 @@ def test_start_other_users_plan_returns_not_found(client, app, plans_db):
 
     assert response.status_code == 404
     assert response.get_json()["error"]["code"] == "PLAN_NOT_FOUND"
+
+
+def test_plan_serialization_includes_null_completed_at(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="in-progress")
+
+    response = client.get("/api/v1/plans/100", headers=auth_headers(app, 1))
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["plan"]["completedAt"] is None
+
+
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [("draft", "PLAN_NOT_READY"), ("ready", "PLAN_NOT_STARTED")],
+)
+def test_complete_plan_rejects_not_started_statuses(client, app, plans_db, status, code):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status=status)
+
+    response = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]["code"] == code
+
+
+@pytest.mark.parametrize("task_count", [0, 1, 2])
+def test_complete_plan_requires_the_full_task_set(client, app, plans_db, task_count):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="in-progress")
+        for task_id in range(1000, 1000 + task_count):
+            create_task(task_id, 100, order=task_id - 999)
+
+    response = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+
+    assert response.status_code == 409
+    error = response.get_json()["error"]
+    assert error["code"] == "PLAN_TASKS_INCOMPLETE"
+    assert error["details"] == {
+        "expectedTaskCount": 3,
+        "taskCount": task_count,
+        "completedTaskCount": 0,
+        "missingSubmissionTaskIds": list(range(1000, 1000 + task_count)),
+        "incompleteTaskIds": [],
+    }
+
+
+def test_complete_plan_rejects_task_without_submission(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="in-progress")
+        create_task(1000, 100, order=1)
+        create_task(1001, 100, order=2, title="拍一扇宫门")
+        create_task(1002, 100, order=3, title="讲一个故事")
+        create_submission(5001, 1000)
+        create_submission(5002, 1001)
+
+    response = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+
+    assert response.status_code == 409
+    assert response.get_json()["error"] == {
+        "code": "PLAN_TASKS_INCOMPLETE",
+        "message": "Plan tasks are incomplete",
+        "details": {
+            "expectedTaskCount": 3,
+            "taskCount": 3,
+            "completedTaskCount": 2,
+            "missingSubmissionTaskIds": [1002],
+            "incompleteTaskIds": [],
+        },
+    }
+
+
+def test_complete_plan_rejects_in_progress_submission(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="in-progress")
+        create_complete_task_set(100, submission_statuses=("completed", "in-progress", "completed"))
+
+    response = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]["details"] == {
+        "expectedTaskCount": 3,
+        "taskCount": 3,
+        "completedTaskCount": 2,
+        "missingSubmissionTaskIds": [],
+        "incompleteTaskIds": [1001],
+    }
+
+
+def test_complete_plan_completes_all_submitted_tasks_without_note_or_image(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="in-progress")
+        create_complete_task_set(100)
+
+    response = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["message"] == "Exploration completed"
+    assert payload["data"]["completedNow"] is True
+    assert payload["data"]["plan"]["status"] == "completed"
+    assert payload["data"]["plan"]["completedAt"] is not None
+    with app.app_context():
+        plan = db.session.get(ExplorationPlan, 100)
+        assert plan.status == "completed"
+        assert plan.completed_at is not None
+
+
+def test_complete_plan_is_idempotent_and_keeps_completed_at(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="in-progress")
+        create_complete_task_set(100)
+
+    first = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+    second = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+
+    assert first.status_code == second.status_code == 200
+    assert first.get_json()["data"]["completedNow"] is True
+    assert second.get_json()["message"] == "Exploration already completed"
+    assert second.get_json()["data"]["completedNow"] is False
+    assert second.get_json()["data"]["plan"]["completedAt"] == first.get_json()["data"]["plan"]["completedAt"]
+
+
+def test_complete_plan_hides_other_users_plan(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_user(2, "13800138001")
+        create_child(10, 1)
+        create_child(20, 2)
+        create_plan(200, 2, 20, status="in-progress")
+        create_complete_task_set(200)
+
+    response = client.post("/api/v1/plans/200/complete", headers=auth_headers(app, 1))
+
+    assert response.status_code == 404
+    assert response.get_json()["error"]["code"] == "PLAN_NOT_FOUND"
+
+
+def test_patch_completed_plan_is_locked(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="completed")
+
+    response = client.patch("/api/v1/plans/100", json={"title": "不应修改"}, headers=auth_headers(app, 1))
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]["code"] == "PLAN_ALREADY_COMPLETED"
+    with app.app_context():
+        assert db.session.get(ExplorationPlan, 100).title == "故宫亲子探索"
+
+
+def test_complete_plan_rolls_back_when_commit_fails(client, app, plans_db, monkeypatch):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10, status="in-progress")
+        create_complete_task_set(100)
+
+    def fail_commit():
+        raise SQLAlchemyError("commit failed")
+
+    monkeypatch.setattr(db.session, "commit", fail_commit)
+
+    response = client.post("/api/v1/plans/100/complete", headers=auth_headers(app, 1))
+
+    assert response.status_code == 500
+    assert response.get_json()["error"]["code"] == "DATABASE_ERROR"
+    with app.app_context():
+        plan = db.session.get(ExplorationPlan, 100)
+        assert plan.status == "in-progress"
+        assert plan.completed_at is None

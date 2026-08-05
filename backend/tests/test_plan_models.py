@@ -39,6 +39,7 @@ def test_exploration_plan_columns_and_constraints():
         "duration",
         "interests",
         "status",
+        "completed_at",
         "created_at",
         "updated_at",
     }
@@ -62,6 +63,9 @@ def test_exploration_plan_columns_and_constraints():
     assert table.c.status.nullable is False
     assert table.c.status.type.length == 24
     assert table.c.status.default.arg == "draft"
+    assert table.c.completed_at.nullable is True
+    assert table.c.completed_at.default is None
+    assert table.c.completed_at.server_default is None
     assert table.c.created_at.nullable is False
     assert table.c.updated_at.nullable is False
 

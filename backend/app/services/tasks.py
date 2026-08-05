@@ -1,13 +1,13 @@
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
+from app.constants import EXPECTED_TASK_COUNT
 from app.extensions import db
 from app.models import Task
 from app.services.plans import PlanError, format_datetime, get_plan_model_for_user
 from app.services.task_generator import generate_task_definitions
 
 
-EXPECTED_TASK_COUNT = 3
 ALLOWED_GENERATE_STATUSES = {"ready", "in-progress"}
 
 

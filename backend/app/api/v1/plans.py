@@ -4,6 +4,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from app.services.auth import AuthError, get_user_by_identity
 from app.services.plans import (
     PlanError,
+    complete_plan,
     create_plan,
     get_plan,
     list_plans,
@@ -28,7 +29,12 @@ def current_user():
 
 
 def handle_error(error):
-    return error_response(error.code, error.message, status_code=error.status_code)
+    return error_response(
+        error.code,
+        error.message,
+        details=getattr(error, "details", {}),
+        status_code=error.status_code,
+    )
 
 
 @plans_bp.post("")
@@ -75,5 +81,18 @@ def start(plan_id):
     try:
         plan = start_plan(current_user(), plan_id)
         return success_response(data={"plan": plan}, message="Exploration started")
+    except (AuthError, PlanError) as error:
+        return handle_error(error)
+
+
+@plans_bp.post("/<int:plan_id>/complete")
+@jwt_required()
+def complete(plan_id):
+    try:
+        plan, completed_now = complete_plan(current_user(), plan_id)
+        return success_response(
+            data={"plan": plan, "completedNow": completed_now},
+            message="Exploration completed" if completed_now else "Exploration already completed",
+        )
     except (AuthError, PlanError) as error:
         return handle_error(error)

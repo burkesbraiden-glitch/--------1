@@ -31,6 +31,7 @@ class ExplorationPlan(db.Model):
     duration = db.Column(db.String(32), nullable=False)
     interests = db.Column(db.JSON, nullable=False, default=list)
     status = db.Column(db.String(24), nullable=False, default="draft", server_default="draft")
+    completed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 

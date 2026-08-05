@@ -195,6 +195,7 @@ def test_existing_business_model_fields_are_unchanged():
         "duration",
         "interests",
         "status",
+        "completed_at",
         "created_at",
         "updated_at",
     }

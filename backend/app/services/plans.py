@@ -1,9 +1,11 @@
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
+from app.constants import EXPECTED_TASK_COUNT
 from app.extensions import db
-from app.models import Child, ExplorationPlan
+from app.models import Child, ExplorationPlan, Task
 from app.services.children import normalize_interests
+from app.utils.time import utc_now
 
 
 CREATE_FORBIDDEN_FIELDS = {
@@ -19,11 +21,12 @@ PATCH_ALLOWED_FIELDS = {"title", "destination", "duration", "interests"}
 
 
 class PlanError(Exception):
-    def __init__(self, code, message, status_code):
+    def __init__(self, code, message, status_code, details=None):
         super().__init__(message)
         self.code = code
         self.message = message
         self.status_code = status_code
+        self.details = details or {}
 
 
 def format_datetime(value):
@@ -43,6 +46,7 @@ def serialize_plan(plan):
         "interests": plan.interests or [],
         "status": plan.status,
         "childId": plan.child_id,
+        "completedAt": format_datetime(plan.completed_at),
         "createdAt": format_datetime(plan.created_at),
         "updatedAt": format_datetime(plan.updated_at),
     }
@@ -193,8 +197,10 @@ def validate_patch_payload(payload):
 
 
 def update_plan(user, plan_id, payload):
-    validate_patch_payload(payload)
     plan = get_plan_model_for_user(user, plan_id)
+    if plan.status == "completed":
+        raise PlanError("PLAN_ALREADY_COMPLETED", "Plan already completed", 409)
+    validate_patch_payload(payload)
 
     try:
         if "title" in payload:
@@ -226,6 +232,73 @@ def start_plan(user, plan_id):
         plan.status = "in-progress"
         db.session.commit()
         return serialize_plan(plan)
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise PlanError("DATABASE_ERROR", "Database error", 500)
+
+
+def _get_plan_for_completion(user, plan_id):
+    plan = (
+        ExplorationPlan.query.filter_by(id=plan_id, user_id=user.id)
+        .with_for_update()
+        .first()
+    )
+    if plan is None:
+        raise PlanError("PLAN_NOT_FOUND", "Plan not found", 404)
+    return plan
+
+
+def _completion_details(tasks):
+    missing_submission_task_ids = [task.id for task in tasks if task.submission is None]
+    incomplete_task_ids = [
+        task.id
+        for task in tasks
+        if task.submission is not None and task.submission.status != "completed"
+    ]
+    completed_task_count = sum(
+        task.submission is not None and task.submission.status == "completed"
+        for task in tasks
+    )
+    return {
+        "expectedTaskCount": EXPECTED_TASK_COUNT,
+        "taskCount": len(tasks),
+        "completedTaskCount": completed_task_count,
+        "missingSubmissionTaskIds": missing_submission_task_ids,
+        "incompleteTaskIds": incomplete_task_ids,
+    }
+
+
+def complete_plan(user, plan_id):
+    plan = _get_plan_for_completion(user, plan_id)
+
+    if plan.status == "completed":
+        return serialize_plan(plan), False
+    if plan.status == "draft":
+        raise PlanError("PLAN_NOT_READY", "Plan not ready", 409)
+    if plan.status == "ready":
+        raise PlanError("PLAN_NOT_STARTED", "Plan not started", 409)
+    if plan.status != "in-progress":
+        raise PlanError("PLAN_NOT_READY", "Plan not ready", 409)
+
+    tasks = (
+        Task.query.options(selectinload(Task.submission))
+        .filter_by(plan_id=plan.id)
+        .order_by(Task.sort_order.asc(), Task.id.asc())
+        .all()
+    )
+    details = _completion_details(tasks)
+    if (
+        details["taskCount"] != EXPECTED_TASK_COUNT
+        or details["missingSubmissionTaskIds"]
+        or details["incompleteTaskIds"]
+    ):
+        raise PlanError("PLAN_TASKS_INCOMPLETE", "Plan tasks are incomplete", 409, details)
+
+    try:
+        plan.status = "completed"
+        plan.completed_at = utc_now()
+        db.session.commit()
+        return serialize_plan(plan), True
     except SQLAlchemyError:
         db.session.rollback()
         raise PlanError("DATABASE_ERROR", "Database error", 500)
