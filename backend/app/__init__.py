@@ -1,10 +1,11 @@
 from importlib import import_module
+import os
 
 from flask import Flask
 from werkzeug.exceptions import HTTPException
 
 from app.api.v1 import v1_bp
-from app.config import config_by_env
+from app.config import config_by_env, validate_production_config
 from app.extensions import cors, db, jwt, migrate
 from app.services.database import check_database_connection
 from app.utils.responses import error_response
@@ -13,8 +14,12 @@ from app.utils.responses import error_response
 def create_app(config_name=None, database_checker=None):
     app = Flask(__name__)
 
-    env_name = config_name or app.config.get("APP_ENV") or "development"
-    app.config.from_object(config_by_env.get(env_name, config_by_env["development"]))
+    env_name = config_name if config_name is not None else os.getenv("APP_ENV", "development")
+    if env_name not in config_by_env:
+        raise RuntimeError("Invalid application environment")
+
+    app.config.from_object(config_by_env[env_name])
+    validate_production_config(app.config)
     app.config["DATABASE_CHECKER"] = database_checker or check_database_connection
 
     db.init_app(app)

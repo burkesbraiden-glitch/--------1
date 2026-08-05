@@ -13,6 +13,27 @@ def _split_origins(value):
     return [origin.strip() for origin in value.split(",") if origin.strip()]
 
 
+_PRODUCTION_SECRET_FIELDS = ("SECRET_KEY", "JWT_SECRET_KEY")
+_PRODUCTION_SECRET_PLACEHOLDERS = {"replace-me", "changeme"}
+_MINIMUM_PRODUCTION_SECRET_LENGTH = 32
+
+
+def validate_production_config(config):
+    if config["APP_ENV"] != "production":
+        return
+
+    for field_name in _PRODUCTION_SECRET_FIELDS:
+        value = config.get(field_name)
+        normalized_value = value.strip() if isinstance(value, str) else ""
+
+        if (
+            not normalized_value
+            or normalized_value.casefold() in _PRODUCTION_SECRET_PLACEHOLDERS
+            or len(normalized_value) < _MINIMUM_PRODUCTION_SECRET_LENGTH
+        ):
+            raise RuntimeError(f"Invalid production configuration: {field_name}")
+
+
 class BaseConfig:
     APP_ENV = os.getenv("APP_ENV", "development")
     SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")
