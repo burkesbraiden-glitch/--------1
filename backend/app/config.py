@@ -55,6 +55,10 @@ class BaseConfig:
         str(BACKEND_DIR / "var" / "uploads" / "task-images"),
     )
     TASK_IMAGE_MAX_BYTES = int(os.getenv("TASK_IMAGE_MAX_BYTES", str(10 * 1024 * 1024)))
+    RECORD_IMAGE_UPLOAD_DIR = os.getenv(
+        "RECORD_IMAGE_UPLOAD_DIR",
+        str(BACKEND_DIR / "var" / "uploads" / "record-images"),
+    )
 
 
 class DevelopmentConfig(BaseConfig):
@@ -68,6 +72,7 @@ class TestingConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     DEV_FIXED_CODE = "123456"
     TASK_IMAGE_UPLOAD_DIR = str(BACKEND_DIR / "var" / "testing-uploads" / "task-images")
+    RECORD_IMAGE_UPLOAD_DIR = str(BACKEND_DIR / "var" / "testing-uploads" / "record-images")
 
 
 class ProductionConfig(BaseConfig):

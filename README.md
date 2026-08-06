@@ -1,5 +1,13 @@
 # 童旅记
 
+## 第 6A-5.2.2 阶段记录
+
+- 新增独立 `RECORD_IMAGE_UPLOAD_DIR`，默认目录为 `backend/var/uploads/record-images`；测试配置使用独立的 `backend/var/testing-uploads/record-images`，测试可覆盖为临时目录。
+- record 图片仅从既有 `task-images/<filename>` 读取，按实际签名字节识别 PNG、JPEG、WebP；每次操作先复制到私有 `.staging/{recordId}-{operationUuid}`，再以同卷目录 rename 发布到 `record-images/{recordId}/`，不会覆盖或合并已有最终目录。
+- 新增受 JWT 保护的下载接口：`GET /api/v1/journey-records/{recordId}/images/{assetId}`。接口先验证当前用户拥有记录、记录已 finalized 和 snapshot，再按 assetId 返回 inline 图片及 `Cache-Control: private`；URL 不暴露 storage key 或 JWT。
+- 下载会重新校验 snapshot、最终文件的根目录、大小和 MIME 签名；不存在、路径异常或内容不匹配统一不暴露本地路径。
+- 本阶段不会接入 finalize 写 snapshot 或复制图片，不修改 JourneyRecord serializer、模型、migration、前端或 MySQL，也不增加孤儿文件扫描。
+
 ## 第 6A-5.2.1 阶段记录
 
 - JourneyRecord 新增可空 JSON `snapshot` ORM 字段和迁移 `f6a52a1b2d4`；真实 MySQL 尚未执行该迁移。

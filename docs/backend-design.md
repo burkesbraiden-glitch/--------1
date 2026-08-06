@@ -1,5 +1,14 @@
 # 童旅记后端设计记录
 
+## 第 6A-5.2.2 Record Images 安全副本与受保护下载
+
+- `RECORD_IMAGE_UPLOAD_DIR` 独立于任务图片目录：默认 `backend/var/uploads/record-images`，测试默认 `backend/var/testing-uploads/record-images`，测试可以覆盖为临时目录。
+- `journey_record_images` 只接受受限的 `task-images/<filename>` 源 key，按 PNG/JPEG/WebP 签名字节生成 UUID4 文件名与 `record-images/{recordId}/{uuid}.{extension}` 相对 key；同源图片在一次操作中只复制一次，但每个 Submission 获得独立深拷贝的 asset 值。
+- 写入采用 `record-images/.staging/{recordId}-{operationUuid}` 暂存，复制校验后使用同一根目录内的原子 rename 发布到不可合并、不可覆盖的 `{recordId}` 最终目录；提供只清理本操作目录的幂等 cleanup。
+- `GET /api/v1/journey-records/{recordId}/images/{assetId}` 必须携带 JWT，并用现有 JourneyRecord 所有权查询隐藏跨用户记录；只有 finalized 记录可下载。路由不会接受 storage key 或 JWT URL 参数，并以 `inline` 与 `Cache-Control: private` 返回文件。
+- 下载解析会验证 snapshot、资产 ID、storage key 根目录、文件大小与实际 MIME；错误响应不包含服务器绝对路径。
+- 本阶段不接入 finalize、snapshot 写入、JourneyRecord serializer、Plan 完成校验或并发锁；不修改模型、migration、前端、真实 MySQL 或任务图片现有对外行为，也没有孤儿文件扫描。
+
 ## 第 6A-5.2.1 JourneyRecord Snapshot v1
 
 - `journey_records.snapshot` 是 nullable JSON；迁移 `f6a52a1b2d4` 仅增加该列，没有默认值或历史回填。

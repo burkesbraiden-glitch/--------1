@@ -730,3 +730,70 @@ def test_journey_record_errors_have_safe_consistent_envelopes(client, app, journ
     payload_text = str(response.get_json())
     assert not any(value in payload_text for value in ("Traceback", "SELECT ", "FROM ", "D:\\", "private/"))
     assert response.status_code != 500
+
+
+def record_image_snapshot(record_id, asset):
+    return {
+        "schemaVersion": 1,
+        "record": {
+            "id": record_id, "planId": 100, "childId": 10, "title": "plan-100",
+            "customTitle": None, "displayTitle": "plan-100", "destination": "museum",
+            "planStatus": "completed", "status": "finalized", "summary": None,
+            "coverSubmissionId": None, "taskCount": 0, "completedTaskCount": 0,
+            "photoCount": 1, "noteCount": 0, "finalizedAt": "2026-08-06T00:00:00Z",
+            "createdAt": "2026-08-06T00:00:00Z", "updatedAt": "2026-08-06T00:00:00Z",
+        },
+        "cover": {"submissionId": None, "imageAssetId": None},
+        "entries": [],
+        "imageAssets": [asset],
+    }
+
+
+def test_record_image_download_requires_owner_finalized_snapshot_and_private_cache(client, app, journey_api_db, tmp_path):
+    headers, _ = seed(app)
+    root = tmp_path / "record-images"
+    target = root / "1000" / "asset.png"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+    app.config["RECORD_IMAGE_UPLOAD_DIR"] = str(root)
+    with app.app_context():
+        record = db.session.get(JourneyRecord, 1000)
+        record.status = "finalized"
+        record.snapshot = record_image_snapshot(1000, {
+            "id": "img-01", "storageKey": "record-images/1000/asset.png",
+            "contentType": "image/png", "byteSize": target.stat().st_size,
+        })
+        db.session.commit()
+
+    path = "/api/v1/journey-records/1000/images/img-01"
+    assert client.get(path).status_code == 401
+    response = client.get(path, headers=headers)
+
+    assert response.status_code == 200
+    assert response.data == target.read_bytes()
+    assert response.content_type.startswith("image/png")
+    assert response.headers["Cache-Control"] == "private"
+    assert "inline" in response.headers["Content-Disposition"]
+
+
+def test_record_image_download_conceals_missing_or_unfinalized_or_invalid_snapshot(client, app, journey_api_db, tmp_path):
+    headers, _ = seed(app)
+    app.config["RECORD_IMAGE_UPLOAD_DIR"] = str(tmp_path / "record-images")
+    path = "/api/v1/journey-records/1000/images/img-01"
+    assert_error(client.get(path, headers=headers), 404, "JOURNEY_RECORD_IMAGE_NOT_FOUND")
+
+    with app.app_context():
+        record = db.session.get(JourneyRecord, 1000)
+        record.status = "finalized"
+        record.snapshot = {"schemaVersion": 1}
+        db.session.commit()
+    response = client.get(path, headers=headers)
+    assert_error(response, 500, "JOURNEY_RECORD_SNAPSHOT_INVALID")
+    assert str(tmp_path) not in str(response.get_json())
+
+
+def test_record_image_download_conceals_another_users_record(client, app, journey_api_db, tmp_path):
+    headers, _ = seed(app)
+    app.config["RECORD_IMAGE_UPLOAD_DIR"] = str(tmp_path / "record-images")
+    response = client.get("/api/v1/journey-records/2000/images/img-01", headers=headers)
+    assert_error(response, 404, "JOURNEY_RECORD_NOT_FOUND")

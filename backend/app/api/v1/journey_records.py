@@ -1,4 +1,6 @@
-from flask import Blueprint, request
+from pathlib import Path
+
+from flask import Blueprint, current_app, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services.auth import AuthError, get_user_by_identity
@@ -7,11 +9,13 @@ from app.services.journey_records import (
     JourneyRecordError,
     create_or_get_journey_record,
     finalize_journey_record,
+    get_journey_record_model_for_user,
     get_journey_record_model_for_plan,
     list_journey_record_models_for_user,
     serialize_journey_record,
     update_journey_record,
 )
+from app.services.journey_record_images import JourneyRecordImageError, resolve_record_image_asset
 from app.services.plans import PlanError
 from app.utils.responses import error_response, success_response
 
@@ -162,4 +166,27 @@ def finalize(plan_id):
             message="Journey record finalized",
         )
     except (AuthError, PlanError, JourneyRecordError) as error:
+        return handle_error(error)
+
+
+@journey_records_bp.get("/journey-records/<int:record_id>/images/<asset_id>")
+@jwt_required()
+def image(record_id, asset_id):
+    try:
+        record = get_journey_record_model_for_user(current_user(), record_id)
+        if record.status != "finalized":
+            raise JourneyRecordImageError(
+                "JOURNEY_RECORD_IMAGE_NOT_FOUND",
+                "Journey record image not found",
+                404,
+            )
+        image_path, content_type, filename = resolve_record_image_asset(
+            record,
+            asset_id,
+            record_image_root=Path(current_app.config["RECORD_IMAGE_UPLOAD_DIR"]),
+        )
+        response = send_file(image_path, mimetype=content_type, as_attachment=False, download_name=filename)
+        response.headers["Cache-Control"] = "private"
+        return response
+    except (AuthError, JourneyRecordError, JourneyRecordImageError) as error:
         return handle_error(error)
