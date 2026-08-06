@@ -1,5 +1,13 @@
 # 童旅记后端设计记录
 
+## 第 6A-5.2.3 JourneyRecord Finalize 快照集成
+
+- `finalize_journey_record()` 在同一事务中按当前用户锁定 Plan 与 JourneyRecord；只允许 `draft` record 且 Plan 为 `completed`。它独立复核 `EXPECTED_TASK_COUNT`、所有 Submission 存在且 completed，并对封面重新校验。
+- 完整来源会按 Task `sort_order, id` 稳定排序：先 prepare record-images，再用同一个 `utc_now()` 构建 snapshot v1；发布 final 图片后，一次性写入 `snapshot`、`status=finalized`、`finalized_at` 和 `updated_at`。
+- snapshot finalized 的 JourneyRecord 列表/详情只使用快照字段；详情 entries 保持快照顺序，图片 URL 为 `/api/v1/journey-records/{recordId}/images/{assetId}`。`schemaVersion`、assets、storage key、MIME 和字节数均不对客户端暴露。
+- legacy finalized 且 `snapshot` 为 NULL 保持动态读取且不产生副作用；非空无效 snapshot 返回 `JOURNEY_RECORD_SNAPSHOT_INVALID`，不降级为实时数据。
+- prepare、builder、publish 或数据库 commit 失败时会 rollback 并清理本 operation 的 staging/final；成功后保留 final 图片，源 task-images 不会删除。真实 MySQL migration 与并发验证均留到 6A-5.2.4。
+
 ## 第 6A-5.2.2 Record Images 安全副本与受保护下载
 
 - `RECORD_IMAGE_UPLOAD_DIR` 独立于任务图片目录：默认 `backend/var/uploads/record-images`，测试默认 `backend/var/testing-uploads/record-images`，测试可以覆盖为临时目录。

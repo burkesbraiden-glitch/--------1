@@ -1,4 +1,6 @@
 from datetime import timedelta
+import inspect
+from pathlib import Path
 
 import pytest
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -51,6 +53,17 @@ def add_task(plan_id, task_id, order, *, submission=None):
     if submission is not None:
         db.session.add(TaskSubmission(id=task_id + 10000, task_id=task_id, **submission))
     db.session.commit()
+
+
+def add_completed_task_set(plan_id, first_task_id):
+    for offset in range(3):
+        task_id = first_task_id + offset
+        add_task(
+            plan_id,
+            task_id,
+            offset + 1,
+            submission={"status": "completed", "image_url": None, "note": f"note-{offset}", "completed_at": utc_now()},
+        )
 
 
 def test_get_record_for_owner_and_hides_other_users(service_db, app):
@@ -468,8 +481,8 @@ def test_update_rejects_finalized_record_and_does_not_change_other_models(servic
 def test_finalize_is_idempotent_and_does_not_change_plan_or_submissions(service_db, app, monkeypatch):
     with app.app_context():
         user, plan, record = seed_record(42, 420, 4200, 42000)
-        plan.status = "in-progress"
-        add_task(plan.id, 421, 1, submission={"status": "in-progress", "image_url": "private/photo.jpg", "note": "发现", "completed_at": None})
+        plan.status = "completed"
+        add_completed_task_set(plan.id, 421)
         submission = TaskSubmission.query.filter_by(task_id=421).one()
         before_submission = (submission.status, submission.image_url, submission.note, submission.completed_at)
         db.session.commit()
@@ -490,7 +503,7 @@ def test_finalize_is_idempotent_and_does_not_change_plan_or_submissions(service_
         assert finalized_now is False
         assert repeated.finalized_at == finalized_at
         assert repeated.updated_at == updated_at
-        assert plan.status == "in-progress"
+        assert plan.status == "completed"
         assert (submission.status, submission.image_url, submission.note, submission.completed_at) == before_submission
 
 
@@ -504,7 +517,9 @@ def test_finalize_missing_record_and_database_failure_roll_back(service_db, app,
 
         record = JourneyRecord(id=43001, plan_id=plan.id)
         db.session.add(record)
+        plan.status = "completed"
         db.session.commit()
+        add_completed_task_set(plan.id, 4301)
 
         def fail_commit():
             raise SQLAlchemyError("commit failed")
@@ -533,6 +548,8 @@ def test_write_services_change_only_journey_records(service_db, app):
             **before_create,
             "journey_records": before_create["journey_records"] + 1,
         }
+        plan.status = "completed"
+        add_completed_task_set(plan.id, 4401)
         plan_snapshot = (plan.title, plan.status)
         before_update = business_table_counts()
         update_journey_record(user, plan.id, {"customTitle": "只改记录"})
@@ -544,3 +561,219 @@ def test_write_services_change_only_journey_records(service_db, app):
         assert finalized.id == record.id and finalized_now is True
         assert business_table_counts() == before_finalize
         assert (plan.title, plan.status) == plan_snapshot
+
+
+@pytest.mark.parametrize("plan_status", ("ready", "in-progress"))
+def test_finalize_requires_completed_plan_before_preparing_images(service_db, app, monkeypatch, plan_status):
+    with app.app_context():
+        user, plan, record = seed_record(50, 500, 5000, 50000)
+        plan.status = plan_status
+        db.session.commit()
+        monkeypatch.setattr(
+            journey_record_service,
+            "prepare_record_image_copies",
+            lambda *_args, **_kwargs: pytest.fail("prepare must not run"),
+        )
+
+        with pytest.raises(JourneyRecordError) as raised:
+            finalize_journey_record(user, plan.id)
+
+        assert raised.value.code == "PLAN_NOT_COMPLETED"
+        assert record.status == "draft" and record.snapshot is None and record.finalized_at is None
+
+
+@pytest.mark.parametrize("task_count", (0, 1, 2))
+def test_finalize_requires_exact_completed_task_set(service_db, app, task_count):
+    with app.app_context():
+        user, plan, record = seed_record(51 + task_count, 510 + task_count, 5100 + task_count, 51000 + task_count)
+        plan.status = "completed"
+        for offset in range(task_count):
+            add_task(plan.id, 51100 + task_count * 10 + offset, offset + 1, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+
+        with pytest.raises(JourneyRecordError) as raised:
+            finalize_journey_record(user, plan.id)
+
+        assert raised.value.code == "JOURNEY_RECORD_SOURCE_INCOMPLETE"
+        assert raised.value.details == {
+            "expectedTaskCount": 3,
+            "taskCount": task_count,
+            "completedTaskCount": task_count,
+            "missingSubmissionTaskIds": [],
+            "incompleteTaskIds": [],
+        }
+        assert record.status == "draft" and record.snapshot is None
+
+
+def test_finalize_reports_missing_and_incomplete_submissions_in_stable_order(service_db, app):
+    with app.app_context():
+        user, plan, record = seed_record(55, 550, 5500, 55000)
+        plan.status = "completed"
+        add_task(plan.id, 5503, 3, submission={"status": "in-progress", "image_url": None, "note": "", "completed_at": None})
+        add_task(plan.id, 5501, 1)
+        add_task(plan.id, 5502, 2, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+
+        with pytest.raises(JourneyRecordError) as raised:
+            finalize_journey_record(user, plan.id)
+
+        assert raised.value.code == "JOURNEY_RECORD_SOURCE_INCOMPLETE"
+        assert raised.value.details == {
+            "expectedTaskCount": 3,
+            "taskCount": 3,
+            "completedTaskCount": 1,
+            "missingSubmissionTaskIds": [5501],
+            "incompleteTaskIds": [5503],
+        }
+        assert record.status == "draft" and record.snapshot is None
+
+
+def test_finalize_revalidates_cover_membership_and_safe_image_key(service_db, app, monkeypatch):
+    with app.app_context():
+        user, plan, record = seed_record(551, 5510, 55100, 551000)
+        plan.status = "completed"
+        add_task(plan.id, 55101, 1, submission={"status": "completed", "image_url": "task-images/../unsafe.png", "note": "", "completed_at": utc_now()})
+        add_task(plan.id, 55102, 2, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+        add_task(plan.id, 55103, 3, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+        record.cover_submission_id = 65101
+        db.session.commit()
+        monkeypatch.setattr(journey_record_service, "prepare_record_image_copies", lambda *_args, **_kwargs: pytest.fail("prepare must not run"))
+
+        with pytest.raises(JourneyRecordError) as raised:
+            finalize_journey_record(user, plan.id)
+        assert raised.value.code == "INVALID_COVER_SUBMISSION"
+        assert record.status == "draft" and record.snapshot is None
+
+
+def test_finalize_creates_immutable_snapshot_with_one_commit_and_lock_query(service_db, app, monkeypatch):
+    with app.app_context():
+        user, plan, record = seed_record(56, 560, 5600, 56000)
+        plan.status = "completed"
+        add_completed_task_set(plan.id, 5601)
+        before_commit = db.session.commit
+        commits = []
+
+        def count_commit():
+            commits.append(True)
+            return before_commit()
+
+        monkeypatch.setattr(db.session, "commit", count_commit)
+        finalized, finalized_now = finalize_journey_record(user, plan.id)
+
+        assert finalized_now is True and finalized.status == "finalized"
+        assert len(commits) == 1
+        assert finalized.snapshot["record"]["status"] == "finalized"
+        assert finalized.snapshot["record"]["finalizedAt"] == finalized.snapshot["record"]["updatedAt"]
+        assert finalized.finalized_at == finalized.updated_at
+        assert ".with_for_update()" in inspect.getsource(journey_record_service.get_journey_record_for_finalize)
+
+
+def test_snapshot_finalized_serialization_ignores_later_live_model_mutations(service_db, app):
+    with app.app_context():
+        user, plan, record = seed_record(57, 570, 5700, 57000)
+        plan.status = "completed"
+        add_completed_task_set(plan.id, 5701)
+        finalized, _ = finalize_journey_record(user, plan.id)
+        original = serialize_journey_record(finalized)
+        task = db.session.get(Task, 5701)
+        submission = task.submission
+        plan.title, plan.destination, plan.status = "changed", "changed", "ready"
+        task.title, task.subtitle, task.sort_order = "changed", "changed", 99
+        submission.note, submission.completed_at, submission.image_url = "changed", None, "task-images/changed.png"
+        finalized.custom_title, finalized.summary, finalized.cover_submission_id = "changed", "changed", None
+        db.session.commit()
+
+        stable = serialize_journey_record(get_journey_record_model_for_user(user, finalized.id))
+        assert stable == original
+        assert "storageKey" not in str(stable) and "imageAssets" not in stable
+
+
+def test_finalize_is_idempotent_for_snapshot_and_legacy_records(service_db, app, monkeypatch):
+    with app.app_context():
+        user, plan, record = seed_record(58, 580, 5800, 58000)
+        plan.status = "completed"
+        add_completed_task_set(plan.id, 5801)
+        finalized, _ = finalize_journey_record(user, plan.id)
+        snapshot_before = finalized.snapshot
+        times_before = (finalized.finalized_at, finalized.updated_at)
+        monkeypatch.setattr(db.session, "commit", lambda: pytest.fail("idempotent finalize must not commit"))
+        repeated, now = finalize_journey_record(user, plan.id)
+        assert now is False and repeated.snapshot == snapshot_before
+        assert (repeated.finalized_at, repeated.updated_at) == times_before
+
+        monkeypatch.undo()
+        legacy_user, legacy_plan, legacy = seed_record(59, 590, 5900, 59000, status="finalized")
+        legacy.finalized_at = utc_now()
+        db.session.commit()
+        monkeypatch.setattr(db.session, "commit", lambda: pytest.fail("legacy finalize must not commit"))
+        repeated_legacy, legacy_now = finalize_journey_record(legacy_user, legacy_plan.id)
+        assert legacy_now is False and repeated_legacy.snapshot is None
+
+
+def test_finalize_rejects_invalid_persisted_snapshot_without_fallback(service_db, app):
+    with app.app_context():
+        user, plan, record = seed_record(60, 600, 6000, 60000, status="finalized")
+        record.snapshot = {"schemaVersion": 1}
+        db.session.commit()
+        with pytest.raises(JourneyRecordError) as raised:
+            finalize_journey_record(user, plan.id)
+        assert raised.value.code == "JOURNEY_RECORD_SNAPSHOT_INVALID"
+
+
+def test_finalize_copies_record_images_and_snapshot_serializes_asset_routes(service_db, app, tmp_path):
+    with app.app_context():
+        user, plan, record = seed_record(61, 610, 6100, 61000)
+        task_root = tmp_path / "task-images"
+        task_root.mkdir()
+        source = task_root / "source.png"
+        source.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+        record_root = tmp_path / "record-images"
+        app.config["TASK_IMAGE_UPLOAD_DIR"] = str(task_root)
+        app.config["RECORD_IMAGE_UPLOAD_DIR"] = str(record_root)
+        plan.status = "completed"
+        add_task(plan.id, 6101, 1, submission={"status": "completed", "image_url": "task-images/source.png", "note": "photo", "completed_at": utc_now()})
+        add_task(plan.id, 6102, 2, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+        add_task(plan.id, 6103, 3, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+        record.cover_submission_id = 16101
+        db.session.commit()
+
+        finalized, finalized_now = finalize_journey_record(user, plan.id)
+
+        assert finalized_now is True and source.exists()
+        asset = finalized.snapshot["imageAssets"][0]
+        assert (record_root / "61000" / Path(asset["storageKey"]).name).is_file()
+        payload = serialize_journey_record(finalized)
+        assert payload["coverImageUrl"] == "/api/v1/journey-records/61000/images/img-01"
+        assert payload["entries"][0]["imageUrl"] == payload["coverImageUrl"]
+        assert "storageKey" not in str(payload)
+
+
+@pytest.mark.parametrize("failure", ("builder", "publish", "commit"))
+def test_finalize_compensates_images_when_snapshot_publish_or_commit_fails(service_db, app, tmp_path, monkeypatch, failure):
+    with app.app_context():
+        user, plan, record = seed_record(62, 620, 6200, 62000)
+        task_root = tmp_path / "task-images"
+        task_root.mkdir()
+        source = task_root / "source.png"
+        source.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+        record_root = tmp_path / "record-images"
+        app.config["TASK_IMAGE_UPLOAD_DIR"] = str(task_root)
+        app.config["RECORD_IMAGE_UPLOAD_DIR"] = str(record_root)
+        plan.status = "completed"
+        add_task(plan.id, 6201, 1, submission={"status": "completed", "image_url": "task-images/source.png", "note": "", "completed_at": utc_now()})
+        add_task(plan.id, 6202, 2, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+        add_task(plan.id, 6203, 3, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+        db.session.commit()
+        if failure == "builder":
+            monkeypatch.setattr(journey_record_service, "build_journey_record_snapshot_v1", lambda *_args, **_kwargs: (_ for _ in ()).throw(journey_record_service.JourneyRecordSnapshotValidationError("invalid")))
+        elif failure == "publish":
+            monkeypatch.setattr(journey_record_service, "publish_record_image_copies", lambda *_args: (_ for _ in ()).throw(journey_record_service.JourneyRecordImageError("RECORD_IMAGE_COPY_FAILED", "copy failed", 500)))
+        else:
+            monkeypatch.setattr(db.session, "commit", lambda: (_ for _ in ()).throw(SQLAlchemyError("commit failed")))
+
+        expected_error = journey_record_service.JourneyRecordImageError if failure == "publish" else JourneyRecordError
+        with pytest.raises(expected_error) as raised:
+            finalize_journey_record(user, plan.id)
+
+        assert raised.value.code == ("JOURNEY_RECORD_SNAPSHOT_INVALID" if failure == "builder" else "DATABASE_ERROR" if failure == "commit" else "RECORD_IMAGE_COPY_FAILED")
+        assert source.exists() and not (record_root / "62000").exists()
+        persisted = db.session.get(JourneyRecord, record.id)
+        assert persisted.status == "draft" and persisted.snapshot is None and persisted.finalized_at is None

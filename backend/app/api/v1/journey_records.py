@@ -120,7 +120,7 @@ def detail(plan_id):
     try:
         record = get_journey_record_model_for_plan(current_user(), plan_id)
         return success_response(data={"journeyRecord": serialize_journey_record(record)}, message="ok")
-    except (AuthError, PlanError, JourneyRecordError) as error:
+    except (AuthError, PlanError, JourneyRecordError, JourneyRecordImageError) as error:
         return handle_error(error)
 
 
@@ -165,7 +165,7 @@ def finalize(plan_id):
             },
             message="Journey record finalized",
         )
-    except (AuthError, PlanError, JourneyRecordError) as error:
+    except (AuthError, PlanError, JourneyRecordError, JourneyRecordImageError) as error:
         return handle_error(error)
 
 

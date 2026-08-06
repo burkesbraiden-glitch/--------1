@@ -71,12 +71,12 @@ def create_record(record_id, plan_id, *, status="draft", custom_title=None):
     db.session.commit()
 
 
-def create_task_and_submission(plan_id, task_id, submission_id, *, image_url=None, note="note"):
+def create_task_and_submission(plan_id, task_id, submission_id, *, image_url=None, note="note", sort_order=1):
     db.session.add(
         Task(
             id=task_id,
             plan_id=plan_id,
-            sort_order=1,
+            sort_order=sort_order,
             title="observe",
             subtitle="subtitle",
             age_group="7-12",
@@ -622,8 +622,12 @@ def test_patch_noop_and_missing_or_other_user_record_do_not_write(client, app, j
 def test_finalize_is_idempotent_and_does_not_change_plan_or_submission(client, app, journey_api_db):
     headers, _ = seed(app)
     with app.app_context():
-        create_task_and_submission(100, 501, 5501, image_url="private/one.jpg")
+        create_task_and_submission(100, 501, 5501, sort_order=1)
+        create_task_and_submission(100, 502, 5502, sort_order=2)
+        create_task_and_submission(100, 503, 5503, sort_order=3)
         plan = db.session.get(ExplorationPlan, 100)
+        plan.status = "completed"
+        db.session.commit()
         submission = db.session.get(TaskSubmission, 5501)
         plan_snapshot = (plan.title, plan.status)
         submission_snapshot = (submission.status, submission.image_url, submission.note, submission.completed_at)
@@ -692,6 +696,45 @@ def test_finalize_hides_missing_record_and_other_users_plan(client, app, journey
 
     assert_error(client.post(record_path(101, "/finalize"), headers=headers), 404, "JOURNEY_RECORD_NOT_FOUND")
     assert_error(client.post(record_path(200, "/finalize"), headers=headers), 404, "PLAN_NOT_FOUND")
+
+
+@pytest.mark.parametrize("status", ("ready", "in-progress"))
+def test_finalize_requires_completed_plan_api(client, app, journey_api_db, status):
+    headers, _ = seed(app, own_status=status)
+    response = client.post(record_path(suffix="/finalize"), headers=headers)
+    assert_error(response, 409, "PLAN_NOT_COMPLETED")
+
+
+def test_finalized_snapshot_api_is_stable_in_list_and_detail(client, app, journey_api_db):
+    headers, _ = seed(app)
+    with app.app_context():
+        for index in range(3):
+            create_task_and_submission(100, 610 + index, 5610 + index, sort_order=index + 1, note=f"note-{index}")
+        plan = db.session.get(ExplorationPlan, 100)
+        plan.status = "completed"
+        db.session.commit()
+
+    finalized = client.post(record_path(suffix="/finalize"), headers=headers)
+    assert finalized.status_code == 200
+    original_detail = finalized.get_json()["data"]["journeyRecord"]
+    assert "storageKey" not in str(original_detail) and "imageAssets" not in original_detail
+
+    with app.app_context():
+        record = db.session.get(JourneyRecord, 1000)
+        plan = db.session.get(ExplorationPlan, 100)
+        task = db.session.get(Task, 610)
+        plan.title, plan.destination = "changed", "changed"
+        task.title, task.subtitle = "changed", "changed"
+        task.submission.note = "changed"
+        record.summary = "changed"
+        db.session.commit()
+
+    detail = client.get(record_path(), headers=headers).get_json()["data"]["journeyRecord"]
+    listing = client.get("/api/v1/journey-records", headers=headers).get_json()["data"]["items"][0]
+    assert detail == original_detail
+    assert "entries" not in listing
+    assert listing["title"] == original_detail["title"]
+    assert listing["summary"] == original_detail["summary"]
 
 
 @pytest.mark.parametrize(

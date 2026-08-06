@@ -1,5 +1,13 @@
 # 童旅记
 
+## 第 6A-5.2.3 阶段记录
+
+- JourneyRecord finalize 现在要求所属 Plan 已完成，并独立复核正式任务数、每个 Submission 与 completed 状态；不完整来源返回稳定的 `JOURNEY_RECORD_SOURCE_INCOMPLETE` 详情。
+- finalize 在同一事务中锁定 Plan 和 JourneyRecord，先将任务图片复制到独立 record-images，再构建 snapshot v1、发布图片、一次性写入 snapshot/status/finalized_at/updated_at 并提交。
+- finalized 且 snapshot 非空时，列表和详情的稳定业务字段及 entries 只从 snapshot 返回；图片 URL 按 asset ID 构造为受 JWT 保护的 record-image 路由，内部 storage key 不返回。
+- legacy finalized 且 snapshot 为 NULL 继续动态读取，不会在 GET 或重复 finalize 时回填、复制图片或写数据库。重复 finalize 保持时间、快照和图片不变。
+- 图片发布后若数据库提交失败，会 rollback 并删除本次 record-images final 目录，同时保留 task-images 源文件；真实 MySQL 尚未应用 `f6a52a1b2d4`，真实并发验收留到 6A-5.2.4。
+
 ## 第 6A-5.2.2 阶段记录
 
 - 新增独立 `RECORD_IMAGE_UPLOAD_DIR`，默认目录为 `backend/var/uploads/record-images`；测试配置使用独立的 `backend/var/testing-uploads/record-images`，测试可覆盖为临时目录。
