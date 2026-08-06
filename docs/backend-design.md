@@ -1,5 +1,12 @@
 # 童旅记后端设计记录
 
+## 第 6A-5.2.1 JourneyRecord Snapshot v1
+
+- `journey_records.snapshot` 是 nullable JSON；迁移 `f6a52a1b2d4` 仅增加该列，没有默认值或历史回填。
+- `journey_record_snapshots` 提供纯 builder/validator：校验 schemaVersion、结构类型、asset 引用与 `record-images/{recordId}/` 相对 key，并始终返回深拷贝。
+- builder 复用现有动态 serializer 的 displayTitle、photoCount 与 noteCount 语义；本阶段不查询数据库、不访问文件系统、不写入 snapshot。
+- finalize、Plan completed 校验、图片副本、下载、snapshot serializer、legacy 行为和并发控制均留在后续阶段。
+
 ## 第 4C-3 前端联调记录
 
 - 前端已调用既有的真实任务图片上传和认证下载接口；本阶段没有修改 Flask、数据库、migration、图片格式规则或本地文件存储策略。

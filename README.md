@@ -1,5 +1,11 @@
 # 童旅记
 
+## 第 6A-5.2.1 阶段记录
+
+- JourneyRecord 新增可空 JSON `snapshot` ORM 字段和迁移 `f6a52a1b2d4`；真实 MySQL 尚未执行该迁移。
+- 新增纯 Python snapshot v1 builder/validator，使用 `schemaVersion=1`，会构建稳定的 record、cover、entries 和 imageAssets 数据结构。
+- 本阶段尚未接入 finalize，尚未复制 record-images，尚未修改 API 响应或 finalized serializer。
+
 ## 第 4C-3 阶段记录
 
 - 任务图片已接入真实 `POST /plans/{planId}/tasks/{taskId}/submission/image` 上传与受 JWT 保护的图片下载接口；上传复用统一 API base 和既有 `tonglvji_auth` token 来源，不将 JWT 放入 URL，也不手动设置 multipart boundary。

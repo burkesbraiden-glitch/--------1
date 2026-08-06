@@ -28,6 +28,7 @@ class JourneyRecord(db.Model):
     )
     status = db.Column(db.String(24), nullable=False, default="draft", server_default="draft")
     finalized_at = db.Column(db.DateTime, nullable=True)
+    snapshot = db.Column(db.JSON, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 

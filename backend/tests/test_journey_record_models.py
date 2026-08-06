@@ -1,7 +1,8 @@
 import sqlite3
+from pathlib import Path
 
 import pytest
-from sqlalchemy import event, select
+from sqlalchemy import JSON, event, select
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
@@ -188,3 +189,29 @@ def test_journey_record_has_no_future_phase_columns(journey_record_db, app):
     }
 
     assert forbidden_columns.isdisjoint(JourneyRecord.__table__.columns.keys())
+
+
+def test_journey_record_snapshot_is_nullable_json_without_defaults(journey_record_db):
+    snapshot = JourneyRecord.__table__.c.snapshot
+
+    assert snapshot.nullable is True
+    assert isinstance(snapshot.type, JSON)
+    assert snapshot.default is None
+    assert snapshot.server_default is None
+
+
+def test_snapshot_migration_has_a_single_additive_change():
+    migration_path = (
+        Path(__file__).resolve().parents[1]
+        / "migrations"
+        / "versions"
+        / "f6a52a1b2d4_add_snapshot_to_journey_records.py"
+    )
+    source = migration_path.read_text(encoding="utf-8")
+
+    assert 'revision = "f6a52a1b2d4"' in source
+    assert 'down_revision = "e6c5a1f9b2d3"' in source
+    assert 'op.add_column("journey_records", sa.Column("snapshot", sa.JSON(), nullable=True))' in source
+    assert 'op.drop_column("journey_records", "snapshot")' in source
+    assert "server_default" not in source
+    assert "UPDATE" not in source
