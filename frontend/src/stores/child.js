@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import * as childrenApi from '../api/children'
+import { getCurrentSession, isCurrentSession } from '../utils/sessionBoundary.js'
 
 const FALLBACK_CHILD = {
   name: '小小探索家',
@@ -11,6 +12,7 @@ const FALLBACK_CHILD = {
 
 let fetchPromise = null
 let fetchPromiseUserId = null
+let fetchPromiseEpoch = null
 
 function normalizeChild(child) {
   if (!child) {
@@ -73,35 +75,53 @@ export const useChildStore = defineStore('child', {
         return null
       }
 
+      const requestSession = getCurrentSession()
+      if (!requestSession.isLoggedIn || String(requestSession.userId) !== String(userId)) {
+        return null
+      }
+
       if (this.loadedForUserId !== userId) {
         this.clearRemoteStateForUser(userId)
         this.isLoaded = false
       }
 
-      if (fetchPromise && fetchPromiseUserId === userId) {
+      if (
+        fetchPromise
+        && fetchPromiseUserId === userId
+        && fetchPromiseEpoch === requestSession.epoch
+      ) {
         return fetchPromise
       }
 
       this.isLoading = true
       this.error = null
       fetchPromiseUserId = userId
-      fetchPromise = childrenApi.getChildren()
+      fetchPromiseEpoch = requestSession.epoch
+      const promise = childrenApi.getChildren()
         .then((data) => {
-          this.applyChildrenPayload(data, userId)
+          if (isCurrentSession(requestSession)) {
+            this.applyChildrenPayload(data, userId)
+          }
           return data
         })
         .catch((error) => {
-          this.error = error
-          this.isLoaded = false
+          if (isCurrentSession(requestSession)) {
+            this.error = error
+            this.isLoaded = false
+          }
           throw error
         })
         .finally(() => {
-          this.isLoading = false
-          fetchPromise = null
-          fetchPromiseUserId = null
+          if (isCurrentSession(requestSession) && fetchPromise === promise) {
+            this.isLoading = false
+            fetchPromise = null
+            fetchPromiseUserId = null
+            fetchPromiseEpoch = null
+          }
         })
 
-      return fetchPromise
+      fetchPromise = promise
+      return promise
     },
     applySavedChild(child) {
       const savedChild = normalizeChild(child)
@@ -123,12 +143,14 @@ export const useChildStore = defineStore('child', {
       return savedChild
     },
     async createChild(payload) {
+      const requestSession = getCurrentSession()
       const data = await childrenApi.createChild(payload)
-      return this.applySavedChild(data.child)
+      return isCurrentSession(requestSession) ? this.applySavedChild(data.child) : data.child
     },
     async updateChild(id, payload) {
+      const requestSession = getCurrentSession()
       const data = await childrenApi.updateChild(id, payload)
-      return this.applySavedChild(data.child)
+      return isCurrentSession(requestSession) ? this.applySavedChild(data.child) : data.child
     },
     setAgeGroup(ageGroup) {
       if (['3-6', '7-12'].includes(ageGroup)) {
@@ -147,6 +169,7 @@ export const useChildStore = defineStore('child', {
       this.hasRemoteChild = false
       fetchPromise = null
       fetchPromiseUserId = null
+      fetchPromiseEpoch = null
     },
   },
 })

@@ -35,8 +35,13 @@ export const useUserStore = defineStore('user', {
     token: '',
     userInfo: {},
     authError: null,
+    sessionEpoch: 0,
   }),
   actions: {
+    invalidateSession() {
+      this.sessionEpoch += 1
+      return this.sessionEpoch
+    },
     persistAuth() {
       const storage = getUniStorage()
       if (storage?.setStorageSync) {
@@ -47,6 +52,7 @@ export const useUserStore = defineStore('user', {
       }
     },
     clearLocalAuth({ keepToken = false } = {}) {
+      this.invalidateSession()
       const storage = getUniStorage()
       if (!keepToken && storage?.removeStorageSync) {
         storage.removeStorageSync(AUTH_STORAGE_KEY)
@@ -62,6 +68,7 @@ export const useUserStore = defineStore('user', {
       this.isLoggedIn = false
     },
     loginSuccess(token, userInfo) {
+      this.invalidateSession()
       this.token = token
       this.userInfo = normalizeUserInfo(userInfo)
       this.isLoggedIn = true

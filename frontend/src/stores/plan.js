@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import * as plansApi from '../api/plans.js'
+import { getCurrentSession, isCurrentSession } from '../utils/sessionBoundary.js'
 
 export const CURRENT_PLAN_SELECTION_KEY = 'tonglvji_current_plan_selection'
 
 let fetchPromise = null
 let fetchPromiseUserId = null
+let fetchPromiseEpoch = null
 
 function getUniStorage() {
   if (typeof uni === 'undefined') {
@@ -92,6 +94,7 @@ export const usePlanStore = defineStore('plan', {
       this.loadedForUserId = null
       fetchPromise = null
       fetchPromiseUserId = null
+      fetchPromiseEpoch = null
       clearStoredSelection()
     },
     storedSelectionForUser(userId) {
@@ -197,10 +200,16 @@ export const usePlanStore = defineStore('plan', {
       this.loadedForUserId = userId
       fetchPromise = null
       fetchPromiseUserId = null
+      fetchPromiseEpoch = null
     },
     async fetchPlans(userId, { force = false } = {}) {
       if (!userId) {
         this.clearInMemoryState()
+        return { plans: [], currentPlan: null }
+      }
+
+      const requestSession = getCurrentSession()
+      if (!requestSession.isLoggedIn || !sameUserId(requestSession.userId, userId)) {
         return { plans: [], currentPlan: null }
       }
 
@@ -212,40 +221,62 @@ export const usePlanStore = defineStore('plan', {
         return { plans: this.plans, currentPlan: this.currentPlan }
       }
 
-      if (fetchPromise && sameUserId(fetchPromiseUserId, userId)) {
+      if (
+        fetchPromise
+        && sameUserId(fetchPromiseUserId, userId)
+        && fetchPromiseEpoch === requestSession.epoch
+      ) {
         return fetchPromise
       }
 
       this.isLoading = true
       this.error = null
       fetchPromiseUserId = userId
-      fetchPromise = plansApi.getPlans()
+      fetchPromiseEpoch = requestSession.epoch
+      const promise = plansApi.getPlans()
         .then((data) => {
+          if (!isCurrentSession(requestSession)) {
+            return { plans: this.plans, currentPlan: this.currentPlan }
+          }
           const selectedPlan = this.applyPlanList(data.plans, userId)
           return { plans: this.plans, currentPlan: selectedPlan }
         })
         .catch((error) => {
-          this.error = error
-          this.isLoaded = false
+          if (isCurrentSession(requestSession)) {
+            this.error = error
+            this.isLoaded = false
+          }
           throw error
         })
         .finally(() => {
-          this.isLoading = false
-          fetchPromise = null
-          fetchPromiseUserId = null
+          if (isCurrentSession(requestSession) && fetchPromise === promise) {
+            this.isLoading = false
+            fetchPromise = null
+            fetchPromiseUserId = null
+            fetchPromiseEpoch = null
+          }
         })
 
-      return fetchPromise
+      fetchPromise = promise
+      return promise
     },
     async createPlan(payload, userId = this.loadedForUserId) {
+      const requestSession = getCurrentSession()
       const data = await plansApi.createPlan(payload)
+      if (!isCurrentSession(requestSession)) {
+        return data.plan
+      }
       const plan = this.selectPlan(data.plan, userId)
       this.isLoaded = true
       this.error = null
       return plan
     },
     async updatePlan(id, payload, userId = this.loadedForUserId) {
+      const requestSession = getCurrentSession()
       const data = await plansApi.updatePlan(id, payload)
+      if (!isCurrentSession(requestSession)) {
+        return data.plan
+      }
       const plan = this.upsertPlan(data.plan)
       if (this.currentPlan && samePlanId(this.currentPlan.id, id)) {
         this.currentPlan = plan
@@ -266,7 +297,11 @@ export const usePlanStore = defineStore('plan', {
         throw { code: 'PLAN_REQUIRED', message: '请先创建探索计划' }
       }
 
+      const requestSession = getCurrentSession()
       const data = await plansApi.startPlan(id)
+      if (!isCurrentSession(requestSession)) {
+        return data.plan
+      }
       const plan = this.selectPlan(data.plan, userId)
       this.error = null
       return plan
