@@ -746,6 +746,33 @@ def test_finalize_copies_record_images_and_snapshot_serializes_asset_routes(serv
         assert "storageKey" not in str(payload)
 
 
+def test_finalize_deduplicates_reused_source_image_in_snapshot(service_db, app, tmp_path):
+    with app.app_context():
+        user, plan, record = seed_record(63, 630, 6300, 63000)
+        task_root = tmp_path / "task-images"
+        task_root.mkdir()
+        source = task_root / "shared.png"
+        source.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+        record_root = tmp_path / "record-images"
+        app.config["TASK_IMAGE_UPLOAD_DIR"] = str(task_root)
+        app.config["RECORD_IMAGE_UPLOAD_DIR"] = str(record_root)
+        plan.status = "completed"
+        add_task(plan.id, 6301, 1, submission={"status": "completed", "image_url": "task-images/shared.png", "note": "first", "completed_at": utc_now()})
+        add_task(plan.id, 6302, 2, submission={"status": "completed", "image_url": "task-images/shared.png", "note": "second", "completed_at": utc_now()})
+        add_task(plan.id, 6303, 3, submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()})
+        record.cover_submission_id = 16301
+        db.session.commit()
+
+        finalized, finalized_now = finalize_journey_record(user, plan.id)
+
+        assert finalized_now is True
+        assert len(finalized.snapshot["imageAssets"]) == 1
+        first, second = finalized.snapshot["entries"][:2]
+        assert first["imageAssetId"] == second["imageAssetId"] == "img-01"
+        asset = finalized.snapshot["imageAssets"][0]
+        assert (record_root / "63000" / Path(asset["storageKey"]).name).is_file()
+
+
 @pytest.mark.parametrize("failure", ("builder", "publish", "commit"))
 def test_finalize_compensates_images_when_snapshot_publish_or_commit_fails(service_db, app, tmp_path, monkeypatch, failure):
     with app.app_context():

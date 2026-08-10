@@ -140,6 +140,25 @@ def test_builder_uses_plan_title_for_blank_custom_title_and_allows_no_cover_or_i
     assert snapshot["imageAssets"] == []
 
 
+def test_builder_deduplicates_reused_asset_id_while_entries_keep_their_references():
+    record, plan, tasks, assets = snapshot_inputs()
+    shared_asset = assets[5501]
+    tasks[1].submission.image_url = "task-images/source-a.jpg"
+    assets[5502] = shared_asset
+
+    snapshot = build_journey_record_snapshot_v1(
+        record,
+        plan,
+        tasks,
+        finalized_at=FINALIZED_AT,
+        image_assets_by_submission_id=assets,
+    )
+
+    assert snapshot["imageAssets"] == [shared_asset, assets[5503]]
+    image_asset_ids = {entry["submissionId"]: entry["imageAssetId"] for entry in snapshot["entries"]}
+    assert image_asset_ids[5501] == image_asset_ids[5502] == "img-01"
+
+
 @pytest.mark.parametrize(
     "tasks, finalized_at",
     [([SimpleNamespace(id=501, sort_order=1, submission=None)], FINALIZED_AT), ([], None)],

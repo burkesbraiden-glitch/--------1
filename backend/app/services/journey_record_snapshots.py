@@ -68,13 +68,17 @@ def build_journey_record_snapshot_v1(
 
     asset_ids_by_submission_id = {}
     image_assets = []
+    seen_asset_ids = set()
     for task in task_list:
         submission = task.submission
         asset = _asset_for_submission(image_assets_by_submission_id, submission)
         if asset is None:
             continue
-        asset_ids_by_submission_id[submission.id] = asset.get("id") if isinstance(asset, dict) else None
-        image_assets.append(deepcopy(asset))
+        asset_id = asset.get("id") if isinstance(asset, dict) else None
+        asset_ids_by_submission_id[submission.id] = asset_id
+        if asset_id not in seen_asset_ids:
+            seen_asset_ids.add(asset_id)
+            image_assets.append(deepcopy(asset))
 
     custom_title = record.custom_title
     display_title = custom_title if isinstance(custom_title, str) and custom_title.strip() else plan.title
