@@ -41,3 +41,11 @@ export function startPlan(id) {
     auth: true,
   })
 }
+
+export function completePlan(id) {
+  return request({
+    path: `/plans/${id}/complete`,
+    method: 'POST',
+    auth: true,
+  })
+}

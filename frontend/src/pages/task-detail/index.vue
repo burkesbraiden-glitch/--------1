@@ -127,9 +127,9 @@
 <script>
 import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
-import { createJourneyRecord } from '../../api/journeyRecords.js'
 import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
+import { useRecordStore } from '../../stores/record'
 import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
@@ -168,6 +168,9 @@ export default {
     },
     plan() {
       return usePlanStore()
+    },
+    recordStore() {
+      return useRecordStore()
     },
     user() {
       return useUserStore()
@@ -474,17 +477,20 @@ export default {
     async handleNoteBlur() {
       await this.flushNoteSave()
     },
-    async syncJourneyRecordAfterCompletion(planId) {
+    async ensureJourneyRecordAfterTaskCompletion(planId) {
+      const validPlanId = Number(planId)
+      if (!(Number.isInteger(validPlanId) && validPlanId > 0)) {
+        return null
+      }
+
       try {
-        const validPlanId = Number(planId)
-        if (!(Number.isInteger(validPlanId) && validPlanId > 0)) {
-          return null
-        }
-        return await createJourneyRecord(validPlanId)
+        return await this.recordStore.ensureJourneyRecord(validPlanId)
       } catch (error) {
         if (isAuthenticationError(error)) {
           await endUserSession()
+          return null
         }
+        this.showToast('任务已完成，但成长记录同步失败，可稍后重试。')
         return null
       }
     },
@@ -498,7 +504,7 @@ export default {
         if (task) {
           this.noteDraft = task.record?.note || ''
           this.noteHasLocalEdits = false
-          void this.syncJourneyRecordAfterCompletion(task.planId)
+          void this.ensureJourneyRecordAfterTaskCompletion(task.planId)
         }
       } catch (error) {
         if (isAuthenticationError(error)) {

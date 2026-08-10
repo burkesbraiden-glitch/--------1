@@ -1,9 +1,14 @@
 import { defineStore } from 'pinia'
-import { fetchJourneyRecords, fetchJourneyRecord, updateJourneyRecord, finalizeJourneyRecord } from '../api/journeyRecords.js'
+import { fetchJourneyRecords, fetchJourneyRecord, createJourneyRecord, updateJourneyRecord, finalizeJourneyRecord } from '../api/journeyRecords.js'
 import { downloadAuthenticatedFile } from '../utils/authenticatedFile.js'
+import { getCurrentSession, isCurrentSession } from '../utils/sessionBoundary.js'
 
 let activeLoadPromise = null
 let activeDetailPromise = null
+let activeEnsurePromise = null
+let activeEnsurePlanId = null
+let activeEnsureUserId = null
+let activeEnsureEpoch = null
 const DETAIL_IMAGE_CONCURRENCY = 3
 
 function normalizeText(value) {
@@ -133,6 +138,10 @@ export const useRecordStore = defineStore('record', {
     finalizing: false,
     finalizeError: null,
     finalizeRequestId: 0,
+    ensureLoading: false,
+    ensureError: null,
+    ensurePlanId: null,
+    ensuredRecord: null,
   }),
   getters: {
     learningRecordCount(state) {
@@ -313,6 +322,74 @@ export const useRecordStore = defineStore('record', {
       if (currentIndex >= 0) {
         this.records.splice(currentIndex, 1, mappedRecord)
       }
+    },
+    ensureJourneyRecord(planId) {
+      const validPlanId = normalizePlanId(planId)
+      if (!validPlanId) {
+        return Promise.resolve(null)
+      }
+
+      const requestSession = getCurrentSession()
+      if (!requestSession.isLoggedIn || !requestSession.userId) {
+        return Promise.resolve(null)
+      }
+
+      if (
+        activeEnsurePromise
+        && activeEnsurePlanId === validPlanId
+        && String(activeEnsureUserId) === String(requestSession.userId)
+        && activeEnsureEpoch === requestSession.epoch
+      ) {
+        return activeEnsurePromise
+      }
+
+      this.ensureLoading = true
+      this.ensureError = null
+      this.ensurePlanId = validPlanId
+      activeEnsurePlanId = validPlanId
+      activeEnsureUserId = requestSession.userId
+      activeEnsureEpoch = requestSession.epoch
+
+      const promise = createJourneyRecord(validPlanId)
+        .then((data) => {
+          if (
+            !data?.journeyRecord
+            || typeof data.journeyRecord !== 'object'
+            || normalizePlanId(data.journeyRecord.planId) !== validPlanId
+          ) {
+            throw { code: 'INVALID_RESPONSE', message: '成长记录生成结果异常' }
+          }
+
+          const ensuredRecord = mapJourneyRecord(data.journeyRecord, this.coverResources)
+          if (isCurrentSession(requestSession) && activeEnsurePromise === promise) {
+            this.ensuredRecord = ensuredRecord
+            this.ensurePlanId = validPlanId
+            this.ensureError = null
+          }
+          return ensuredRecord
+        })
+        .catch((error) => {
+          if (isCurrentSession(requestSession) && activeEnsurePromise === promise) {
+            this.ensureError = error
+          }
+          throw error
+        })
+        .finally(() => {
+          if (isCurrentSession(requestSession) && activeEnsurePromise === promise) {
+            this.ensureLoading = false
+            activeEnsurePromise = null
+            activeEnsurePlanId = null
+            activeEnsureUserId = null
+            activeEnsureEpoch = null
+          }
+        })
+
+      activeEnsurePromise = promise
+      return promise
+    },
+    retryJourneyRecordEnsure() {
+      const validPlanId = normalizePlanId(this.ensurePlanId)
+      return validPlanId ? this.ensureJourneyRecord(validPlanId) : Promise.resolve(null)
     },
     loadJourneyRecordDetail(planId) {
       const validPlanId = normalizePlanId(planId)
@@ -548,6 +625,14 @@ export const useRecordStore = defineStore('record', {
       activeDetailPromise = null
     },
     resetRecordState() {
+      this.ensureLoading = false
+      this.ensureError = null
+      this.ensurePlanId = null
+      this.ensuredRecord = null
+      activeEnsurePromise = null
+      activeEnsurePlanId = null
+      activeEnsureUserId = null
+      activeEnsureEpoch = null
       this.latestRequestId += 1
       this.clearJourneyRecordDetail()
       Object.keys(this.coverResources).forEach((key) => this.cleanupCoverResource(key))

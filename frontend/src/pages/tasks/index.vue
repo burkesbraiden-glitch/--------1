@@ -77,6 +77,39 @@
         <TaskCard v-for="item in task.currentPlanTasks" :key="item.id" :task="item" @select="goDetail" />
       </view>
 
+      <view v-if="allTasksCompleted" class="tasks-completion">
+        <view class="tasks-completion__copy">
+          <text class="tasks-completion__title">全部观察任务完成</text>
+          <text class="tasks-completion__desc">今天的观察任务都完成啦，可以结束这次探索了。</text>
+        </view>
+        <button class="tasks-completion__button" :disabled="planStore.isCompleting" @click="completeExploration">
+          {{ planStore.isCompleting ? '正在完成…' : '完成本次探索' }}
+        </button>
+      </view>
+
+      <view v-else-if="isEnsuringJourneyRecord" class="tasks-completion tasks-completion--success">
+        <view class="tasks-completion__copy">
+          <text class="tasks-completion__title">探索已完成</text>
+          <text class="tasks-completion__desc">正在整理成长记录…</text>
+        </view>
+      </view>
+
+      <view v-else-if="hasJourneyRecordEnsureError" class="tasks-completion tasks-completion--error">
+        <view class="tasks-completion__copy">
+          <text class="tasks-completion__title">探索已经完成</text>
+          <text class="tasks-completion__desc">成长记录暂时没有生成成功</text>
+        </view>
+        <button class="tasks-completion__button" @click="retryJourneyRecord">重新生成成长记录</button>
+      </view>
+
+      <view v-else-if="hasEnsuredJourneyRecord" class="tasks-completion tasks-completion--success">
+        <view class="tasks-completion__copy">
+          <text class="tasks-completion__title">探索完成 🎉</text>
+          <text class="tasks-completion__desc">这次旅行已经整理成成长记录</text>
+        </view>
+        <button class="tasks-completion__button" @click="openJourneyRecord">查看成长记录</button>
+      </view>
+
       <view class="tasks-reward">
         <view class="tasks-reward__medal">
           <view class="tasks-reward__star"></view>
@@ -102,9 +135,11 @@ import AppTabbar from '../../components/AppTabbar.vue'
 import TaskCard from '../../components/TaskCard.vue'
 import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
+import { useRecordStore } from '../../stores/record'
 import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
+import { isAuthenticationError } from '../../utils/request'
 import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
@@ -121,6 +156,9 @@ export default {
   computed: {
     planStore() {
       return usePlanStore()
+    },
+    recordStore() {
+      return useRecordStore()
     },
     task() {
       return useTaskStore()
@@ -140,6 +178,29 @@ export default {
     },
     isPlanReady() {
       return this.displayPlan.status === 'ready'
+    },
+    allTasksCompleted() {
+      return this.displayPlan.status === 'in-progress'
+        && this.totalTasks > 0
+        && this.task.completedCount === this.totalTasks
+    },
+    isCompletedPlan() {
+      return this.displayPlan.status === 'completed'
+    },
+    isEnsuringJourneyRecord() {
+      return this.isCompletedPlan
+        && this.recordStore.ensureLoading
+        && Number(this.recordStore.ensurePlanId) === Number(this.displayPlan.id)
+    },
+    hasJourneyRecordEnsureError() {
+      return this.isCompletedPlan
+        && Boolean(this.recordStore.ensureError)
+        && Number(this.recordStore.ensurePlanId) === Number(this.displayPlan.id)
+    },
+    hasEnsuredJourneyRecord() {
+      return this.isCompletedPlan
+        && Number(this.recordStore.ensuredRecord?.planId) === Number(this.displayPlan.id)
+        && !this.recordStore.ensureError
     },
     taskStateMessage() {
       if (this.task.isGenerating) {
@@ -192,12 +253,82 @@ export default {
         await ensureCurrentPlanReady({ withTasks: false, force })
         if (this.planStore.currentPlan) {
           await this.task.ensureTasks(this.planStore.currentPlan.id, this.planStore.currentPlan.status)
+          if (this.isCompletedPlan) {
+            const planId = Number(this.displayPlan.id)
+            const ensureTargetsCurrentPlan = Number(this.recordStore.ensurePlanId) === planId
+            const hasCurrentEnsureState = ensureTargetsCurrentPlan
+              && (this.recordStore.ensureLoading || this.recordStore.ensureError)
+            if (Number.isInteger(planId) && planId > 0 && !this.hasEnsuredJourneyRecord && !hasCurrentEnsureState) {
+              await this.ensureJourneyRecordForCompletedPlan(planId)
+            }
+          }
         }
       } catch (error) {
-        if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
+        if (isAuthenticationError(error)) {
           await endUserSession()
         }
       }
+    },
+    async completeExploration() {
+      if (this.planStore.isCompleting || !this.allTasksCompleted) {
+        return
+      }
+      const planId = Number(this.displayPlan?.id)
+      if (!(Number.isInteger(planId) && planId > 0)) {
+        return
+      }
+
+      try {
+        await this.planStore.completeExploration(planId, this.userStore.userInfo?.id)
+        await this.ensureJourneyRecordForCompletedPlan(planId)
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return
+        }
+        if (error?.code === 'PLAN_TASKS_INCOMPLETE') {
+          this.showToast('还有任务未完成，请刷新后检查')
+          await this.restorePlanAndTasks(true)
+          return
+        }
+        this.showToast(this.taskErrorText(error, '完成探索失败，请稍后重试'))
+      }
+    },
+    async ensureJourneyRecordForCompletedPlan(planId) {
+      try {
+        await this.recordStore.ensureJourneyRecord(planId)
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+        }
+      }
+    },
+    async retryJourneyRecord() {
+      const planId = Number(this.displayPlan?.id)
+      if (!(Number.isInteger(planId) && planId > 0)) {
+        return
+      }
+
+      try {
+        if (Number(this.recordStore.ensurePlanId) === planId) {
+          await this.recordStore.retryJourneyRecordEnsure()
+          return
+        }
+        await this.recordStore.ensureJourneyRecord(planId)
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+        }
+      }
+    },
+    openJourneyRecord() {
+      const planId = Number(this.displayPlan?.id)
+      if (!(Number.isInteger(planId) && planId > 0)) {
+        return
+      }
+      uni.navigateTo({
+        url: '/pages/record-detail/index?planId=' + planId,
+      })
     },
     async startExploration() {
       if (this.isStartingExploration || !this.planStore.currentPlan) {
@@ -213,7 +344,7 @@ export default {
         await this.task.ensureTasks(startedPlan.id, startedPlan.status)
         this.showToast('探索已开始，可以记录任务了')
       } catch (error) {
-        if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
+        if (isAuthenticationError(error)) {
           await endUserSession()
           return
         }
@@ -616,6 +747,67 @@ export default {
   color: #fff;
   background: #7b9a50;
   border-radius: 20rpx;
+}
+
+.tasks-completion {
+  display: flex;
+  gap: 18rpx;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22rpx;
+  padding: 22rpx 24rpx;
+  background: rgba(255, 240, 189, 0.66);
+  border: 3rpx solid rgba(223, 139, 34, 0.48);
+  border-radius: 28rpx;
+}
+
+.tasks-completion--success {
+  background: rgba(238, 246, 220, 0.88);
+  border-color: rgba(123, 154, 80, 0.48);
+}
+
+.tasks-completion--error {
+  background: rgba(255, 241, 216, 0.9);
+  border-color: rgba(217, 75, 18, 0.38);
+}
+
+.tasks-completion__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.tasks-completion__title,
+.tasks-completion__desc {
+  display: block;
+}
+
+.tasks-completion__title {
+  margin-bottom: 8rpx;
+  font-size: 30rpx;
+  font-weight: 900;
+  color: #4a2f1b;
+}
+
+.tasks-completion__desc {
+  font-size: 24rpx;
+  line-height: 1.45;
+  color: #6b482d;
+}
+
+.tasks-completion__button {
+  flex-shrink: 0;
+  min-height: 62rpx;
+  padding: 0 22rpx;
+  font-size: 25rpx;
+  font-weight: 900;
+  line-height: 1.2;
+  color: #fff;
+  background: #f26a21;
+  border-radius: 20rpx;
+}
+
+.tasks-completion__button[disabled] {
+  opacity: 0.58;
 }
 
 .tasks-reward {

@@ -7,6 +7,10 @@ export const CURRENT_PLAN_SELECTION_KEY = 'tonglvji_current_plan_selection'
 let fetchPromise = null
 let fetchPromiseUserId = null
 let fetchPromiseEpoch = null
+let completionPromise = null
+let completionPlanId = null
+let completionUserId = null
+let completionEpoch = null
 
 function getUniStorage() {
   if (typeof uni === 'undefined') {
@@ -71,6 +75,8 @@ export const usePlanStore = defineStore('plan', {
     isLoaded: false,
     error: null,
     loadedForUserId: null,
+    isCompleting: false,
+    completionError: null,
   }),
   actions: {
     syncStatus() {
@@ -95,6 +101,12 @@ export const usePlanStore = defineStore('plan', {
       fetchPromise = null
       fetchPromiseUserId = null
       fetchPromiseEpoch = null
+      completionPromise = null
+      completionPlanId = null
+      completionUserId = null
+      completionEpoch = null
+      this.isCompleting = false
+      this.completionError = null
       clearStoredSelection()
     },
     storedSelectionForUser(userId) {
@@ -305,6 +317,71 @@ export const usePlanStore = defineStore('plan', {
       const plan = this.selectPlan(data.plan, userId)
       this.error = null
       return plan
+    },
+    async completeExploration(id = this.currentPlan?.id, userId = this.loadedForUserId) {
+      if (!id) {
+        throw { code: 'PLAN_REQUIRED', message: '请先创建探索计划' }
+      }
+
+      const requestSession = getCurrentSession()
+      if (!requestSession.isLoggedIn || !sameUserId(requestSession.userId, userId)) {
+        return null
+      }
+      if (
+        completionPromise
+        && samePlanId(completionPlanId, id)
+        && sameUserId(completionUserId, requestSession.userId)
+        && completionEpoch === requestSession.epoch
+      ) {
+        return completionPromise
+      }
+
+      this.isCompleting = true
+      this.completionError = null
+      completionPlanId = id
+      completionUserId = requestSession.userId
+      completionEpoch = requestSession.epoch
+
+      const promise = plansApi.completePlan(id)
+        .then((data) => {
+          const returnedPlan = normalizePlan(data?.plan)
+          if (!returnedPlan || !samePlanId(returnedPlan.id, id)) {
+            throw { code: 'INVALID_RESPONSE', message: '探索计划完成结果异常' }
+          }
+
+          if (!isCurrentSession(requestSession)) {
+            return returnedPlan
+          }
+
+          const plan = this.upsertPlan(returnedPlan)
+          if (this.currentPlan && samePlanId(this.currentPlan.id, plan.id)) {
+            this.currentPlan = plan
+            this.syncStatus()
+            if (userId) {
+              saveStoredSelection(userId, plan.id)
+            }
+          }
+          this.completionError = null
+          return plan
+        })
+        .catch((error) => {
+          if (isCurrentSession(requestSession)) {
+            this.completionError = error
+          }
+          throw error
+        })
+        .finally(() => {
+          if (isCurrentSession(requestSession) && completionPromise === promise) {
+            this.isCompleting = false
+            completionPromise = null
+            completionPlanId = null
+            completionUserId = null
+            completionEpoch = null
+          }
+        })
+
+      completionPromise = promise
+      return promise
     },
   },
 })
