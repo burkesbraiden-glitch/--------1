@@ -109,6 +109,5 @@ export function generateGuide(planId) {
 )
 
 assert(existsSync(join(src, 'api/tasks.js')), 'phase 4C-1 should provide Tasks API while preserving Chinese UI checks')
-assert(!existsSync(join(src, 'api/records.js')), 'phase 3C-2.1 must not add Record API')
 
 console.log('phase3c2 chinese ui checks passed')

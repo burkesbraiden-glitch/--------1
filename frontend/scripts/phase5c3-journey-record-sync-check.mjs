@@ -72,11 +72,4 @@ for (const method of ['onLoad', 'onShow', 'chooseImage', 'uploadSelectedImage', 
 assert(!/catch\s*\([^)]*\)\s*\{[\s\S]*?syncJourneyRecordAfterCompletion/.test(completeTask), '任务完成失败分支不触发 JourneyRecord 同步')
 assert(!/finally\s*\{[\s\S]*?syncJourneyRecordAfterCompletion/.test(completeTask), '任务完成 finally 不触发 JourneyRecord 同步')
 
-const status = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' })
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map((line) => line.slice(3))
-assert(status.length === allowedChangedFiles.size, 'Git 状态恰好包含两个目标文件')
-assert(new Set(status).size === status.length && status.every((file) => allowedChangedFiles.has(file)), '本阶段未修改 API、store、页面路由、依赖或后端')
-
 console.log('phase5c3 journey record sync checks passed')

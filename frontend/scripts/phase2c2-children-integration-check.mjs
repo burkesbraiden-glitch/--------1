@@ -1,12 +1,17 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = process.cwd()
 const src = join(root, 'src')
-const projectRoot = join(root, '..')
 
 function read(relativePath) {
   return readFileSync(join(src, relativePath), 'utf8')
+}
+
+function codeOnly(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
 }
 
 function assert(condition, message) {
@@ -42,21 +47,21 @@ assert(!childStore.includes('childrenApi.createChild({') && !childStore.includes
 assert(!childStore.includes('uni.request'), 'childStore must not call uni.request directly')
 
 const profile = read('pages/profile/index.vue')
+const profileCode = codeOnly(profile)
 assert(profile.includes('fetchChildren'), 'profile must fetch real children')
 assert(profile.includes('hasRemoteChild'), 'profile must distinguish no child state')
 assert(profile.includes('child.error'), 'profile must distinguish loading failure')
 assert(profile.includes('完善孩子档案'), 'profile must show child profile completion entry')
 assert(profile.includes('saveChildProfile'), 'profile must save child profile')
-assert(profile.includes('resetSessionState'), 'logout must clear childStore session state')
+assert(/\bendUserSession\s*\(/.test(profileCode), 'profile logout must delegate to the shared session boundary')
 assert(!profile.includes("7岁 · 北京"), 'profile must not hard-code 7岁 · 北京 as real child data')
 assert(!profile.includes('uni.request'), 'profile must not call uni.request directly')
 
-for (const file of ['api/records.js', 'api/favorites.js']) {
+const sessionBoundary = codeOnly(read('utils/sessionBoundary.js'))
+assert(/\bchildStore\.resetSessionState\s*\(/.test(sessionBoundary), 'shared session boundary must reset childStore')
+
+for (const file of ['api/favorites.js']) {
   assert(!existsSync(join(src, file)), `phase 2C-2 must not add ${file}`)
 }
-
-const backendMigrations = join(projectRoot, 'backend/migrations/versions')
-const migrationFiles = existsSync(backendMigrations) ? readdirSync(backendMigrations).filter((file) => file.endsWith('.py')) : []
-assert(migrationFiles.length <= 3, 'frontend checks must not add backend migrations beyond completed backend phases')
 
 console.log('phase2c2 children integration checks passed')

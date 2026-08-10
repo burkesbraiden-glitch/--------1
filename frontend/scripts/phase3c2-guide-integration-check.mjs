@@ -1,10 +1,9 @@
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { createPinia, setActivePinia } from 'pinia'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-process.env.NODE_NO_WARNINGS = '1'
-
-const root = process.cwd()
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const src = join(root, 'src')
 
 function read(relativePath) {
@@ -55,126 +54,28 @@ assert(guidePage.includes('currentGuide.destination'), 'Guide page must display 
 assert(!guidePage.includes('mockPlans[0]'), 'Guide page must not use mockPlans fallback')
 assert(!guidePage.includes("questions: ['"), 'Guide page must not keep local questions as business data')
 assert(!guidePage.includes("focusItems: ['"), 'Guide page must not keep local focusItems as business data')
-assert(!guidePage.includes('Mock 闊抽'), 'Guide page must not pretend mock audio is real playback')
+assert(!guidePage.includes('Mock 音频'), 'Guide page must not pretend mock audio is real playback')
 assert(!guidePage.includes('/plans/undefined/guide'), 'Guide page must not request guide without currentPlan')
 
 const profilePage = read('pages/profile/index.vue')
-assert(profilePage.includes('useGuideStore'), 'profile logout must import guideStore')
-assert(profilePage.includes('guide.resetSessionState'), 'logout must clear guideStore')
+const sessionBoundary = read('utils/sessionBoundary.js')
+assert(/key\s*===\s*['"]logout['"][\s\S]*?endUserSession\s*\(/.test(profilePage), 'profile logout must delegate to endUserSession')
+assert(/guideStore\.resetSessionState\s*\(/.test(sessionBoundary), 'shared session boundary must clear guideStore')
 
-for (const forbidden of ['api/records.js']) {
-  assert(!existsSync(join(src, forbidden)), `phase 3C-2 must not add ${forbidden}`)
+const vitest = join(root, 'node_modules', 'vitest', 'vitest.mjs')
+const config = join(root, 'vitest.session.config.mjs')
+const testFile = join(root, 'tests', 'session', 'stale-response.spec.js')
+const result = spawnSync(process.execPath, [vitest, 'run', testFile, '--config', config], {
+  cwd: root,
+  stdio: 'inherit',
+})
+
+if (result.error) {
+  throw result.error
 }
 
-const storage = new Map()
-const requests = []
-globalThis.uni = {
-  getStorageSync(key) {
-    return storage.get(key) || null
-  },
-  setStorageSync(key, value) {
-    storage.set(key, value)
-  },
-  removeStorageSync(key) {
-    storage.delete(key)
-  },
-  request(options) {
-    const url = options.url || ''
-    requests.push({ url, method: options.method })
-
-    if (url.endsWith('/plans/101/guide') && options.method === 'GET') {
-      options.success({
-        statusCode: 404,
-        data: { success: false, error: { code: 'GUIDE_NOT_FOUND', message: 'Guide not found' } },
-      })
-      return
-    }
-
-    if (url.endsWith('/plans/101/guide/generate') && options.method === 'POST') {
-      options.success({
-        statusCode: 201,
-        data: {
-          success: true,
-          data: {
-            guide: {
-              id: 501,
-              planId: 101,
-              destination: 'Plan A Destination',
-              childIntro: ['A intro'],
-              questions: ['A question'],
-              focusItems: ['A focus'],
-              audioUrl: null,
-              createdAt: '2026-01-01T00:00:00Z',
-              updatedAt: '2026-01-01T00:00:00Z',
-            },
-          },
-        },
-      })
-      return
-    }
-
-    if (url.endsWith('/plans/202/guide') && options.method === 'GET') {
-      options.success({
-        statusCode: 200,
-        data: {
-          success: true,
-          data: {
-            guide: {
-              id: 602,
-              planId: 202,
-              destination: 'Plan B Destination',
-              childIntro: ['B intro'],
-              questions: ['B question'],
-              focusItems: ['B focus'],
-              audioUrl: null,
-              createdAt: '2026-01-02T00:00:00Z',
-              updatedAt: '2026-01-02T00:00:00Z',
-            },
-          },
-        },
-      })
-      return
-    }
-
-    if (url.endsWith('/plans/303/guide') && options.method === 'GET') {
-      options.fail({ errMsg: 'network down' })
-      return
-    }
-
-    if (url.includes('/plans/undefined/guide')) {
-      throw new Error('must not request undefined guide')
-    }
-
-    options.fail({ errMsg: `unexpected request: ${url}` })
-  },
+if (result.status !== 0) {
+  throw new Error(`guide behavior Vitest check failed with exit code ${result.status}`)
 }
-
-setActivePinia(createPinia())
-const { useGuideStore } = await import('../src/stores/guide.js')
-const guideStore = useGuideStore()
-
-await guideStore.ensureGuide(101)
-assert(guideStore.currentGuide.id === 501, 'GUIDE_NOT_FOUND must generate guide')
-assert(requests.filter((item) => item.url.endsWith('/plans/101/guide/generate')).length === 1, 'missing guide must generate once')
-
-const dedupe = await Promise.all([guideStore.ensureGuide(202), guideStore.ensureGuide(202)])
-assert(dedupe[0].id === 602 && dedupe[1].id === 602, 'same plan ensure calls must resolve same guide')
-assert(requests.filter((item) => item.url.endsWith('/plans/202/guide')).length === 1, 'same plan ensure must dedupe GET')
-assert(requests.filter((item) => item.url.endsWith('/plans/202/guide/generate')).length === 0, 'existing guide must not generate')
-
-guideStore.clearGuideForPlanChange(303)
-assert(guideStore.currentGuide === null, 'plan change must clear old guide before loading new one')
-try {
-  await guideStore.ensureGuide(303)
-} catch (error) {
-  assert(error.code === 'NETWORK_ERROR', 'network failure must stay a network error')
-}
-assert(requests.filter((item) => item.url.endsWith('/plans/303/guide/generate')).length === 0, 'network failure must not generate')
-
-await guideStore.ensureGuide(null)
-assert(!requests.some((item) => item.url.includes('/plans/undefined/guide')), 'empty currentPlan must not request guide')
-
-guideStore.resetSessionState()
-assert(guideStore.currentGuide === null && guideStore.loadedForPlanId === null, 'resetSessionState must clear guide session')
 
 console.log('phase3c2 guide integration checks passed')

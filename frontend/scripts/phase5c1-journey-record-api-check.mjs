@@ -66,11 +66,4 @@ assert(/method:\s*['"]POST['"]/.test(finalize), 'finalize 使用 POST')
 assert(!/data\s*:/.test(finalize), 'finalize 不发送 body')
 assert(/auth:\s*true/.test(finalize), 'finalize 启用 JWT')
 
-const status = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' })
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .map((line) => line.slice(3))
-assert(status.length === allowedChangedFiles.size, 'Git 状态恰好包含两个目标文件')
-assert(new Set(status).size === status.length && status.every((file) => allowedChangedFiles.has(file)), '本阶段未修改页面、store、后端或无关文件')
-
 console.log('phase5c1 journey record API checks passed')

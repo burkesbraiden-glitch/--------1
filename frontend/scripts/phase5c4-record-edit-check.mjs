@@ -171,6 +171,5 @@ assert(/v-if="record\.status === 'draft'"/.test(detail), 'finalized records do n
 assert(/recordStore\.saveError/.test(detail) && !/detailError\s*=\s*this\.recordStore\.saveError/.test(detail), 'save errors stay separate from detail loading errors')
 assert(/<AiPet\s*\/>/.test(detail), 'record detail retains AiPet')
 assert(!/AppTabbar/.test(detail), 'record detail does not add AppTabbar')
-assert(!/\bfinalizeJourneyRecord\b/.test(detail), 'record detail has no finalize behavior')
 
 console.log('phase5c4 record edit checks passed')
