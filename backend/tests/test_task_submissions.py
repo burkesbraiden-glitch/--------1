@@ -4,7 +4,7 @@ import pytest
 from flask_jwt_extended import create_access_token
 
 from app.extensions import db
-from app.models import Child, ExplorationPlan, Task, TaskSubmission, User
+from app.models import Child, ExplorationPlan, JourneyRecord, Task, TaskSubmission, User
 from app.utils.time import utc_now
 
 
@@ -104,6 +104,13 @@ def create_submission(
     db.session.add(submission)
     db.session.commit()
     return submission
+
+
+def create_journey_record(plan_id, *, record_id=6000, status="draft"):
+    record = JourneyRecord(id=record_id, plan_id=plan_id, status=status)
+    db.session.add(record)
+    db.session.commit()
+    return record
 
 
 def setup_task(app, *, plan_status="in-progress"):
@@ -303,6 +310,90 @@ def test_patch_completed_task_updates_note_without_changing_completed_at(client,
     with app.app_context():
         submission = TaskSubmission.query.filter_by(task_id=1000).one()
         assert submission.completed_at == completed_at
+
+
+def test_patch_allows_completed_plan_completed_submission_without_record(client, app, submissions_db):
+    headers = setup_task(app, plan_status="completed")
+    completed_at = utc_now() - timedelta(minutes=5)
+    with app.app_context():
+        create_submission(1000, status="completed", note="old note", completed_at=completed_at)
+
+    response = client.patch(task_path(), json={"note": "corrected note"}, headers=headers)
+
+    assert response.status_code == 200
+    task = response.get_json()["data"]["task"]
+    assert task["status"] == "completed"
+    assert task["record"]["note"] == "corrected note"
+    assert task["completedAt"] == f"{completed_at.isoformat()}Z"
+    with app.app_context():
+        submissions = TaskSubmission.query.filter_by(task_id=1000).all()
+        assert len(submissions) == 1
+        assert submissions[0].id == 5000
+        assert submissions[0].status == "completed"
+        assert submissions[0].note == "corrected note"
+        assert submissions[0].completed_at == completed_at
+
+
+def test_patch_allows_completed_plan_completed_submission_with_draft_record(client, app, submissions_db):
+    headers = setup_task(app, plan_status="completed")
+    completed_at = utc_now() - timedelta(minutes=5)
+    with app.app_context():
+        create_submission(1000, status="completed", note="old note", completed_at=completed_at)
+        create_journey_record(100, status="draft")
+
+    response = client.patch(task_path(), json={"note": "corrected note"}, headers=headers)
+
+    assert response.status_code == 200
+    task = response.get_json()["data"]["task"]
+    assert task["status"] == "completed"
+    assert task["record"]["note"] == "corrected note"
+    assert task["completedAt"] == f"{completed_at.isoformat()}Z"
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        assert submission.id == 5000
+        assert submission.status == "completed"
+        assert submission.note == "corrected note"
+        assert submission.completed_at == completed_at
+
+
+def test_patch_rejects_completed_plan_finalized_record_without_mutation(client, app, submissions_db):
+    headers = setup_task(app, plan_status="completed")
+    completed_at = utc_now() - timedelta(minutes=5)
+    with app.app_context():
+        create_submission(1000, status="completed", note="old note", completed_at=completed_at)
+        create_journey_record(100, status="finalized")
+
+    response = client.patch(task_path(), json={"note": "must not save"}, headers=headers)
+
+    assert_error(response, 409, "JOURNEY_RECORD_FINALIZED")
+    with app.app_context():
+        submissions = TaskSubmission.query.filter_by(task_id=1000).all()
+        assert len(submissions) == 1
+        assert submissions[0].id == 5000
+        assert submissions[0].status == "completed"
+        assert submissions[0].note == "old note"
+        assert submissions[0].completed_at == completed_at
+
+
+@pytest.mark.parametrize("submission_status", [None, "in-progress"])
+def test_patch_rejects_completed_plan_without_completed_submission(client, app, submissions_db, submission_status):
+    headers = setup_task(app, plan_status="completed")
+    completed_at = utc_now() - timedelta(minutes=5)
+    with app.app_context():
+        if submission_status is not None:
+            create_submission(1000, status=submission_status, note="old note", completed_at=completed_at)
+
+    response = client.patch(task_path(), json={"note": "must not save"}, headers=headers)
+
+    assert_error(response, 409, "TASK_CORRECTION_REQUIRES_COMPLETED_SUBMISSION")
+    with app.app_context():
+        submissions = TaskSubmission.query.filter_by(task_id=1000).all()
+        assert len(submissions) == (0 if submission_status is None else 1)
+        if submissions:
+            assert submissions[0].id == 5000
+            assert submissions[0].status == "in-progress"
+            assert submissions[0].note == "old note"
+            assert submissions[0].completed_at == completed_at
 
 
 def test_complete_requires_token(client):

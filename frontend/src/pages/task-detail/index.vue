@@ -78,6 +78,14 @@
           </button>
         </view>
 
+        <view v-if="isCorrectionFinalized" class="detail-record__correction-notice">
+          <text>这次成长记录已封存，任务记录不可再修改</text>
+        </view>
+        <view v-else-if="hasCorrectionStatusError" class="detail-record__correction-notice detail-record__correction-notice--error">
+          <text>成长记录状态确认失败，请重试后再修改</text>
+          <button @click="retryCorrectionRecordStatus">重试</button>
+        </view>
+
         <button class="detail-record__image-picker" :disabled="!canChooseImage || imageState.isUploading" @click="chooseImage">
           <image v-if="displayImagePath" class="detail-record__image" :src="displayImagePath" mode="aspectFill" />
           <view v-else-if="imageState.isUploading" class="detail-record__empty">
@@ -190,11 +198,41 @@ export default {
     isTaskNotStarted() {
       return this.currentTask.status === 'not-started'
     },
+    correctionRecordStatus() {
+      const planId = this.plan.currentPlan?.id
+      return planId ? this.recordStore.correctionRecordStatusForPlan(planId) : null
+    },
+    isCorrectionFinalized() {
+      return this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.state === 'finalized'
+    },
+    isCorrectionStatusLoading() {
+      return this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.loading === true
+    },
+    hasCorrectionStatusError() {
+      return this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.error != null
+    },
+    completedPlanCorrectionAllowed() {
+      const correctionRecordStatus = this.correctionRecordStatus
+      return (
+        this.currentTask.status === 'completed'
+        && this.plan.currentPlan?.status === 'completed'
+        && ['missing', 'draft'].includes(correctionRecordStatus?.state)
+        && correctionRecordStatus?.loading === false
+        && correctionRecordStatus?.error == null
+      )
+    },
     canEditNote() {
-      return this.plan.currentPlan?.status === 'in-progress' && !this.isTaskNotStarted && !this.submissionState.isCompleting
+      const canEditInProgressPlan = this.plan.currentPlan?.status === 'in-progress' && !this.isTaskNotStarted
+      const correctionRecordStatus = this.correctionRecordStatus
+      return !this.submissionState.isCompleting && (
+        canEditInProgressPlan
+        || (this.completedPlanCorrectionAllowed && correctionRecordStatus?.state !== 'finalized')
+      )
     },
     canChooseImage() {
-      return this.plan.currentPlan?.status === 'in-progress' && !this.isTaskNotStarted
+      const canChooseInProgressPlan = this.plan.currentPlan?.status === 'in-progress' && !this.isTaskNotStarted
+      const correctionRecordStatus = this.correctionRecordStatus
+      return canChooseInProgressPlan || (this.completedPlanCorrectionAllowed && correctionRecordStatus?.state !== 'finalized')
     },
     imageState() {
       return this.currentTask.id ? this.task.imageStateForTask(this.currentTask.id) : {}
@@ -223,6 +261,15 @@ export default {
       }
       if (this.isTaskNotStarted) {
         return '开始任务后即可记录照片和发现'
+      }
+      if (this.isCorrectionFinalized) {
+        return '这次成长记录已封存，任务记录不可再修改'
+      }
+      if (this.isCorrectionStatusLoading) {
+        return '正在确认成长记录状态'
+      }
+      if (this.hasCorrectionStatusError) {
+        return '成长记录状态确认失败，请重试'
       }
       return '文字会同步到这次探索记录里'
     },
@@ -261,6 +308,7 @@ export default {
       const task = await this.recoverCurrentTask()
       usePetStore().setPageContext('task-detail', task?.id)
       this.restoreRecord()
+      await this.restoreCompletedPlanCorrectionStatus()
       await this.restoreTaskImage()
   },
   onHide() {
@@ -312,6 +360,36 @@ export default {
         return null
       }
     },
+    async restoreCompletedPlanCorrectionStatus() {
+      const planId = Number(this.plan.currentPlan?.id)
+      if (this.plan.currentPlan?.status !== 'completed' || !(Number.isInteger(planId) && planId > 0)) {
+        return null
+      }
+
+      try {
+        return await this.recordStore.loadJourneyRecordCorrectionStatus(planId)
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+        }
+        return null
+      }
+    },
+    async retryCorrectionRecordStatus() {
+      const planId = Number(this.plan.currentPlan?.id)
+      if (this.plan.currentPlan?.status !== 'completed' || !(Number.isInteger(planId) && planId > 0)) {
+        return null
+      }
+
+      try {
+        return await this.recordStore.retryJourneyRecordCorrectionStatus(planId)
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+        }
+        return null
+      }
+    },
     showToast(title) {
       uni.showToast({
         title,
@@ -335,6 +413,7 @@ export default {
         TOKEN_EXPIRED: '登录状态已失效，请重新登录',
         INVALID_TOKEN: '登录状态已失效，请重新登录',
         NETWORK_ERROR: '网络连接失败，请稍后重试',
+        JOURNEY_RECORD_FINALIZED: '这次成长记录已封存，任务记录不可再修改',
       }
       return messages[error?.code] || fallback
     },
@@ -376,6 +455,18 @@ export default {
     },
     chooseImage() {
       if (!this.canChooseImage) {
+        if (this.isCorrectionFinalized) {
+          this.showToast('这次成长记录已封存，任务记录不可再修改')
+          return
+        }
+        if (this.isCorrectionStatusLoading) {
+          this.showToast('正在确认成长记录状态')
+          return
+        }
+        if (this.hasCorrectionStatusError) {
+          this.showToast('请先重试成长记录状态')
+          return
+        }
         this.showToast(this.isPlanReady ? '请先开始探索' : '请先开始任务')
         return
       }
@@ -401,6 +492,13 @@ export default {
         await this.task.uploadTaskImage(this.currentTask.id, pendingPreviewPath)
         this.showToast('图片上传成功')
       } catch (error) {
+        if (error?.code === 'JOURNEY_RECORD_FINALIZED') {
+          this.handleJourneyRecordFinalized()
+          if (this.correctionRecordStatus?.state === 'finalized') {
+            this.showToast(this.taskErrorText(error))
+            return
+          }
+        }
         this.showToast(this.taskErrorText(error, '图片上传失败，请重试'))
       } finally {
         this.pendingPreviewPath = ''
@@ -434,8 +532,21 @@ export default {
         this.saveNoteNow()
       }, 600)
     },
+    handleJourneyRecordFinalized() {
+      const planId = Number(this.plan.currentPlan?.id)
+      if (Number.isInteger(planId) && planId > 0) {
+        this.recordStore.markJourneyRecordCorrectionFinalized(planId)
+      }
+      if (this.noteSaveTimer) {
+        clearTimeout(this.noteSaveTimer)
+      }
+      this.noteSaveTimer = null
+      this.noteRevision += 1
+      this.noteDraft = this.currentTask.record?.note || ''
+      this.noteHasLocalEdits = false
+    },
     async saveNoteNow() {
-      if (!this.canEditNote || !this.currentTask.id || !this.noteHasLocalEdits) {
+      if (this.correctionRecordStatus?.state === 'finalized' || !this.canEditNote || !this.currentTask.id || !this.noteHasLocalEdits) {
         return null
       }
       const revision = this.noteRevision
@@ -449,6 +560,11 @@ export default {
         }
         return task
       } catch (error) {
+        if (error?.code === 'JOURNEY_RECORD_FINALIZED') {
+          this.handleJourneyRecordFinalized()
+          this.showToast(this.taskErrorText(error))
+          return null
+        }
         if (isAuthenticationError(error)) {
           await endUserSession()
           return null
@@ -912,6 +1028,44 @@ export default {
   color: #fff;
   background: #7b9a50;
   border-radius: 18rpx;
+}
+
+.detail-record__correction-notice {
+  margin-bottom: 18rpx;
+  padding: 16rpx;
+  font-size: 25rpx;
+  font-weight: 800;
+  line-height: 1.45;
+  color: #7a4e29;
+  background: #fff1d8;
+  border: 2rpx dashed rgba(223, 151, 73, 0.62);
+  border-radius: 18rpx;
+}
+
+.detail-record__correction-notice--error {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+  justify-content: space-between;
+  color: #9b4932;
+  background: #fff0e8;
+  border-color: rgba(202, 104, 74, 0.58);
+}
+
+.detail-record__correction-notice--error text {
+  flex: 1;
+}
+
+.detail-record__correction-notice--error button {
+  flex-shrink: 0;
+  height: 54rpx;
+  padding: 0 20rpx;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 54rpx;
+  color: #fff;
+  background: #d96d3d;
+  border-radius: 16rpx;
 }
 
 .detail-record__image-picker {

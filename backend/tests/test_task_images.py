@@ -7,7 +7,7 @@ import pytest
 from flask_jwt_extended import create_access_token
 
 from app.extensions import db
-from app.models import Child, ExplorationPlan, Task, TaskSubmission, User
+from app.models import Child, ExplorationPlan, JourneyRecord, Task, TaskSubmission, User
 from app.utils.time import utc_now
 
 
@@ -157,7 +157,6 @@ def test_upload_plan_and_task_ownership_errors(client, app, image_db):
     [
         ("draft", "PLAN_NOT_READY"),
         ("ready", "PLAN_NOT_STARTED"),
-        ("completed", "PLAN_ALREADY_COMPLETED"),
     ],
 )
 def test_upload_rejects_plan_statuses_that_are_not_in_progress(client, app, image_db, plan_status, code):
@@ -245,6 +244,7 @@ def test_upload_preserves_note_and_completed_state_while_replacing_image(client,
         db.session.commit()
 
     first = post_image(client, headers, PNG_BYTES)
+    assert first.status_code == 200
     with app.app_context():
         submission = TaskSubmission.query.filter_by(task_id=1000).one()
         first_key = submission.image_url
@@ -254,7 +254,6 @@ def test_upload_preserves_note_and_completed_state_while_replacing_image(client,
 
     second = post_image(client, headers, PNG_BYTES_2)
 
-    assert first.status_code == 200
     assert second.status_code == 200
     task = second.get_json()["data"]["task"]
     assert task["status"] == "completed"
@@ -268,6 +267,98 @@ def test_upload_preserves_note_and_completed_state_while_replacing_image(client,
         assert submission.completed_at == completed_at
         assert not first_file.exists()
         assert stored_file(image_db, submission.image_url).read_bytes() == PNG_BYTES_2
+
+
+@pytest.mark.parametrize("record_status", [None, "draft"])
+def test_upload_allows_completed_plan_completed_submission_with_missing_or_draft_record(
+    client, app, image_db, record_status
+):
+    headers = setup_task(app, plan_status="completed")
+    completed_at = utc_now() - timedelta(minutes=5)
+    with app.app_context():
+        db.session.add(
+            TaskSubmission(
+                id=5000,
+                task_id=1000,
+                status="completed",
+                image_url=None,
+                note="old note",
+                completed_at=completed_at,
+            )
+        )
+        if record_status is not None:
+            db.session.add(JourneyRecord(id=6000, plan_id=100, status=record_status))
+        db.session.commit()
+
+    first = post_image(client, headers, PNG_BYTES)
+    assert first.status_code == 200
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        first_key = submission.image_url
+        first_file = stored_file(image_db, first_key)
+        assert first_file.exists()
+
+    second = post_image(client, headers, PNG_BYTES_2)
+
+    assert second.status_code == 200
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        assert submission.id == 5000
+        assert submission.status == "completed"
+        assert submission.note == "old note"
+        assert submission.completed_at == completed_at
+        assert submission.image_url != first_key
+        assert not first_file.exists()
+        assert stored_file(image_db, submission.image_url).read_bytes() == PNG_BYTES_2
+
+
+def test_upload_rejects_completed_plan_finalized_record_before_writing_file(client, app, image_db):
+    headers = setup_task(app, plan_status="completed")
+    completed_at = utc_now() - timedelta(minutes=5)
+    with app.app_context():
+        db.session.add(
+            TaskSubmission(
+                id=5000,
+                task_id=1000,
+                status="completed",
+                image_url=None,
+                note="old note",
+                completed_at=completed_at,
+            )
+        )
+        db.session.add(JourneyRecord(id=6000, plan_id=100, status="finalized"))
+        db.session.commit()
+        before_submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        before = (before_submission.status, before_submission.image_url, before_submission.note, before_submission.completed_at)
+
+    response = post_image(client, headers, PNG_BYTES)
+
+    assert_error(response, 409, "JOURNEY_RECORD_FINALIZED")
+    assert not image_db.exists()
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        assert (submission.status, submission.image_url, submission.note, submission.completed_at) == before
+
+
+@pytest.mark.parametrize("submission_status", [None, "in-progress"])
+def test_upload_rejects_completed_plan_without_completed_submission(client, app, image_db, submission_status):
+    headers = setup_task(app, plan_status="completed")
+    with app.app_context():
+        if submission_status is not None:
+            db.session.add(TaskSubmission(id=5000, task_id=1000, status=submission_status, image_url=None, note="old note"))
+            db.session.commit()
+
+    response = post_image(client, headers, PNG_BYTES)
+
+    assert_error(response, 409, "TASK_CORRECTION_REQUIRES_COMPLETED_SUBMISSION")
+    assert not image_db.exists()
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one_or_none()
+        if submission_status is None:
+            assert submission is None
+        else:
+            assert submission.status == "in-progress"
+            assert submission.image_url is None
 
 
 def test_db_failure_removes_new_file_and_keeps_old_image(client, app, image_db, monkeypatch):

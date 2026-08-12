@@ -118,6 +118,58 @@ def test_serialization_aggregates_entries_and_hides_storage_keys(service_db, app
         assert "entries" not in serialize_journey_record(get_journey_record_model_for_plan(plan.user, plan.id), include_entries=False)
 
 
+def test_draft_record_serialization_reflects_corrected_note_and_note_count(service_db, app):
+    with app.app_context():
+        user, plan, record = seed_record(9, 90, 900, 9000)
+        add_task(
+            plan.id,
+            901,
+            1,
+            submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()},
+        )
+
+        before = serialize_journey_record(get_journey_record_model_for_plan(user, plan.id))
+        assert before["entries"][0]["note"] == ""
+        assert before["noteCount"] == 0
+
+        submission = db.session.get(TaskSubmission, 10901)
+        submission.note = "corrected discovery"
+        db.session.commit()
+
+        after = serialize_journey_record(get_journey_record_model_for_plan(user, plan.id))
+        assert after["entries"][0]["note"] == "corrected discovery"
+        assert after["noteCount"] == 1
+        assert record.status == "draft"
+
+
+def test_draft_record_serialization_reflects_replaced_image_and_cover(service_db, app):
+    with app.app_context():
+        user, plan, record = seed_record(10, 100, 1000, 10000)
+        add_task(
+            plan.id,
+            1001,
+            1,
+            submission={"status": "completed", "image_url": None, "note": "", "completed_at": utc_now()},
+        )
+        record.cover_submission_id = 11001
+        db.session.commit()
+
+        before = serialize_journey_record(get_journey_record_model_for_plan(user, plan.id))
+        assert before["entries"][0]["imageUrl"] is None
+        assert before["photoCount"] == 0
+        assert before["coverImageUrl"] is None
+
+        submission = db.session.get(TaskSubmission, 11001)
+        submission.image_url = "task-images/replaced.png"
+        db.session.commit()
+
+        after = serialize_journey_record(get_journey_record_model_for_plan(user, plan.id))
+        assert after["entries"][0]["imageUrl"].endswith("/plans/1000/tasks/1001/submission/image")
+        assert after["photoCount"] == 1
+        assert after["coverImageUrl"] == after["entries"][0]["imageUrl"]
+        assert record.status == "draft"
+
+
 def test_missing_record_and_plan_without_record_do_not_create_data(service_db, app):
     with app.app_context():
         user, plan, record = seed_record(11, 110, 1100, 11000)

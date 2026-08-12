@@ -9,6 +9,7 @@ let activeEnsurePromise = null
 let activeEnsurePlanId = null
 let activeEnsureUserId = null
 let activeEnsureEpoch = null
+const correctionStatusPromises = new Map()
 const DETAIL_IMAGE_CONCURRENCY = 3
 
 function normalizeText(value) {
@@ -38,6 +39,10 @@ function normalizeDraftText(value) {
 function normalizeSubmissionId(value) {
   const submissionId = Number(value)
   return Number.isInteger(submissionId) && submissionId > 0 ? submissionId : null
+}
+
+function correctionStatusIdentity(session, planId) {
+  return `${session.epoch}:${session.userId}:${planId}`
 }
 
 function coverResourceKey(record) {
@@ -142,6 +147,10 @@ export const useRecordStore = defineStore('record', {
     ensureError: null,
     ensurePlanId: null,
     ensuredRecord: null,
+    correctionRecordStatusByPlanId: {},
+    correctionRecordStatusLoadingByPlanId: {},
+    correctionRecordStatusErrorByPlanId: {},
+    correctionRecordStatusRequestIdByPlanId: {},
   }),
   getters: {
     learningRecordCount(state) {
@@ -150,6 +159,79 @@ export const useRecordStore = defineStore('record', {
         return total
       }
       return Array.isArray(state.records) ? state.records.length : 0
+    },
+    loadJourneyRecordCorrectionStatus() {
+      return (planId, { force = false } = {}) => {
+        const validPlanId = normalizePlanId(planId)
+        if (!validPlanId) {
+          return Promise.resolve(null)
+        }
+
+        const requestSession = getCurrentSession()
+        if (!requestSession.isLoggedIn || !requestSession.userId) {
+          return Promise.resolve(null)
+        }
+
+        const identity = correctionStatusIdentity(requestSession, validPlanId)
+        const activePromise = correctionStatusPromises.get(identity)
+        if (activePromise && !force) {
+          return activePromise
+        }
+
+        const key = String(validPlanId)
+        const requestId = (this.correctionRecordStatusRequestIdByPlanId[key] || 0) + 1
+        this.correctionRecordStatusRequestIdByPlanId[key] = requestId
+        this.correctionRecordStatusLoadingByPlanId[key] = true
+        this.correctionRecordStatusErrorByPlanId[key] = null
+
+        const promise = fetchJourneyRecord(validPlanId)
+          .then((data) => {
+            const record = data?.journeyRecord
+            if (
+              !record
+              || typeof record !== 'object'
+              || Array.isArray(record)
+              || normalizePlanId(record.planId) !== validPlanId
+              || !['draft', 'finalized'].includes(record.status)
+            ) {
+              throw { code: 'INVALID_RESPONSE', message: '成长记录状态数据格式异常' }
+            }
+
+            if (this.isCorrectionStatusRequestActive(validPlanId, requestId, requestSession)) {
+              this.correctionRecordStatusByPlanId[key] = record.status
+              this.correctionRecordStatusErrorByPlanId[key] = null
+            }
+            return this.correctionRecordStatusForPlan(validPlanId)
+          })
+          .catch((error) => {
+            if (error?.code === 'JOURNEY_RECORD_NOT_FOUND') {
+              if (this.isCorrectionStatusRequestActive(validPlanId, requestId, requestSession)) {
+                this.correctionRecordStatusByPlanId[key] = 'missing'
+                this.correctionRecordStatusErrorByPlanId[key] = null
+              }
+              return this.correctionRecordStatusForPlan(validPlanId)
+            }
+
+            if (this.isCorrectionStatusRequestActive(validPlanId, requestId, requestSession)) {
+              if (!Object.prototype.hasOwnProperty.call(this.correctionRecordStatusByPlanId, key)) {
+                this.correctionRecordStatusByPlanId[key] = null
+              }
+              this.correctionRecordStatusErrorByPlanId[key] = error
+            }
+            throw error
+          })
+          .finally(() => {
+            if (this.isCorrectionStatusRequestActive(validPlanId, requestId, requestSession)) {
+              this.correctionRecordStatusLoadingByPlanId[key] = false
+            }
+            if (correctionStatusPromises.get(identity) === promise) {
+              correctionStatusPromises.delete(identity)
+            }
+          })
+
+        correctionStatusPromises.set(identity, promise)
+        return promise
+      }
     },
   },
   actions: {
@@ -322,6 +404,56 @@ export const useRecordStore = defineStore('record', {
       if (currentIndex >= 0) {
         this.records.splice(currentIndex, 1, mappedRecord)
       }
+    },
+    correctionRecordStatusForPlan(planId) {
+      const validPlanId = normalizePlanId(planId)
+      if (!validPlanId) {
+        return null
+      }
+
+      const key = String(validPlanId)
+      const status = this.correctionRecordStatusByPlanId[key] || null
+      const loading = this.correctionRecordStatusLoadingByPlanId[key] === true
+      const error = this.correctionRecordStatusErrorByPlanId[key] || null
+      const hasStatus = Object.prototype.hasOwnProperty.call(this.correctionRecordStatusByPlanId, key)
+      const hasLoading = Object.prototype.hasOwnProperty.call(this.correctionRecordStatusLoadingByPlanId, key)
+      const hasError = Object.prototype.hasOwnProperty.call(this.correctionRecordStatusErrorByPlanId, key)
+      if (!hasStatus && !hasLoading && !hasError) {
+        return null
+      }
+
+      return {
+        status,
+        state: error ? 'error' : status,
+        loading,
+        error,
+      }
+    },
+    isCorrectionStatusRequestActive(planId, requestId, requestSession) {
+      return (
+        isCurrentSession(requestSession)
+        && this.correctionRecordStatusRequestIdByPlanId[String(planId)] === requestId
+      )
+    },
+    retryJourneyRecordCorrectionStatus(planId) {
+      return this.loadJourneyRecordCorrectionStatus(planId, { force: true })
+    },
+    markJourneyRecordCorrectionFinalized(planId) {
+      const validPlanId = normalizePlanId(planId)
+      if (!validPlanId) {
+        return null
+      }
+
+      const key = String(validPlanId)
+      this.correctionRecordStatusRequestIdByPlanId[key] = (this.correctionRecordStatusRequestIdByPlanId[key] || 0) + 1
+      const requestSession = getCurrentSession()
+      if (requestSession.isLoggedIn && requestSession.userId) {
+        correctionStatusPromises.delete(correctionStatusIdentity(requestSession, validPlanId))
+      }
+      this.correctionRecordStatusByPlanId[key] = 'finalized'
+      this.correctionRecordStatusLoadingByPlanId[key] = false
+      this.correctionRecordStatusErrorByPlanId[key] = null
+      return this.correctionRecordStatusForPlan(validPlanId)
     },
     ensureJourneyRecord(planId) {
       const validPlanId = normalizePlanId(planId)
@@ -625,6 +757,14 @@ export const useRecordStore = defineStore('record', {
       activeDetailPromise = null
     },
     resetRecordState() {
+      Object.keys(this.correctionRecordStatusRequestIdByPlanId).forEach((planId) => {
+        this.correctionRecordStatusRequestIdByPlanId[planId] += 1
+      })
+      this.correctionRecordStatusByPlanId = {}
+      this.correctionRecordStatusLoadingByPlanId = {}
+      this.correctionRecordStatusErrorByPlanId = {}
+      this.correctionRecordStatusRequestIdByPlanId = {}
+      correctionStatusPromises.clear()
       this.ensureLoading = false
       this.ensureError = null
       this.ensurePlanId = null

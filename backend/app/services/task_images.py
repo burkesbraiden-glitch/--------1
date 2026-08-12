@@ -8,9 +8,11 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.extensions import db
 from app.models import TaskSubmission
 from app.services.task_submissions import (
+    get_task_model_for_completed_plan_correction,
     get_task_model_for_submission,
     next_sqlite_submission_id,
 )
+from app.services.plans import get_plan_model_for_user
 from app.services.tasks import TaskError, serialize_task
 
 
@@ -122,7 +124,12 @@ def get_or_create_submission(task):
 
 
 def save_task_image(user, plan_id, task_id, file_storage):
-    task = get_task_model_for_submission(user, plan_id, task_id, validate_plan_status=True)
+    plan = get_plan_model_for_user(user, plan_id)
+    task = (
+        get_task_model_for_completed_plan_correction(user, plan_id, task_id)
+        if plan.status == "completed"
+        else get_task_model_for_submission(user, plan_id, task_id, validate_plan_status=True)
+    )
     data = read_upload_bytes(file_storage)
     image_type = detect_image_type(data)
     storage_key = new_storage_key(image_type)
@@ -131,7 +138,7 @@ def save_task_image(user, plan_id, task_id, file_storage):
 
     try:
         new_path = write_image_file(storage_key, data)
-        submission = get_or_create_submission(task)
+        submission = task.submission if plan.status == "completed" else get_or_create_submission(task)
         old_key = submission.image_url
         if old_key:
             try:

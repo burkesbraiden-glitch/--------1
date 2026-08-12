@@ -2,8 +2,8 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
-from app.models import Task, TaskSubmission
-from app.services.plans import get_plan_model_for_user
+from app.models import ExplorationPlan, JourneyRecord, Task, TaskSubmission
+from app.services.plans import PlanError, get_plan_model_for_user
 from app.services.tasks import TaskError, serialize_task
 from app.utils.time import utc_now
 
@@ -35,6 +35,37 @@ def get_task_model_for_submission(user, plan_id, task_id, *, validate_plan_statu
     )
     if task is None:
         raise TaskError("TASK_NOT_FOUND", "Task not found", 404)
+    return task
+
+
+def get_task_model_for_completed_plan_correction(user, plan_id, task_id):
+    plan = (
+        ExplorationPlan.query.filter_by(id=plan_id, user_id=user.id)
+        .with_for_update()
+        .first()
+    )
+    if plan is None:
+        raise PlanError("PLAN_NOT_FOUND", "Plan not found", 404)
+    if plan.status != "completed":
+        validate_plan_can_change_submissions(plan)
+
+    record = JourneyRecord.query.filter_by(plan_id=plan.id).with_for_update().first()
+    if record is not None and record.status == "finalized":
+        raise TaskError("JOURNEY_RECORD_FINALIZED", "Journey record is finalized", 409)
+
+    task = (
+        Task.query.options(joinedload(Task.submission))
+        .filter_by(id=task_id, plan_id=plan.id)
+        .first()
+    )
+    if task is None:
+        raise TaskError("TASK_NOT_FOUND", "Task not found", 404)
+    if task.submission is None or task.submission.status != "completed":
+        raise TaskError(
+            "TASK_CORRECTION_REQUIRES_COMPLETED_SUBMISSION",
+            "Task correction requires a completed submission",
+            409,
+        )
     return task
 
 
@@ -137,10 +168,18 @@ def patch_task_submission(user, plan_id, task_id, payload):
     payload = validate_payload_object(payload)
     validate_allowed_fields(payload, PATCH_ALLOWED_FIELDS)
     note = normalize_note(payload, required=True)
-    task = get_task_model_for_submission(user, plan_id, task_id)
+    plan = get_plan_model_for_user(user, plan_id)
+    task = (
+        get_task_model_for_completed_plan_correction(user, plan_id, task_id)
+        if plan.status == "completed"
+        else get_task_model_for_submission(user, plan_id, task_id)
+    )
 
     try:
-        submission, _ = ensure_submission(task, "in-progress", note="", completed_at=None)
+        if plan.status == "completed":
+            submission = task.submission
+        else:
+            submission, _ = ensure_submission(task, "in-progress", note="", completed_at=None)
         submission.note = note
         db.session.commit()
         return serialize_task(task)
