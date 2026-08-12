@@ -66,8 +66,8 @@ export default {
   left: 0;
   z-index: 50;
   display: flex;
-  height: calc(132rpx + env(safe-area-inset-bottom));
-  padding: 14rpx 18rpx calc(12rpx + env(safe-area-inset-bottom));
+  height: calc(var(--tl-tabbar-height) + var(--tl-safe-bottom));
+  padding: 14rpx 18rpx calc(12rpx + var(--tl-safe-bottom));
   background: rgba(255, 247, 232, 0.96);
   border-top: 2rpx solid rgba(190, 142, 78, 0.22);
   box-shadow: 0 -10rpx 28rpx rgba(97, 63, 28, 0.08);
@@ -82,7 +82,7 @@ export default {
   gap: 8rpx;
   min-width: 0;
   font-size: 22rpx;
-  color: #8a6d54;
+  color: var(--tl-text-secondary);
 }
 
 .app-tabbar__icon {
@@ -104,7 +104,7 @@ export default {
 }
 
 .app-tabbar__item--active {
-  color: #f26a21;
+  color: var(--tl-primary);
 }
 </style>
 

@@ -1,6 +1,34 @@
 @use './variables.scss' as *;
 @use './mixins.scss' as *;
 
+:root,
+page {
+  --tl-bg: #{$tl-bg};
+  --tl-paper: #{$tl-paper};
+  --tl-paper-deep: #{$tl-paper-deep};
+  --tl-text-main: #{$tl-text-main};
+  --tl-text-secondary: #{$tl-text-secondary};
+  --tl-primary: #{$tl-primary};
+  --tl-primary-deep: #{$tl-primary-deep};
+  --tl-blue: #{$tl-blue};
+  --tl-blue-deep: #{$tl-blue-deep};
+  --tl-green: #{$tl-green};
+  --tl-green-deep: #{$tl-green-deep};
+  --tl-yellow: #{$tl-yellow};
+  --tl-line: #{$tl-line};
+  --tl-shadow: #{$tl-shadow};
+  --tl-border-soft: #{$tl-border-soft};
+  --tl-shadow-card: #{$tl-shadow-card};
+  --tl-radius-lg: #{$tl-radius-lg};
+  --tl-radius-md: #{$tl-radius-md};
+  --tl-radius-sm: #{$tl-radius-sm};
+  --tl-page-padding: #{$tl-page-padding};
+  --tl-content-max-width: #{$tl-content-max-width};
+  --tl-tabbar-height: #{$tl-tabbar-height};
+  --tl-safe-top: #{$tl-safe-top};
+  --tl-safe-bottom: #{$tl-safe-bottom};
+}
+
 page {
   min-height: 100%;
   background: $tl-bg;

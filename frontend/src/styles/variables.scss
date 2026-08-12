@@ -12,11 +12,15 @@ $tl-green-deep: #55753c;
 $tl-yellow: #fff0bd;
 $tl-line: #dfbd83;
 $tl-shadow: rgba(97, 63, 28, 0.12);
+$tl-border-soft: rgba(190, 142, 78, 0.28);
+$tl-shadow-card: 0 12rpx 24rpx $tl-shadow;
 
 $tl-radius-lg: 32rpx;
 $tl-radius-md: 24rpx;
 $tl-radius-sm: 14rpx;
 
 $tl-page-padding: 32rpx;
+$tl-content-max-width: 430px;
 $tl-tabbar-height: 132rpx;
+$tl-safe-top: env(safe-area-inset-top);
 $tl-safe-bottom: env(safe-area-inset-bottom);

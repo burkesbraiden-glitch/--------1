@@ -4,7 +4,7 @@
   background: $background;
   border: 2rpx solid rgba(190, 142, 78, 0.42);
   border-radius: $tl-radius-md;
-  box-shadow: 0 12rpx 24rpx $tl-shadow;
+  box-shadow: $tl-shadow-card;
 }
 
 @mixin page-shell {
