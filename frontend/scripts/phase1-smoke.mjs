@@ -6,8 +6,6 @@ const src = join(root, 'src')
 
 const requiredFiles = [
   'components/AppTabbar.vue',
-  'components/AiPet.vue',
-  'components/AiChatSheet.vue',
   'components/WatercolorCard.vue',
   'components/PolaroidCard.vue',
   'components/GrowthBadge.vue',
@@ -19,11 +17,9 @@ const requiredFiles = [
   'stores/plan.js',
   'stores/task.js',
   'stores/record.js',
-  'stores/pet.js',
   'mock/plans.js',
   'mock/tasks.js',
   'mock/records.js',
-  'mock/ai.js',
   'styles/variables.scss',
   'styles/global.scss',
   'styles/mixins.scss',
@@ -78,11 +74,15 @@ if (!taskStore.includes('completedCount') || !taskStore.includes('progress')) {
   throw new Error('taskStore must expose completedCount and progress getters')
 }
 
-const petStore = readFileSync(join(src, 'stores/pet.js'), 'utf8')
-for (const token of ['hidden', 'peek', 'open', 'chatOpen', 'pageContext']) {
-  if (!petStore.includes(token)) {
-    throw new Error(`petStore is missing ${token}`)
-  }
+const removedAiFiles = [
+  'components/AiPet.vue',
+  'components/AiChatSheet.vue',
+  'stores/pet.js',
+  'mock/ai.js',
+]
+const remainingAiFiles = removedAiFiles.filter((file) => existsSync(join(src, file)))
+if (remainingAiFiles.length) {
+  throw new Error(`Removed AI files remain:\n${remainingAiFiles.join('\n')}`)
 }
 
 console.log('phase1 smoke checks passed')

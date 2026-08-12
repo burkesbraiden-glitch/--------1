@@ -88,7 +88,7 @@ assert(/record\.displayTitle/.test(page) && /record\.destination/.test(page), '�
 assert(/record\.taskCount/.test(page) && /record\.completedTaskCount/.test(page) && /record\.photoCount/.test(page) && /record\.noteCount/.test(page), '记录页使用真实统计字段')
 assert(/record\.status === 'draft'/.test(page) && /record\.status === 'finalized'/.test(page), '记录页区分 draft 和 finalized')
 assert(/record\.displayCoverImage/.test(page), '记录页使用认证封面显示字段')
-assert(/<AiPet\s*\/>/.test(page) && /<AppTabbar active="record"\s*\/>/.test(page), '记录页保留 AiPet 与 AppTabbar')
+assert(/<AppTabbar active="record"\s*\/>/.test(page), '记录页保留 AppTabbar')
 
 assert(/getters\s*:\s*\{[\s\S]*learningRecordCount\s*\(/.test(store), 'record store provides the real JourneyRecord total getter')
 assert(/Number\(state\.total\)/.test(store) && /Array\.isArray\(state\.records\)/.test(store), 'learningRecordCount prioritizes pagination total with a records fallback')

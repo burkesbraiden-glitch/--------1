@@ -4,5 +4,4 @@ export { usePlanStore } from './plan'
 export { useGuideStore } from './guide'
 export { useTaskStore } from './task'
 export { useRecordStore } from './record'
-export { usePetStore } from './pet'
 

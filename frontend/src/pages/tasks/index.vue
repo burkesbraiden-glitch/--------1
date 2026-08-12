@@ -7,10 +7,7 @@
           <view class="tasks-header__spark"></view>
           <text class="tasks-header__title">观察任务</text>
         </view>
-        <view class="tasks-header__notice" @click="openPetChat">
-          <text>铃</text>
-          <view class="tasks-header__dot"></view>
-        </view>
+        <view class="tasks-header__spacer"></view>
       </view>
 
       <view class="tasks-hero">
@@ -124,16 +121,13 @@
       </view>
     </view>
 
-    <AiPet />
     <AppTabbar active="tasks" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import TaskCard from '../../components/TaskCard.vue'
-import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useRecordStore } from '../../stores/record'
 import { useTaskStore } from '../../stores/task'
@@ -144,7 +138,6 @@ import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
     TaskCard,
   },
@@ -223,7 +216,6 @@ export default {
   },
   async onShow() {
     await this.restorePlanAndTasks()
-    usePetStore().setPageContext('task-list', this.displayPlan?.id)
   },
   methods: {
     showToast(title) {
@@ -358,11 +350,6 @@ export default {
         url: '/pages/plan/index',
       })
     },
-    openPetChat() {
-      const petStore = usePetStore()
-      petStore.setPageContext('task-list', this.displayPlan?.id)
-      petStore.openChat()
-    },
     goDetail(item) {
       this.task.setCurrentTask(item.id)
       uni.navigateTo({
@@ -400,7 +387,7 @@ export default {
 }
 
 .tasks-header__back,
-.tasks-header__notice {
+.tasks-header__spacer {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -413,23 +400,6 @@ export default {
 
 .tasks-header__back {
   font-size: 64rpx;
-}
-
-.tasks-header__notice {
-  position: relative;
-  font-size: 24rpx;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 30rpx 30rpx 24rpx 24rpx;
-}
-
-.tasks-header__dot {
-  position: absolute;
-  top: -6rpx;
-  right: -2rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: #f26a21;
-  border-radius: 50%;
 }
 
 .tasks-header__title-wrap {
@@ -965,7 +935,7 @@ export default {
 }
 
 :global(.tasks-header__back),
-:global(.tasks-header__notice) {
+:global(.tasks-header__spacer) {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -978,23 +948,6 @@ export default {
 
 :global(.tasks-header__back) {
   font-size: 64rpx;
-}
-
-:global(.tasks-header__notice) {
-  position: relative;
-  font-size: 24rpx;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 30rpx 30rpx 24rpx 24rpx;
-}
-
-:global(.tasks-header__dot) {
-  position: absolute;
-  top: -6rpx;
-  right: -2rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: #f26a21;
-  border-radius: 50%;
 }
 
 :global(.tasks-header__title-wrap) {

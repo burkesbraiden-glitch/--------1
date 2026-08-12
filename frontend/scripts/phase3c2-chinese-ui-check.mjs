@@ -61,12 +61,8 @@ for (const text of knownMojibake) {
 
 const requiredChineseCopy = [
   '讲解卡',
-  '小旅',
   '语音讲解',
   '暂不提供语音讲解',
-  '简单一点',
-  '孩子能懂',
-  '讲个故事',
   '正在加载讲解卡',
   '正在准备专属讲解卡',
   '重新加载',

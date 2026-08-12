@@ -140,7 +140,7 @@ assert(/Number\.isInteger\(planId\)\s*&&\s*planId\s*>\s*0/.test(openRecordDetail
 assert(/url:\s*`\/pages\/record-detail\/index\?planId=\$\{planId\}`/.test(openRecordDetail), 'record detail navigation sends only planId')
 assert(!/record\.id/.test(openRecordDetail), 'record detail navigation does not use recordId')
 assert(!/fetchJourneyRecord|fetchJourneyRecords|createJourneyRecord|updateJourneyRecord|finalizeJourneyRecord/.test(openRecordDetail), 'record page does not request detail or write data')
-assert(/<AiPet\s*\/>/.test(list) && /<AppTabbar active="record"\s*\/>/.test(list), 'record list keeps AiPet and AppTabbar')
+assert(/<AppTabbar active="record"\s*\/>/.test(list), 'record list keeps AppTabbar')
 
 const journeyRecordClients = namedImportSet(store, '../api/journeyRecords.js')
 assert(journeyRecordClients.has('fetchJourneyRecords') && journeyRecordClients.has('fetchJourneyRecord'), 'record store imports the list and detail GET clients')
@@ -191,7 +191,6 @@ assert(!/:src="(?:record\.)?(?:coverImageUrl|imageUrl)"/.test(detail), 'detail n
 assert(/entry\.title/.test(detail) && /entry\.subtitle/.test(detail) && /entry\.note/.test(detail) && /entry\.completedAt/.test(detail), 'detail renders real entry fields')
 assert(/这份旅行记录里还没有可展示的任务内容/.test(detail), 'detail has an empty entries state')
 assert(/这份旅行记录已经封存/.test(detail), 'detail has a finalized read-only notice')
-assert(/<AiPet\s*\/>/.test(detail), 'detail keeps AiPet')
 assert(!/AppTabbar/.test(detail), 'detail does not render AppTabbar')
 const executableDetail = codeMask(detail)
 assert(!/\b(?:createJourneyRecord|updateJourneyRecord|finalizeJourneyRecord|PATCH|POST)\b/.test(executableDetail), 'detail does not create a JourneyRecord or call write clients directly')

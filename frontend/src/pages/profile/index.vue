@@ -143,10 +143,6 @@
           <text>登录状态</text>
           <text>{{ user.isLoggedIn ? '已开启' : '未登录' }}</text>
         </view>
-        <view class="profile-page__setting-row">
-          <text>小旅陪伴</text>
-          <text>默认显示</text>
-        </view>
       </view>
     </view>
 
@@ -192,25 +188,21 @@
       </view>
     </view>
 
-    <AiPet />
     <AppTabbar active="profile" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import GrowthBadge from '../../components/GrowthBadge.vue'
 import { mockFavorites } from '../../mock/favorites'
 import { useChildStore } from '../../stores/child'
-import { usePetStore } from '../../stores/pet'
 import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
     GrowthBadge,
   },
@@ -305,7 +297,6 @@ export default {
     },
   },
   async onShow() {
-    usePetStore().setPageContext('profile')
     await this.user.restoreSession()
     if (!this.user.isLoggedIn) {
       uni.reLaunch({

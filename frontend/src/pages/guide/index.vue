@@ -4,13 +4,9 @@
       <view class="guide-header">
         <view class="guide-header__spacer"></view>
         <view class="guide-header__title-wrap">
-          <text class="guide-header__spark">小旅</text>
           <text class="guide-header__title">讲解卡</text>
         </view>
-        <button class="guide-header__notice" @click="openAiShortcut('讲简单一点')">
-          <text>铃</text>
-          <view class="guide-header__dot"></view>
-        </button>
+        <view class="guide-header__spacer"></view>
       </view>
 
       <view v-if="!displayPlan" class="guide-card guide-card--listen">
@@ -61,7 +57,7 @@
       <view v-if="isGuideBusy" class="guide-card guide-card--listen">
         <view class="guide-card__body">
           <text class="guide-card__title">{{ guideLoadingTitle }}</text>
-          <text class="guide-card__text">请稍等，小旅正在整理适合孩子听的讲解内容。</text>
+          <text class="guide-card__text">请稍等，正在整理适合孩子听的讲解内容。</text>
         </view>
       </view>
 
@@ -110,32 +106,17 @@
         </view>
       </view>
 
-      <view class="guide-ai-grid">
-        <button
-          v-for="shortcut in aiShortcuts"
-          :key="shortcut.title"
-          class="guide-ai-card"
-          :class="`guide-ai-card--${shortcut.theme}`"
-          @click="openAiShortcut(shortcut.title)"
-        >
-          <view class="guide-ai-card__icon">{{ shortcut.icon }}</view>
-          <text class="guide-ai-card__text">{{ shortcut.title }}</text>
-        </button>
-      </view>
       </template>
       </template>
     </view>
 
-    <AiPet />
     <AppTabbar active="plan" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import { useGuideStore } from '../../stores/guide'
-import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
@@ -143,17 +124,11 @@ import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
   },
   data() {
     return {
       audioState: 'idle',
-      aiShortcuts: [
-        { title: '简单一点', icon: '简', theme: 'blue' },
-        { title: '孩子能懂', icon: '懂', theme: 'green' },
-        { title: '讲个故事', icon: '故', theme: 'orange' },
-      ],
     }
   },
   computed: {
@@ -222,7 +197,6 @@ export default {
   },
   async onShow() {
     await this.restoreCurrentPlan()
-    usePetStore().setPageContext('guide', this.displayPlan?.id)
   },
   methods: {
     async restoreCurrentPlan() {
@@ -260,12 +234,6 @@ export default {
       }
       this.audioState = 'playing'
     },
-    openAiShortcut(text) {
-      const petStore = usePetStore()
-      petStore.setPageContext('guide', this.displayPlan?.id)
-      petStore.openChat()
-      this.lastShortcut = text
-    },
   },
 }
 </script>
@@ -296,8 +264,7 @@ export default {
   margin-bottom: 30rpx;
 }
 
-.guide-header__spacer,
-.guide-header__notice {
+.guide-header__spacer {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -308,37 +275,10 @@ export default {
   color: #4a2f1b;
 }
 
-.guide-header__notice {
-  position: relative;
-  font-size: 24rpx;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 30rpx 30rpx 24rpx 24rpx;
-}
-
-.guide-header__dot {
-  position: absolute;
-  top: -6rpx;
-  right: -2rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: #f26a21;
-  border-radius: 50%;
-}
-
 .guide-header__title-wrap {
   position: relative;
   flex: 1;
   text-align: center;
-}
-
-.guide-header__spark {
-  position: absolute;
-  top: -18rpx;
-  left: 88rpx;
-  font-size: 20rpx;
-  font-weight: 900;
-  color: #f4aa23;
-  transform: rotate(-22deg);
 }
 
 .guide-header__title {
@@ -658,56 +598,6 @@ export default {
   background: #fff6dc;
   border: 2rpx solid rgba(190, 142, 78, 0.32);
   border-radius: 18rpx;
-}
-
-.guide-ai-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16rpx;
-  padding-right: 92rpx;
-  margin-top: 26rpx;
-}
-
-.guide-ai-card {
-  min-width: 0;
-  min-height: 116rpx;
-  padding: 16rpx 10rpx;
-  text-align: center;
-  border: 3rpx solid rgba(190, 142, 78, 0.28);
-  border-radius: 24rpx;
-}
-
-.guide-ai-card--blue {
-  background: #dfeff8;
-}
-
-.guide-ai-card--green {
-  background: #eef6dc;
-}
-
-.guide-ai-card--orange {
-  background: #fff1d8;
-}
-
-.guide-ai-card__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42rpx;
-  height: 42rpx;
-  margin: 0 auto 10rpx;
-  font-size: 21rpx;
-  font-weight: 900;
-  color: #6b482d;
-  background: rgba(255, 250, 240, 0.66);
-  border-radius: 50%;
-}
-
-.guide-ai-card__text {
-  display: block;
-  font-size: 25rpx;
-  line-height: 1.35;
-  color: #4a2f1b;
 }
 
 @media (max-width: 360px) {

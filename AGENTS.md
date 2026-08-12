@@ -111,31 +111,20 @@ docs/design-reference/
 - 记录
 - 我的
 
-## AI 宠物
+## 首版 AI 范围
 
-名称：小旅
+童旅记首版不包含 AI 宠物、小旅对话、AI floating widget 或 AI 助手入口。
 
-所有主要页面都存在。
+禁止在当前首版页面重新加入：
 
-位置：屏幕右侧中下区域。
+- 小旅
+- AI 对话
+- AI floating widget
+- AI Mock
+- AI store/state
+- AI 专属布局
 
-状态：
-
-- hidden
-- peek
-- open
-
-默认：peek
-
-交互：
-
-- 点击箭头：隐藏。
-- 点击侧边：重新出现。
-- 点击宠物：打开底部 AI 对话抽屉。
-
-禁止创建独立 AI 主导航。
-
-任务详情页禁止增加单独 AI 提示卡。
+GuideCard 和 Task Generator 的固定模板生成属于正常业务，不属于 AI 宠物删除范围。
 
 ## 记录页
 
@@ -152,7 +141,3 @@ docs/design-reference/06-record.png
 前端完成以前使用 Mock 数据。
 
 不要提前接 Flask 和 MySQL。
-
-没有 AI Key 时使用 Mock AI。
-
-项目不能因为没有 AI Key 无法运行。

@@ -4,13 +4,9 @@
       <view class="plan-header">
         <button class="plan-header__back" @click="goHome">‹</button>
         <view class="plan-header__title-wrap">
-          <text class="plan-header__spark">小旅</text>
           <text class="plan-header__title">探索计划</text>
         </view>
-        <button class="plan-header__notice" @click="openPetChat">
-          <text>铃</text>
-          <view class="plan-header__dot"></view>
-        </button>
+        <view class="plan-header__spacer"></view>
       </view>
 
       <view v-if="isPageLoading" class="plan-basic">
@@ -94,12 +90,6 @@
         </view>
       </view>
 
-      <button class="plan-ai" @click="openPetChat">
-        <view class="plan-ai__badge">AI建议</view>
-        <text class="plan-ai__text">先让孩子猜一猜，再一起寻找答案</text>
-        <text class="plan-ai__arrow">›</text>
-      </button>
-
       <button class="plan-start" :disabled="isStarting" @click="startExploration">
         <text>{{ isStarting ? '启动中' : '开始今天的探索' }}</text>
         <text class="plan-start__star">星</text>
@@ -107,15 +97,12 @@
       </template>
     </view>
 
-    <AiPet />
     <AppTabbar active="plan" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
-import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
@@ -124,7 +111,6 @@ import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
   },
   data() {
@@ -194,7 +180,6 @@ export default {
   },
   async onShow() {
     await this.loadPlans()
-    usePetStore().setPageContext('plan', this.displayPlan?.id)
   },
   methods: {
     showToast(title) {
@@ -225,11 +210,6 @@ export default {
       uni.reLaunch({
         url: '/pages/home/index',
       })
-    },
-    openPetChat() {
-      const petStore = usePetStore()
-      petStore.setPageContext('plan', this.displayPlan?.id)
-      petStore.openChat()
     },
     async startExploration() {
       if (this.isStarting || !this.displayPlan) {
@@ -285,7 +265,7 @@ export default {
 }
 
 .plan-header__back,
-.plan-header__notice {
+.plan-header__spacer {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -300,37 +280,10 @@ export default {
   font-size: 56rpx;
 }
 
-.plan-header__notice {
-  position: relative;
-  font-size: 24rpx;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 30rpx 30rpx 24rpx 24rpx;
-}
-
-.plan-header__dot {
-  position: absolute;
-  top: -6rpx;
-  right: -2rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: #f26a21;
-  border-radius: 50%;
-}
-
 .plan-header__title-wrap {
   position: relative;
   flex: 1;
   text-align: center;
-}
-
-.plan-header__spark {
-  position: absolute;
-  top: -18rpx;
-  left: 72rpx;
-  font-size: 20rpx;
-  font-weight: 900;
-  color: #f4aa23;
-  transform: rotate(-22deg);
 }
 
 .plan-header__title {
@@ -651,45 +604,6 @@ export default {
   font-size: 58rpx;
   color: #6b482d;
   transform: translateY(-50%);
-}
-
-.plan-ai {
-  display: flex;
-  align-items: center;
-  width: calc(100% - 92rpx);
-  min-height: 76rpx;
-  margin-bottom: 20rpx;
-  padding: 12rpx 18rpx;
-  text-align: left;
-  background: #dfeff8;
-  border: 3rpx solid rgba(47, 111, 148, 0.22);
-  border-radius: 24rpx;
-}
-
-.plan-ai__badge {
-  flex-shrink: 0;
-  padding: 8rpx 16rpx;
-  margin-right: 14rpx;
-  font-size: 24rpx;
-  font-weight: 900;
-  color: #fff;
-  background: #669bc2;
-  border-radius: 16rpx;
-}
-
-.plan-ai__text {
-  flex: 1;
-  min-width: 0;
-  font-size: 26rpx;
-  line-height: 1.35;
-  color: #235b83;
-}
-
-.plan-ai__arrow {
-  flex-shrink: 0;
-  margin-left: 12rpx;
-  font-size: 42rpx;
-  color: #235b83;
 }
 
 .plan-start {

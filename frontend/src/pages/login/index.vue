@@ -15,7 +15,6 @@
       <view class="login-page__family">
         <view class="login-page__adult">家长</view>
         <view class="login-page__child">孩子</view>
-        <view class="login-page__bot">小旅</view>
       </view>
       <view class="login-page__palace">故宫</view>
       <view class="login-page__book">探索手册</view>
@@ -74,20 +73,16 @@
       </view>
     </view>
 
-    <AiPet />
     <AppTabbar active="profile" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
-import { usePetStore } from '../../stores/pet'
 import { useUserStore } from '../../stores/user'
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
   },
   data() {
@@ -113,7 +108,6 @@ export default {
     },
   },
   async onShow() {
-    usePetStore().setPageContext('login')
     const restored = await this.user.restoreSession()
     if (restored && this.user.isLoggedIn) {
       uni.reLaunch({
@@ -345,8 +339,7 @@ export default {
 .login-page__palace,
 .login-page__book,
 .login-page__adult,
-.login-page__child,
-.login-page__bot {
+.login-page__child {
   position: absolute;
   display: flex;
   align-items: center;
@@ -394,18 +387,6 @@ export default {
   color: #d94b12;
   background: #ffd782;
   border-radius: 70rpx 70rpx 42rpx 42rpx;
-}
-
-.login-page__bot {
-  right: 98rpx;
-  bottom: 82rpx;
-  width: 124rpx;
-  height: 112rpx;
-  font-size: 28rpx;
-  font-weight: 900;
-  color: #2f6f94;
-  background: #e9f6fb;
-  border-radius: 46rpx;
 }
 
 .login-page__palace {

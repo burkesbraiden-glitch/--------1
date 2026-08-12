@@ -169,7 +169,6 @@ assert(!/\bfinalizeJourneyRecordDraft\b/.test(codeMask(saveChanges)), 'page draf
 assert(/旅行记录已保存/.test(detail) && /保存失败，请稍后重试/.test(detail), 'page provides clear save feedback')
 assert(/v-if="record\.status === 'draft'"/.test(detail), 'finalized records do not render the draft editor')
 assert(/recordStore\.saveError/.test(detail) && !/detailError\s*=\s*this\.recordStore\.saveError/.test(detail), 'save errors stay separate from detail loading errors')
-assert(/<AiPet\s*\/>/.test(detail), 'record detail retains AiPet')
 assert(!/AppTabbar/.test(detail), 'record detail does not add AppTabbar')
 
 console.log('phase5c4 record edit checks passed')

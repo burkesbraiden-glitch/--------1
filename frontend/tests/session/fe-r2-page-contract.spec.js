@@ -67,7 +67,7 @@ describe('FE-R2.3 Task Detail JourneyRecord contract', () => {
   })
 
   test('completes the Task first without adding Plan completion, retry UI, navigation, or finalization', () => {
-    const completeSource = methodSource('completeTask', 'openPetChat')
+    const completeSource = methodSource('completeTask', 'goBack')
     const completeTaskIndex = completeSource.indexOf('await this.task.completeTaskSubmission')
     const ensureIndex = completeSource.indexOf('void this.ensureJourneyRecordAfterTaskCompletion(task.planId)')
 

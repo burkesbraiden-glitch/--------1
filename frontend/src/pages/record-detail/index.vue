@@ -7,7 +7,7 @@
           <text class="record-detail-header__spark">✦</text>
           <text class="record-detail-header__title">旅行记录</text>
         </view>
-        <button class="record-detail-header__notice" @click="openPetChat">铃</button>
+        <view class="record-detail-header__spacer"></view>
       </view>
 
       <view v-if="routeError" class="record-detail-state record-detail-state--error">
@@ -194,15 +194,12 @@
       </template>
     </view>
 
-    <AiPet />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import GrowthBadge from '../../components/GrowthBadge.vue'
 import PolaroidCard from '../../components/PolaroidCard.vue'
-import { usePetStore } from '../../stores/pet'
 import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
@@ -228,7 +225,6 @@ function normalizeSubmissionId(value) {
 
 export default {
   components: {
-    AiPet,
     GrowthBadge,
     PolaroidCard,
   },
@@ -296,7 +292,6 @@ export default {
     },
   },
   onLoad(options) {
-    usePetStore().setPageContext('record-detail')
     this.routePlanId = normalizePlanId(options?.planId)
     this.routeError = !this.routePlanId
     if (!this.routeError) {
@@ -471,11 +466,6 @@ export default {
         },
       })
     },
-    openPetChat() {
-      const petStore = usePetStore()
-      petStore.setPageContext('record-detail')
-      petStore.openChat()
-    },
     async retryDetail() {
       try {
         await this.recordStore.retryJourneyRecordDetail()
@@ -519,7 +509,7 @@ export default {
 }
 
 .record-detail-header__back,
-.record-detail-header__notice {
+.record-detail-header__spacer {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -532,12 +522,6 @@ export default {
 
 .record-detail-header__back {
   font-size: 64rpx;
-}
-
-.record-detail-header__notice {
-  font-size: 25rpx;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 30rpx 30rpx 24rpx 24rpx;
 }
 
 .record-detail-header__title-wrap {

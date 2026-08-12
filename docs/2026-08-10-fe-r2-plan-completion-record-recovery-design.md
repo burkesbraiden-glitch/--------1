@@ -315,3 +315,6 @@ JourneyRecord ensure 失败时，任务完成仍成功
 开始 implementation 前，先基于本设计创建独立 implementation plan，并保持历史 checker 与当前 contract 的边界清晰。每次验证应在正确工作区与会话下运行；任何首次新失败先停止并报告，不顺带修复范围外问题。
 
 本设计文档提交审核前不进行 Git 写入。用户审核后，才可明确授权进入 implementation plan；本文件本身不授权功能实现。
+# 2026-08-11 FE-R4A supersession:
+
+本文中的 AiPet / 小旅 / usePetStore 相关要求仅记录当时实现，不再属于当前首版要求，不得在后续实现中恢复。

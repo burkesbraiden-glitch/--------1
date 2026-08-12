@@ -71,6 +71,6 @@ assert(/finalizeJourneyRecordDraft\(this\.routePlanId\)/.test(finalizePage), 'pa
 assert(/旅行记录已封存/.test(finalizePage) && /finalizeErrorMessage/.test(detail), 'page provides success and safe failure feedback')
 assert(!/finalizeJourneyRecordDraft/.test(methodSource(detail, 'loadDetail')) && !/finalizeJourneyRecordDraft/.test(methodSource(detail, 'syncDraftFromRecord')), 'page never finalizes while loading or watching data')
 assert(/record\.displayFinalizedAt/.test(detail) && /这份旅行记录已经封存/.test(detail), 'finalized page displays server finalized time and a read-only notice')
-assert(!/AppTabbar/.test(detail) && /<AiPet\s*\/>/.test(detail), 'detail keeps AiPet without AppTabbar')
+assert(!/AppTabbar/.test(detail), 'detail does not render AppTabbar')
 
 console.log('phase5c4 record finalize checks passed')

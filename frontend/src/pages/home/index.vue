@@ -3,7 +3,6 @@
     <view class="home-page__paper">
       <view class="home-header">
         <view class="home-header__brand">
-          <text class="home-header__sun">小旅</text>
           <text class="home-header__title">童旅记</text>
           <text class="home-header__subtitle">在旅行中学习，在故事里成长</text>
         </view>
@@ -183,23 +182,19 @@
       </view>
     </view>
 
-    <AiPet />
     <AppTabbar active="home" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import { useChildStore } from '../../stores/child'
-import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
   },
   data() {
@@ -273,7 +268,6 @@ export default {
     },
   },
   onShow() {
-    usePetStore().setPageContext('home')
     this.planForm.ageGroup = this.child.ageGroup
   },
   methods: {
@@ -435,16 +429,6 @@ export default {
   position: relative;
   flex: 1;
   min-width: 0;
-}
-
-.home-header__sun {
-  position: absolute;
-  top: 0;
-  left: -14rpx;
-  font-size: 18rpx;
-  font-weight: 800;
-  color: #f4aa23;
-  transform: rotate(-24deg);
 }
 
 .home-header__title {

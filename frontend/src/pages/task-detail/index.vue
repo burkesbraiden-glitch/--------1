@@ -7,10 +7,7 @@
           <text class="detail-header__spark">任务</text>
           <text class="detail-header__title">任务详情</text>
         </view>
-        <button class="detail-header__notice" @click="openPetChat">
-          <text>铃</text>
-          <view class="detail-header__dot"></view>
-        </button>
+        <view class="detail-header__spacer"></view>
       </view>
 
       <view class="detail-hero">
@@ -127,15 +124,12 @@
       </view>
     </view>
 
-    <AiPet />
     <AppTabbar active="tasks" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
-import { usePetStore } from '../../stores/pet'
 import { usePlanStore } from '../../stores/plan'
 import { useRecordStore } from '../../stores/record'
 import { useTaskStore } from '../../stores/task'
@@ -155,7 +149,6 @@ function isAuthenticationError(error) {
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
   },
   data() {
@@ -305,8 +298,7 @@ export default {
   },
     async onShow() {
       await this.restorePlanAndTasks()
-      const task = await this.recoverCurrentTask()
-      usePetStore().setPageContext('task-detail', task?.id)
+      await this.recoverCurrentTask()
       this.restoreRecord()
       await this.restoreCompletedPlanCorrectionStatus()
       await this.restoreTaskImage()
@@ -630,11 +622,6 @@ export default {
         this.showToast(this.taskErrorText(error, '任务完成失败，请稍后重试'))
       }
     },
-    openPetChat() {
-      const petStore = usePetStore()
-      petStore.setPageContext('task-detail', this.currentTask.id)
-      petStore.openChat()
-    },
     goBack() {
       uni.navigateBack({
         fail: () => {
@@ -678,7 +665,7 @@ export default {
 }
 
 .detail-header__back,
-.detail-header__notice {
+.detail-header__spacer {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -691,23 +678,6 @@ export default {
 
 .detail-header__back {
   font-size: 64rpx;
-}
-
-.detail-header__notice {
-  position: relative;
-  font-size: 24rpx;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 30rpx 30rpx 24rpx 24rpx;
-}
-
-.detail-header__dot {
-  position: absolute;
-  top: -6rpx;
-  right: -2rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: #f26a21;
-  border-radius: 50%;
 }
 
 .detail-header__title-wrap {

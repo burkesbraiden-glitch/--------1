@@ -1,5 +1,7 @@
 # 童旅记实施计划
 
+> 2026-08-11 产品范围更新：第 1-6 阶段中关于 AI 宠物“小旅”的历史实现要求已由 FE-R4A 正式废止。当前首版不包含 AI 宠物、AI 对话、AI floating widget 或 AI Mock；GuideCard 与 Task Generator 的固定模板业务继续保留。
+
 ## 第 0 阶段：项目初始化
 
 目标：创建正式经典 uni-app Vue 3 + Vite 前端项目，安装依赖，建立项目根目录文档和后端空目录。

@@ -611,3 +611,6 @@ FILES_MODIFIED_SO_FAR=<git status --short>
 - [ ] 运行禁止占位语扫描，确认没有未填充步骤、模糊异常处理或只引用前文的步骤。
 - [ ] 检查历史 checker debt 没有成为 acceptance gate。
 - [ ] 完成后先执行 FE-R2 Git Pre-Commit Audit，等待用户明确授权后再进行 Git 操作。
+# 2026-08-11 FE-R4A supersession:
+
+本文中的 AiPet / 小旅 / usePetStore 相关要求仅记录当时实现，不再属于当前首版要求，不得在后续实现中恢复。

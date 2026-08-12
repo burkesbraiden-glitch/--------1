@@ -7,10 +7,6 @@
           <text class="record-header__title">记录</text>
           <text class="record-header__star">星</text>
         </view>
-        <button class="record-header__notice" @click="openPetChat">
-          <text>铃</text>
-          <view class="record-header__dot"></view>
-        </button>
       </view>
 
       <view class="record-intro">
@@ -22,7 +18,7 @@
       <view v-if="isInitialLoading" class="record-state">
         <view class="record-state__spinner"></view>
         <text class="record-state__title">正在整理旅行记录……</text>
-        <text class="record-state__desc">小旅正在翻看这次探索的珍贵回忆</text>
+        <text class="record-state__desc">正在整理这次探索的珍贵回忆</text>
       </view>
 
       <view v-else-if="showFullError" class="record-state record-state--error">
@@ -92,17 +88,14 @@
       </template>
     </view>
 
-    <AiPet />
     <AppTabbar active="record" />
   </view>
 </template>
 
 <script>
-import AiPet from '../../components/AiPet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import PolaroidCard from '../../components/PolaroidCard.vue'
 import { useChildStore } from '../../stores/child'
-import { usePetStore } from '../../stores/pet'
 import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
@@ -113,7 +106,6 @@ function isAuthenticationError(error) {
 
 export default {
   components: {
-    AiPet,
     AppTabbar,
     PolaroidCard,
   },
@@ -153,7 +145,6 @@ export default {
     },
   },
   async onShow() {
-    usePetStore().setPageContext('record')
     await this.loadRecords()
   },
   methods: {
@@ -194,11 +185,6 @@ export default {
           await this.handleAuthExpired()
         }
       }
-    },
-    openPetChat() {
-      const petStore = usePetStore()
-      petStore.setPageContext('record')
-      petStore.openChat()
     },
     openRecordDetail(record) {
       const planId = Number(record?.planId)
@@ -292,30 +278,6 @@ export default {
 .record-header__star {
   right: -48rpx;
   transform: rotate(16deg);
-}
-
-.record-header__notice {
-  position: absolute;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 62rpx;
-  height: 62rpx;
-  font-size: 24rpx;
-  font-weight: 900;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 30rpx 30rpx 24rpx 24rpx;
-}
-
-.record-header__dot {
-  position: absolute;
-  top: -6rpx;
-  right: -2rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: #f26a21;
-  border-radius: 50%;
 }
 
 .record-intro,
