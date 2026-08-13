@@ -2,9 +2,11 @@
   <view class="record-detail-page">
     <view class="record-detail-page__paper">
       <view class="record-detail-header">
-        <button class="record-detail-header__back" @click="goBack">‹</button>
+        <button class="record-detail-header__back" @click="goBack" aria-label="返回">
+          <view aria-hidden="true"></view>
+        </button>
         <view class="record-detail-header__title-wrap">
-          <text class="record-detail-header__spark">✦</text>
+          <view class="record-detail-header__spark" aria-hidden="true"></view>
           <text class="record-detail-header__title">旅行记录</text>
         </view>
         <view class="record-detail-header__spacer"></view>
@@ -46,14 +48,26 @@
         <view class="record-detail-overview">
           <PolaroidCard
             class="record-detail-overview__cover"
-            :image-path="record.displayCoverImage"
+            :image-path="coverPhotoImage"
             :title="record.displayTitle"
             :description="record.destination"
             :date-label="record.displayUpdatedAt"
             placeholder-theme="roof"
             tape-theme="green"
             :rotation="-2"
-          />
+          >
+            <template v-if="coverPhotoState === 'loading'" #photo>
+              <view class="record-detail-photo-state record-detail-photo-state--loading">
+                <view class="record-detail-photo-state__wash"></view>
+              </view>
+            </template>
+            <template v-else-if="coverPhotoState === 'error'" #photo>
+              <view class="record-detail-photo-state record-detail-photo-state--error">
+                <text>照片加载失败</text>
+                <button @click.stop="retryDetail">重试加载</button>
+              </view>
+            </template>
+          </PolaroidCard>
           <view class="record-detail-overview__stats">
             <GrowthBadge label="完成任务" :value="`${record.completedTaskCount} / ${record.taskCount}`" icon="✓" theme="yellow" />
             <GrowthBadge label="照片" :value="record.photoCount" icon="●" theme="blue" />
@@ -71,7 +85,7 @@
           <view class="record-detail-editor__tape"></view>
           <view class="record-detail-editor__heading">
             <text class="record-detail-section-title">整理这页手账</text>
-            <text>✦</text>
+            <view class="record-detail-editor__spark" aria-hidden="true"></view>
           </view>
 
           <view v-if="saveError" class="record-detail-editor__error">
@@ -118,7 +132,7 @@
                 @click="selectCover(entry.submissionId)"
               >
                 <image v-if="entry.displayImage" class="record-detail-cover-option__image" :src="entry.displayImage" mode="aspectFill" />
-                <view v-else class="record-detail-cover-option__placeholder">◉</view>
+                <view v-else class="record-detail-cover-option__placeholder" aria-hidden="true"></view>
                 <text class="record-detail-cover-option__title">{{ entry.title || '观察任务照片' }}</text>
                 <text v-if="selectedCoverSubmissionId === entry.submissionId" class="record-detail-cover-option__mark">已选</text>
               </view>
@@ -130,7 +144,7 @@
                 :class="{ 'record-detail-cover-option--selected': selectedCoverSubmissionId === null }"
                 @click="clearCover"
               >
-                <view class="record-detail-cover-option__placeholder">×</view>
+                <view class="record-detail-cover-option__placeholder record-detail-cover-option__placeholder--clear" aria-hidden="true"></view>
                 <text class="record-detail-cover-option__title">清除封面</text>
                 <text v-if="selectedCoverSubmissionId === null" class="record-detail-cover-option__mark">已选</text>
               </view>
@@ -153,24 +167,36 @@
         </view>
 
         <view class="record-detail-section-head">
-          <text class="record-detail-section-head__camera">◉</text>
+          <view class="record-detail-section-head__camera" aria-hidden="true"></view>
           <text>探索相册</text>
-          <view></view>
-          <text>✦</text>
+          <view class="record-detail-section-head__line"></view>
+          <view class="record-detail-section-head__spark" aria-hidden="true"></view>
         </view>
 
         <view v-if="record.entries.length" class="record-detail-entry-list">
           <view v-for="(entry, index) in record.entries" :key="entry.submissionId || entry.taskId" class="record-detail-entry">
             <PolaroidCard
               class="record-detail-entry__photo"
-              :image-path="entry.displayImage"
+              :image-path="entryPhotoImage(entry)"
               :title="entry.title"
               :description="entry.subtitle"
               :date-label="entry.displayCompletedAt"
               :placeholder-theme="index % 2 === 0 ? 'roof' : 'gate'"
               :tape-theme="tapeTheme(index)"
               :rotation="index % 2 === 0 ? -2 : 2"
-            />
+            >
+              <template v-if="entryPhotoState(entry) === 'loading'" #photo>
+                <view class="record-detail-photo-state record-detail-photo-state--loading">
+                  <view class="record-detail-photo-state__wash"></view>
+                </view>
+              </template>
+              <template v-else-if="entryPhotoState(entry) === 'error'" #photo>
+                <view class="record-detail-photo-state record-detail-photo-state--error">
+                  <text>照片加载失败</text>
+                  <button @click.stop="retryDetail">重试加载</button>
+                </view>
+              </template>
+            </PolaroidCard>
             <view class="record-detail-entry__note">
               <view class="record-detail-entry__head">
                 <text class="record-detail-entry__title">{{ entry.title }}</text>
@@ -200,6 +226,7 @@
 <script>
 import GrowthBadge from '../../components/GrowthBadge.vue'
 import PolaroidCard from '../../components/PolaroidCard.vue'
+import recordWatercolorFallback from '../../assets/record/record-watercolor-fallback.webp'
 import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
@@ -283,6 +310,15 @@ export default {
       return entries
         .filter((entry) => normalizeSubmissionId(entry?.submissionId) && typeof entry?.imageUrl === 'string' && entry.imageUrl.trim())
         .map((entry) => ({ ...entry, submissionId: normalizeSubmissionId(entry.submissionId) }))
+    },
+    coverPhotoState() {
+      return this.photoState(this.record?.coverImageUrl, this.record?.displayCoverImage)
+    },
+    coverPhotoImage() {
+      if (this.coverPhotoState === 'no-image') {
+        return recordWatercolorFallback
+      }
+      return this.record?.displayCoverImage || ''
     },
     hasDraftChanges() {
       return Object.keys(this.buildDraftChanges()).length > 0
@@ -478,6 +514,25 @@ export default {
     tapeTheme(index) {
       return ['green', 'pink', 'blue'][index % 3]
     },
+    photoState(imageUrl, displayImage) {
+      if (!imageUrl) {
+        return 'no-image'
+      }
+      if (displayImage) {
+        return 'image'
+      }
+      return this.recordStore.detailLoading ? 'loading' : 'error'
+    },
+    entryPhotoState(entry) {
+      return this.photoState(entry?.imageUrl, entry?.displayImage)
+    },
+    entryPhotoImage(entry) {
+      const state = this.entryPhotoState(entry)
+      if (state === 'no-image') {
+        return recordWatercolorFallback
+      }
+      return entry?.displayImage || ''
+    },
   },
 }
 </script>
@@ -521,7 +576,20 @@ export default {
 }
 
 .record-detail-header__back {
+  position: relative;
   font-size: 64rpx;
+}
+
+.record-detail-header__back view::after {
+  position: absolute;
+  top: 23rpx;
+  left: 27rpx;
+  width: 16rpx;
+  height: 16rpx;
+  content: '';
+  border-bottom: 4rpx solid currentColor;
+  border-left: 4rpx solid currentColor;
+  transform: rotate(45deg);
 }
 
 .record-detail-header__title-wrap {
@@ -539,8 +607,20 @@ export default {
   position: absolute;
   top: -16rpx;
   margin-left: -28rpx;
-  font-size: 22rpx;
+  width: 18rpx;
+  height: 18rpx;
   color: #f4aa23;
+  transform: rotate(45deg);
+}
+
+.record-detail-header__spark::after,
+.record-detail-editor__spark::after,
+.record-detail-section-head__spark::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: currentColor;
+  border-radius: 5rpx;
 }
 
 .record-detail-state,
@@ -720,6 +800,15 @@ export default {
   color: #55753c;
 }
 
+.record-detail-editor__spark,
+.record-detail-section-head__spark {
+  position: relative;
+  width: 17rpx;
+  height: 17rpx;
+  color: #f4aa23;
+  transform: rotate(45deg);
+}
+
 .record-detail-editor__field + .record-detail-editor__field {
   margin-top: 26rpx;
 }
@@ -802,6 +891,7 @@ export default {
 
 .record-detail-cover-option__image,
 .record-detail-cover-option__placeholder {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -812,15 +902,102 @@ export default {
   border-radius: 10rpx;
 }
 
+.record-detail-cover-option__placeholder::before,
+.record-detail-cover-option__placeholder::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: '';
+}
+
+.record-detail-cover-option__placeholder::before {
+  width: 42rpx;
+  height: 32rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 7rpx;
+}
+
+.record-detail-cover-option__placeholder::after {
+  top: 34rpx;
+  left: 50%;
+  width: 12rpx;
+  height: 12rpx;
+  background: currentColor;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
 .record-detail-cover-option__image {
   display: block;
 }
 
 .record-detail-cover-option--clear .record-detail-cover-option__placeholder {
-  font-size: 46rpx;
   color: #a3623e;
   background: #fff7e8;
   border: 2rpx dashed rgba(163, 98, 62, 0.38);
+}
+
+.record-detail-cover-option--clear .record-detail-cover-option__placeholder--clear::before,
+.record-detail-cover-option--clear .record-detail-cover-option__placeholder--clear::after {
+  top: 50%;
+  left: 50%;
+  width: 42rpx;
+  height: 3rpx;
+  background: currentColor;
+  border: 0;
+  border-radius: 999rpx;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.record-detail-cover-option--clear .record-detail-cover-option__placeholder--clear::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.record-detail-photo-state {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #dceecb, #cfe7f5 58%, #fff0bd);
+}
+
+.record-detail-photo-state--loading {
+  background: linear-gradient(115deg, #dceecb 0%, #eef6dc 42%, #cfe7f5 100%);
+}
+
+.record-detail-photo-state__wash {
+  width: 66%;
+  height: 56%;
+  background: rgba(255, 250, 240, 0.46);
+  border-radius: 50% 42% 48% 46%;
+  box-shadow: 24rpx -10rpx 0 rgba(255, 240, 189, 0.4), -32rpx 18rpx 0 rgba(207, 231, 245, 0.5);
+}
+
+.record-detail-photo-state--error {
+  flex-direction: column;
+  gap: 12rpx;
+  padding: 24rpx;
+  text-align: center;
+  color: #8a5a3d;
+  background: linear-gradient(135deg, #fff0bd, #fff7e8 56%, #f5d9cd);
+}
+
+.record-detail-photo-state--error text {
+  font-size: 23rpx;
+  font-weight: 900;
+}
+
+.record-detail-photo-state--error button {
+  min-width: 138rpx;
+  min-height: 48rpx;
+  padding: 0 18rpx;
+  font-size: 22rpx;
+  font-weight: 900;
+  color: #fff;
+  background: #d96b34;
+  border-radius: 999rpx;
 }
 
 .record-detail-cover-option__title {
@@ -910,13 +1087,39 @@ export default {
   font-weight: 900;
 }
 
-.record-detail-section-head view {
+.record-detail-section-head__line {
   flex: 1;
   border-top: 3rpx dashed rgba(244, 170, 35, 0.5);
 }
 
 .record-detail-section-head__camera {
-  color: #8a6d54;
+  position: relative;
+  width: 28rpx;
+  height: 22rpx;
+  border: 3rpx solid #8a6d54;
+  border-radius: 6rpx;
+}
+
+.record-detail-section-head__camera::before {
+  position: absolute;
+  top: -8rpx;
+  left: 6rpx;
+  width: 10rpx;
+  height: 7rpx;
+  content: '';
+  background: #8a6d54;
+  border-radius: 3rpx 3rpx 0 0;
+}
+
+.record-detail-section-head__camera::after {
+  position: absolute;
+  top: 5rpx;
+  left: 8rpx;
+  width: 7rpx;
+  height: 7rpx;
+  content: '';
+  background: #8a6d54;
+  border-radius: 50%;
 }
 
 .record-detail-entry-list {
@@ -1044,6 +1247,77 @@ export default {
   .record-detail-summary__text,
   .record-detail-entry__text {
     font-size: 15px;
+  }
+}
+.record-detail-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.record-detail-page__paper {
+  max-width: var(--tl-content-max-width, 430px);
+}
+
+.record-detail-title-card,
+.record-detail-summary,
+.record-detail-editor,
+.record-detail-finalize-action,
+.record-detail-entry__note {
+  overflow: hidden;
+  background-image: linear-gradient(90deg, transparent 0 22rpx, rgba(216, 171, 105, 0.12) 22rpx 24rpx, transparent 24rpx);
+}
+
+.record-detail-title-card::after,
+.record-detail-summary::after,
+.record-detail-editor::after {
+  position: absolute;
+  right: 18rpx;
+  bottom: 16rpx;
+  width: 46rpx;
+  height: 24rpx;
+  content: '';
+  pointer-events: none;
+  border-bottom: 3rpx solid rgba(123, 154, 80, 0.26);
+  border-radius: 50%;
+  transform: rotate(-12deg);
+}
+
+.record-detail-overview__cover,
+.record-detail-entry__photo {
+  filter: saturate(0.96);
+}
+
+.record-detail-editor {
+  background-color: rgba(238, 246, 220, 0.88);
+}
+
+.record-detail-finalize-action {
+  background-color: rgba(255, 247, 232, 0.95);
+}
+
+.record-detail-finalized {
+  color: #55753c;
+  background: rgba(231, 243, 215, 0.9);
+}
+
+@media (max-width: 370px) {
+  .record-detail-page__paper {
+    padding-right: 24rpx;
+    padding-left: 24rpx;
+  }
+
+  .record-detail-overview,
+  .record-detail-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .record-detail-overview__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .record-detail-entry:nth-child(even) .record-detail-entry__photo,
+  .record-detail-entry:nth-child(even) .record-detail-entry__note {
+    order: initial;
   }
 }
 </style>

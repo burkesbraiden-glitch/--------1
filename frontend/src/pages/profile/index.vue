@@ -1,39 +1,25 @@
 <template>
   <view class="profile-page">
-    <view class="profile-page__top">
-      <text class="profile-page__time">9:41</text>
-      <text class="profile-page__notice">铃</text>
-    </view>
-
     <view class="profile-page__title-row">
       <text class="profile-page__title">我的</text>
-      <text class="profile-page__spark">星</text>
+      <view class="profile-page__spark" aria-hidden="true"></view>
+    </view>
+
+    <view class="profile-page__hero-art">
+      <image src="../../assets/profile/profile-growth-watercolor.webp" mode="aspectFill" />
     </view>
 
     <view class="profile-page__user">
       <view class="profile-page__avatar">
-        <text>探</text>
+        <view class="profile-page__avatar-portrait" aria-hidden="true"></view>
       </view>
       <view class="profile-page__user-copy">
         <view class="profile-page__name-row">
           <text class="profile-page__name">{{ displayUser.nickname }}</text>
-          <text v-if="child.hasRemoteChild" class="profile-page__edit">笔</text>
+          <view v-if="child.hasRemoteChild" class="profile-page__edit" aria-hidden="true"></view>
         </view>
         <text class="profile-page__meta">{{ displayUser.meta }}</text>
         <text v-if="child.hasRemoteChild" class="profile-page__age-tag">{{ child.ageGroup }}岁</text>
-      </view>
-    </view>
-
-    <view class="profile-page__stats">
-      <view v-for="item in stats" :key="item.label" class="profile-page__stat">
-        <text class="profile-page__stat-icon">{{ item.icon }}</text>
-        <view>
-          <text class="profile-page__stat-label">{{ item.label }}</text>
-          <view class="profile-page__stat-value">
-            <text>{{ item.value }}</text>
-            <text>{{ item.unit }}</text>
-          </view>
-        </view>
       </view>
     </view>
 
@@ -48,24 +34,24 @@
 
     <view v-if="activeTab === 'records'" class="profile-page__section">
       <view class="profile-page__section-title">
-        <text class="profile-page__section-mark">星</text>
+        <view class="profile-page__section-mark" aria-hidden="true"></view>
         <text>最近学习记录</text>
       </view>
       <view class="profile-page__record-list">
         <button v-for="record in learningRecords" :key="record.id" class="profile-page__record">
-          <view class="profile-page__record-thumb">{{ record.thumb }}</view>
+          <view class="profile-page__record-thumb" :class="`profile-page__record-thumb--${record.thumb}`" aria-hidden="true"></view>
           <view class="profile-page__record-copy">
             <text class="profile-page__record-title">{{ record.title }}</text>
             <text class="profile-page__record-meta">{{ record.date }}　共 {{ record.learningRecordCount }} 条旅行记录</text>
           </view>
-          <text class="profile-page__arrow">›</text>
+          <view class="profile-page__arrow" aria-hidden="true"></view>
         </button>
       </view>
     </view>
 
     <view v-else class="profile-page__section">
       <view class="profile-page__section-title">
-        <text class="profile-page__section-mark">星</text>
+        <view class="profile-page__section-mark" aria-hidden="true"></view>
         <text>我的收藏</text>
       </view>
       <view class="profile-page__favorite-list">
@@ -76,24 +62,6 @@
             <text class="profile-page__favorite-desc">{{ favorite.description }}</text>
           </view>
         </button>
-      </view>
-    </view>
-
-    <view class="profile-page__section">
-      <view class="profile-page__section-title profile-page__section-title--leaf">
-        <text class="profile-page__section-mark">叶</text>
-        <text>成长收获</text>
-      </view>
-      <view class="profile-page__growth">
-        <GrowthBadge
-          v-for="skill in growthBadges"
-          :key="skill.label"
-          :label="skill.label"
-          :description="skill.description"
-          :value="skill.value"
-          :icon="skill.icon"
-          :theme="skill.theme"
-        />
       </view>
     </view>
 
@@ -126,9 +94,9 @@
 
     <view class="profile-page__menu">
       <button v-for="item in menuItems" :key="item.key" class="profile-page__menu-item" @click="handleMenu(item.key)">
-        <text class="profile-page__menu-icon">{{ item.icon }}</text>
+        <view class="profile-page__menu-icon" :class="`profile-page__menu-icon--${item.icon}`" aria-hidden="true"></view>
         <text>{{ item.label }}</text>
-        <text class="profile-page__arrow">›</text>
+        <view class="profile-page__arrow" aria-hidden="true"></view>
       </button>
     </view>
 
@@ -194,7 +162,6 @@
 
 <script>
 import AppTabbar from '../../components/AppTabbar.vue'
-import GrowthBadge from '../../components/GrowthBadge.vue'
 import { mockFavorites } from '../../mock/favorites'
 import { useChildStore } from '../../stores/child'
 import { useRecordStore } from '../../stores/record'
@@ -204,7 +171,6 @@ import { endUserSession } from '../../utils/sessionBoundary'
 export default {
   components: {
     AppTabbar,
-    GrowthBadge,
   },
   data() {
     return {
@@ -260,13 +226,6 @@ export default {
       }
       return '7-12'
     },
-    stats() {
-      return [
-        { label: '已探索', value: 3, unit: '次', icon: '镜' },
-        { label: '已完成任务', value: 8, unit: '项', icon: '板' },
-        { label: '获得徽章', value: 2, unit: '枚', icon: '章' },
-      ]
-    },
     learningRecords() {
       return [
         {
@@ -274,25 +233,18 @@ export default {
           title: '旅行记录',
           date: this.record.learningRecordCount > 0 ? '已收集' : '暂未收集',
           learningRecordCount: this.record.learningRecordCount,
-          thumb: '册',
+          thumb: 'record',
         },
-      ]
-    },
-    growthBadges() {
-      return [
-        { label: '会观察', description: '善于发现细节', value: 1, icon: '看', theme: 'green' },
-        { label: '会表达', description: '能说出自己的想法', value: 1, icon: '说', theme: 'blue' },
-        { label: '更主动', description: '愿意提问和探索', value: 1, icon: '芽', theme: 'yellow' },
       ]
     },
     menuItems() {
       return [
-        { key: 'child', label: '孩子档案', icon: '档' },
-        { key: 'favorites', label: '我的收藏', icon: '藏' },
-        { key: 'notice', label: '消息通知', icon: '铃' },
-        { key: 'settings', label: '设置', icon: '设' },
-        { key: 'help', label: '帮助与反馈', icon: '问' },
-        { key: 'logout', label: '退出登录', icon: '退' },
+        { key: 'child', label: '孩子档案', icon: 'child' },
+        { key: 'favorites', label: '我的收藏', icon: 'favorites' },
+        { key: 'notice', label: '消息通知', icon: 'notice' },
+        { key: 'settings', label: '设置', icon: 'settings' },
+        { key: 'help', label: '帮助与反馈', icon: 'help' },
+        { key: 'logout', label: '退出登录', icon: 'logout' },
       ]
     },
   },
@@ -441,7 +393,6 @@ export default {
     linear-gradient(180deg, #fff4da 0%, #f8efd9 100%);
 }
 
-.profile-page__top,
 .profile-page__title-row,
 .profile-page__user,
 .profile-page__name-row,
@@ -451,22 +402,6 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.profile-page__time {
-  font-size: 32rpx;
-  font-weight: 800;
-}
-
-.profile-page__notice {
-  width: 54rpx;
-  height: 54rpx;
-  font-size: 24rpx;
-  font-weight: 900;
-  line-height: 54rpx;
-  text-align: center;
-  border: 4rpx solid #4a2f1b;
-  border-radius: 50%;
 }
 
 .profile-page__title-row {
@@ -481,9 +416,20 @@ export default {
 }
 
 .profile-page__spark {
-  font-size: 24rpx;
-  font-weight: 900;
+  position: relative;
+  width: 22rpx;
+  height: 22rpx;
   color: #f4aa23;
+  transform: rotate(45deg);
+}
+
+.profile-page__spark::after,
+.profile-page__section-mark::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: currentColor;
+  border-radius: 5rpx;
 }
 
 .profile-page__user {
@@ -498,13 +444,45 @@ export default {
   justify-content: center;
   width: 142rpx;
   height: 142rpx;
-  font-size: 54rpx;
-  font-weight: 900;
   color: #d94b12;
   background: #ffd782;
   border: 8rpx solid #fffaf0;
   border-radius: 50%;
   box-shadow: 0 12rpx 24rpx rgba(97, 63, 28, 0.12);
+}
+
+.profile-page__avatar-portrait {
+  position: relative;
+  width: 58rpx;
+  height: 68rpx;
+  border: 4rpx solid currentColor;
+  border-radius: 34rpx 34rpx 20rpx 20rpx;
+}
+
+.profile-page__avatar-portrait::before,
+.profile-page__avatar-portrait::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  margin: auto;
+  content: '';
+}
+
+.profile-page__avatar-portrait::before {
+  top: 10rpx;
+  width: 18rpx;
+  height: 18rpx;
+  border: 4rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.profile-page__avatar-portrait::after {
+  bottom: 9rpx;
+  width: 32rpx;
+  height: 16rpx;
+  border: 4rpx solid currentColor;
+  border-bottom: 0;
+  border-radius: 22rpx 22rpx 0 0;
 }
 
 .profile-page__user-copy {
@@ -523,8 +501,22 @@ export default {
 }
 
 .profile-page__edit {
-  font-size: 24rpx;
+  position: relative;
+  width: 24rpx;
+  height: 24rpx;
   color: #d94b12;
+  transform: rotate(-38deg);
+}
+
+.profile-page__edit::before {
+  position: absolute;
+  top: 2rpx;
+  left: 9rpx;
+  width: 6rpx;
+  height: 20rpx;
+  content: '';
+  background: currentColor;
+  border-radius: 999rpx;
 }
 
 .profile-page__meta {
@@ -545,62 +537,6 @@ export default {
   border-radius: 999rpx;
 }
 
-.profile-page__stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 26rpx 18rpx;
-  margin-top: 30rpx;
-  background: rgba(255, 250, 240, 0.74);
-  border: 2rpx solid rgba(190, 142, 78, 0.28);
-  border-radius: 24rpx;
-}
-
-.profile-page__stat {
-  display: flex;
-  gap: 14rpx;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-}
-
-.profile-page__stat + .profile-page__stat {
-  border-left: 2rpx solid rgba(190, 142, 78, 0.22);
-}
-
-.profile-page__stat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 58rpx;
-  height: 58rpx;
-  font-size: 24rpx;
-  font-weight: 900;
-  color: #d94b12;
-  background: #fff0bd;
-  border-radius: 18rpx;
-}
-
-.profile-page__stat-label {
-  display: block;
-  font-size: 22rpx;
-  color: #5e3c22;
-}
-
-.profile-page__stat-value {
-  display: flex;
-  gap: 6rpx;
-  align-items: baseline;
-  margin-top: 4rpx;
-  font-size: 25rpx;
-}
-
-.profile-page__stat-value text:first-child {
-  font-size: 42rpx;
-  font-weight: 900;
-  color: #f26a21;
-}
-
 .profile-page__tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -619,7 +555,7 @@ export default {
 }
 
 .profile-page__tab--active {
-  color: #f26a21 !important;
+  color: #f26a21;
   background: #fffaf0;
 }
 
@@ -637,12 +573,11 @@ export default {
 }
 
 .profile-page__section-mark {
-  font-size: 24rpx;
+  position: relative;
+  width: 18rpx;
+  height: 18rpx;
   color: #f4aa23;
-}
-
-.profile-page__section-title--leaf .profile-page__section-mark {
-  color: #55753c;
+  transform: rotate(45deg);
 }
 
 .profile-page__record,
@@ -660,6 +595,7 @@ export default {
 }
 
 .profile-page__record-thumb {
+  position: relative;
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -667,11 +603,34 @@ export default {
   width: 160rpx;
   height: 74rpx;
   margin-right: 22rpx;
-  font-size: 32rpx;
-  font-weight: 900;
   color: #d94b12;
   background: #dfeff8;
   border-radius: 16rpx;
+}
+
+.profile-page__record-thumb::before,
+.profile-page__record-thumb::after,
+.profile-page__menu-icon::before,
+.profile-page__menu-icon::after,
+.profile-page__arrow::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: '';
+}
+
+.profile-page__record-thumb--record::before {
+  width: 32rpx;
+  height: 38rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 6rpx;
+}
+
+.profile-page__record-thumb--record::after {
+  width: 17rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 999rpx;
+  box-shadow: 0 9rpx 0 currentColor, 0 18rpx 0 currentColor;
 }
 
 .profile-page__record-copy,
@@ -703,10 +662,22 @@ export default {
 }
 
 .profile-page__arrow {
+  position: relative;
+  width: 22rpx;
+  height: 28rpx;
   flex-shrink: 0;
   margin-left: 12rpx;
-  font-size: 44rpx;
   color: #8a6d54;
+}
+
+.profile-page__arrow::after {
+  top: 7rpx;
+  left: 2rpx;
+  width: 11rpx;
+  height: 11rpx;
+  border-top: 3rpx solid currentColor;
+  border-right: 3rpx solid currentColor;
+  transform: rotate(45deg);
 }
 
 .profile-page__favorite-type {
@@ -718,12 +689,6 @@ export default {
   color: #d94b12;
   background: #fff0bd;
   border-radius: 14rpx;
-}
-
-.profile-page__growth {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14rpx;
 }
 
 .profile-page__child-card,
@@ -829,17 +794,94 @@ export default {
 }
 
 .profile-page__menu-icon {
+  position: relative;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 52rpx;
   height: 52rpx;
   margin-right: 18rpx;
-  font-size: 22rpx;
-  font-weight: 900;
   color: #f26a21;
   background: #fff0bd;
   border-radius: 16rpx;
+}
+
+.profile-page__menu-icon--child::before,
+.profile-page__menu-icon--notice::before,
+.profile-page__menu-icon--settings::before,
+.profile-page__menu-icon--help::before {
+  top: 11rpx;
+  left: 14rpx;
+  width: 20rpx;
+  height: 20rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.profile-page__menu-icon--child::after {
+  bottom: 8rpx;
+  left: 10rpx;
+  width: 28rpx;
+  height: 14rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 18rpx 18rpx 7rpx 7rpx;
+}
+
+.profile-page__menu-icon--favorites::before {
+  top: 13rpx;
+  left: 13rpx;
+  width: 24rpx;
+  height: 21rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 14rpx 14rpx 8rpx 8rpx;
+  transform: rotate(45deg);
+}
+
+.profile-page__menu-icon--notice::after {
+  top: 31rpx;
+  left: 18rpx;
+  width: 16rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 999rpx;
+}
+
+.profile-page__menu-icon--settings::after {
+  top: 21rpx;
+  left: 7rpx;
+  width: 38rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 999rpx;
+  transform: rotate(45deg);
+}
+
+.profile-page__menu-icon--help::after {
+  top: 17rpx;
+  left: 24rpx;
+  width: 4rpx;
+  height: 12rpx;
+  background: currentColor;
+  border-radius: 999rpx;
+}
+
+.profile-page__menu-icon--logout::before {
+  top: 12rpx;
+  left: 9rpx;
+  width: 25rpx;
+  height: 28rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 6rpx;
+}
+
+.profile-page__menu-icon--logout::after {
+  top: 22rpx;
+  right: 7rpx;
+  width: 22rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 999rpx;
 }
 
 .profile-page__menu-item .profile-page__arrow {
@@ -943,5 +985,118 @@ export default {
   color: #8a6d54;
   background: #eadcc8;
   box-shadow: none;
+}
+.profile-page {
+  width: 100%;
+  max-width: var(--tl-content-max-width, 430px);
+  padding-top: calc(30rpx + env(safe-area-inset-top));
+  margin: 0 auto;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(207, 231, 245, 0.84), transparent 20%),
+    linear-gradient(180deg, #fff8e8 0%, #f8efd9 100%);
+}
+
+.profile-page__title-row {
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+}
+
+.profile-page__title {
+  font-size: 52rpx;
+}
+
+.profile-page__hero-art {
+  height: 214rpx;
+  margin: 12rpx -14rpx -74rpx;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 28rpx 28rpx 46rpx 46rpx;
+  box-shadow: inset 0 -34rpx 42rpx rgba(255, 248, 232, 0.86);
+}
+
+.profile-page__hero-art image {
+  width: 100%;
+  height: 100%;
+  opacity: 0.84;
+}
+
+.profile-page__user {
+  position: relative;
+  z-index: 1;
+  padding: 22rpx;
+  margin-top: 0;
+  background: rgba(255, 250, 240, 0.92);
+  border: 2rpx solid rgba(190, 142, 78, 0.24);
+  border-radius: 28rpx;
+  box-shadow: 0 12rpx 26rpx rgba(97, 63, 28, 0.08);
+}
+
+.profile-page__avatar {
+  background: linear-gradient(135deg, #ffd782, #f5ad58);
+  box-shadow: 0 0 0 5rpx rgba(255, 250, 240, 0.78), 0 12rpx 24rpx rgba(97, 63, 28, 0.12);
+}
+
+.profile-page__tabs {
+  margin-top: 30rpx;
+  box-shadow: inset 0 0 0 2rpx rgba(190, 142, 78, 0.12);
+}
+
+.profile-page__record,
+.profile-page__favorite,
+.profile-page__child-card,
+.profile-page__menu {
+  background-color: rgba(255, 250, 240, 0.9);
+  box-shadow: 0 10rpx 20rpx rgba(97, 63, 28, 0.05);
+}
+
+.profile-page__record-thumb {
+  border: 2rpx solid rgba(115, 172, 211, 0.28);
+  transform: rotate(-3deg);
+}
+
+.profile-page__child-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-page__child-card::after {
+  position: absolute;
+  right: -8rpx;
+  bottom: -12rpx;
+  width: 76rpx;
+  height: 42rpx;
+  content: '';
+  pointer-events: none;
+  border: 5rpx solid rgba(123, 154, 80, 0.2);
+  border-color: rgba(123, 154, 80, 0.2) transparent transparent rgba(123, 154, 80, 0.2);
+  border-radius: 50%;
+  transform: rotate(14deg);
+}
+
+.profile-page__sheet-panel {
+  background: #fff8ea;
+  box-shadow: 0 -16rpx 34rpx rgba(74, 47, 27, 0.12);
+}
+
+@media (max-width: 370px) {
+  .profile-page {
+    padding-right: 28rpx;
+    padding-left: 28rpx;
+  }
+
+  .profile-page__hero-art {
+    height: 190rpx;
+  }
+
+  .profile-page__user {
+    gap: 18rpx;
+    padding: 18rpx;
+  }
+
+  .profile-page__avatar {
+    width: 118rpx;
+    height: 118rpx;
+  }
 }
 </style>

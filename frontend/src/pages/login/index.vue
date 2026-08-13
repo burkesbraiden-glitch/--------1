@@ -1,23 +1,17 @@
 <template>
   <view class="login-page">
-    <view class="login-page__top">
-      <text class="login-page__time">9:41</text>
-      <text class="login-page__notice">铃</text>
-    </view>
-
     <view class="login-page__header">
-      <text class="login-page__title">我的</text>
-      <text class="login-page__brand">童旅记</text>
+      <view>
+        <text class="login-page__brand">童旅记</text>
+        <text class="login-page__eyebrow">亲子旅行学习手账</text>
+      </view>
+      <text class="login-page__title">欢迎回来</text>
     </view>
 
     <view class="login-page__scene">
-      <view class="login-page__leaf">叶</view>
-      <view class="login-page__family">
-        <view class="login-page__adult">家长</view>
-        <view class="login-page__child">孩子</view>
-      </view>
-      <view class="login-page__palace">故宫</view>
-      <view class="login-page__book">探索手册</view>
+      <image class="login-page__scene-image" src="../../assets/auth/login-parent-child-travel.webp" mode="aspectFill" />
+      <view class="login-page__leaf" aria-hidden="true"></view>
+      <view class="login-page__book">打开今日的探索手账</view>
     </view>
 
     <view class="login-page__copy">
@@ -42,17 +36,17 @@
       </view>
 
       <button class="login-page__primary" :disabled="isPhoneLoggingIn" @click="submitPhoneLogin">
-        <text class="login-page__button-icon">机</text>
+        <view class="login-page__button-icon login-page__button-icon--phone" aria-hidden="true"></view>
         <text>{{ isPhoneLoggingIn ? '登录中' : '手机号登录' }}</text>
       </button>
 
       <button class="login-page__wechat" :disabled="isWechatLoggingIn" @click="submitWechatLogin">
-        <text class="login-page__wechat-icon">微</text>
+        <view class="login-page__button-icon login-page__button-icon--chat" aria-hidden="true"></view>
         <text>{{ isWechatLoggingIn ? '登录中' : '微信登录' }}</text>
       </button>
 
       <button class="login-page__agreement" @click="agreed = !agreed">
-        <text class="login-page__check" :class="{ 'login-page__check--active': agreed }">{{ agreed ? '✓' : '' }}</text>
+        <view class="login-page__check" :class="{ 'login-page__check--active': agreed }" aria-hidden="true"></view>
         <text>我已阅读并同意</text>
         <text class="login-page__link">《用户协议》</text>
         <text>和</text>
@@ -66,7 +60,7 @@
       </view>
       <view class="login-page__values">
         <view v-for="item in values" :key="item.title" class="login-page__value">
-          <view class="login-page__value-art">{{ item.icon }}</view>
+          <view class="login-page__value-art" :class="`login-page__value-art--${item.icon}`" aria-hidden="true"></view>
           <text class="login-page__value-name">{{ item.title }}</text>
           <text class="login-page__value-desc">{{ item.desc }}</text>
         </view>
@@ -96,9 +90,9 @@ export default {
       isPhoneLoggingIn: false,
       isWechatLoggingIn: false,
       values: [
-        { title: '同步探索计划', desc: '随时查看和继续探索', icon: '图' },
-        { title: '保存学习记录', desc: '珍藏每一次学习收获', icon: '册' },
-        { title: '获得成长徽章', desc: '见证孩子的点滴进步', icon: '章' },
+        { title: '同步探索计划', desc: '随时查看和继续探索', icon: 'plan' },
+        { title: '保存学习记录', desc: '珍藏每一次学习收获', icon: 'record' },
+        { title: '获得成长徽章', desc: '见证孩子的点滴进步', icon: 'badge' },
       ],
     }
   },
@@ -282,28 +276,10 @@ export default {
     linear-gradient(180deg, #fff4da 0%, #f8efd9 100%);
 }
 
-.login-page__top,
 .login-page__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.login-page__time {
-  font-size: 32rpx;
-  font-weight: 800;
-}
-
-.login-page__notice {
-  width: 54rpx;
-  height: 54rpx;
-  font-size: 24rpx;
-  font-weight: 900;
-  line-height: 54rpx;
-  text-align: center;
-  color: #4a2f1b;
-  border: 4rpx solid #4a2f1b;
-  border-radius: 50%;
 }
 
 .login-page__header {
@@ -336,10 +312,7 @@ export default {
 }
 
 .login-page__leaf,
-.login-page__palace,
-.login-page__book,
-.login-page__adult,
-.login-page__child {
+.login-page__book {
   position: absolute;
   display: flex;
   align-items: center;
@@ -358,47 +331,6 @@ export default {
   background: #dceecb;
   border-radius: 60% 38% 58% 42%;
   transform: rotate(-12deg);
-}
-
-.login-page__family {
-  position: absolute;
-  inset: 0;
-}
-
-.login-page__adult {
-  left: 84rpx;
-  bottom: 88rpx;
-  width: 150rpx;
-  height: 178rpx;
-  font-size: 30rpx;
-  font-weight: 900;
-  color: #2f6f94;
-  background: #cfe7f5;
-  border-radius: 78rpx 78rpx 48rpx 48rpx;
-}
-
-.login-page__child {
-  left: 224rpx;
-  bottom: 76rpx;
-  width: 122rpx;
-  height: 142rpx;
-  font-size: 28rpx;
-  font-weight: 900;
-  color: #d94b12;
-  background: #ffd782;
-  border-radius: 70rpx 70rpx 42rpx 42rpx;
-}
-
-.login-page__palace {
-  right: 6rpx;
-  top: 66rpx;
-  width: 190rpx;
-  height: 96rpx;
-  font-size: 30rpx;
-  font-weight: 900;
-  color: #d94b12;
-  background: #ffdca4;
-  border-radius: 28rpx 28rpx 18rpx 18rpx;
 }
 
 .login-page__book {
@@ -511,24 +443,83 @@ export default {
   border: 2rpx solid rgba(190, 142, 78, 0.32);
 }
 
-.login-page__button-icon,
-.login-page__wechat-icon {
-  font-size: 28rpx;
+.login-page__button-icon {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 30rpx;
+  height: 30rpx;
+  color: currentColor;
+}
+
+.login-page__button-icon::before,
+.login-page__button-icon::after,
+.login-page__value-art::before,
+.login-page__value-art::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: '';
+}
+
+.login-page__button-icon--phone::before {
+  inset: 2rpx 7rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 7rpx;
+}
+
+.login-page__button-icon--phone::after {
+  bottom: 5rpx;
+  left: 13rpx;
+  width: 4rpx;
+  height: 4rpx;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.login-page__button-icon--chat::before {
+  top: 3rpx;
+  left: 2rpx;
+  width: 21rpx;
+  height: 17rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 10rpx;
+}
+
+.login-page__button-icon--chat::after {
+  right: 2rpx;
+  bottom: 4rpx;
+  width: 18rpx;
+  height: 15rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 9rpx;
 }
 
 .login-page__agreement {
-  display: flex;
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 44rpx;
+  padding: 4rpx 0;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8rpx;
   margin-top: 22rpx;
   font-size: 24rpx;
   line-height: 1.4;
   color: #6f5238;
+  background: transparent;
+  border: 0;
+}
+
+.login-page__agreement::after {
+  display: none;
 }
 
 .login-page__check {
+  position: relative;
+  box-sizing: border-box;
+  flex: 0 0 auto;
   width: 34rpx;
   height: 34rpx;
   font-size: 24rpx;
@@ -542,6 +533,18 @@ export default {
 .login-page__check--active {
   background: #f26a21;
   border-color: #f26a21;
+}
+
+.login-page__check--active::after {
+  position: absolute;
+  top: 6rpx;
+  left: 10rpx;
+  width: 8rpx;
+  height: 13rpx;
+  content: '';
+  border-right: 3rpx solid #fff;
+  border-bottom: 3rpx solid #fff;
+  transform: rotate(42deg);
 }
 
 .login-page__link {
@@ -576,18 +579,66 @@ export default {
 }
 
 .login-page__value-art {
+  position: relative;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 92rpx;
   height: 92rpx;
   margin: 0 auto 14rpx;
-  font-size: 30rpx;
-  font-weight: 900;
   color: #d94b12;
   background: #fff0bd;
   border: 3rpx solid rgba(244, 170, 35, 0.22);
   border-radius: 30rpx;
+}
+
+.login-page__value-art--plan::before {
+  width: 38rpx;
+  height: 32rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 7rpx;
+  transform: rotate(-5deg);
+}
+
+.login-page__value-art--plan::after {
+  width: 3rpx;
+  height: 32rpx;
+  background: currentColor;
+  border-radius: 999rpx;
+}
+
+.login-page__value-art--record::before {
+  width: 34rpx;
+  height: 40rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 6rpx;
+}
+
+.login-page__value-art--record::after {
+  width: 18rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 999rpx;
+  box-shadow: 0 10rpx 0 currentColor, 0 20rpx 0 currentColor;
+}
+
+.login-page__value-art--badge::before {
+  width: 34rpx;
+  height: 34rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.login-page__value-art--badge::after {
+  bottom: 20rpx;
+  left: 42rpx;
+  width: 8rpx;
+  height: 13rpx;
+  content: '';
+  border-right: 3rpx solid currentColor;
+  border-bottom: 3rpx solid currentColor;
+  transform: rotate(42deg);
 }
 
 .login-page__value-name {
@@ -603,5 +654,143 @@ export default {
   font-size: 20rpx;
   line-height: 1.3;
   color: #6f5238;
+}
+.login-page {
+  width: 100%;
+  max-width: var(--tl-content-max-width, 430px);
+  margin: 0 auto;
+  padding-top: calc(32rpx + env(safe-area-inset-top));
+  background:
+    radial-gradient(circle at 84% 14%, rgba(207, 231, 245, 0.84), transparent 20%),
+    radial-gradient(circle at 12% 26%, rgba(255, 220, 164, 0.42), transparent 18%),
+    linear-gradient(180deg, #fff8e8 0%, #f8efd9 100%);
+}
+
+.login-page__header {
+  align-items: flex-end;
+  padding: 0 4rpx;
+  margin-top: 0;
+}
+
+.login-page__brand,
+.login-page__eyebrow {
+  display: block;
+}
+
+.login-page__brand {
+  padding: 0;
+  font-size: 31rpx;
+  color: #d94b12;
+  background: transparent;
+  border: 0;
+}
+
+.login-page__eyebrow {
+  margin-top: 6rpx;
+  font-size: 21rpx;
+  letter-spacing: 2rpx;
+  color: #8a6d54;
+}
+
+.login-page__title {
+  font-size: 40rpx;
+  line-height: 1.1;
+}
+
+.login-page__scene {
+  height: 400rpx;
+  margin-top: 34rpx;
+  overflow: visible;
+  background: transparent;
+  border-radius: 34rpx;
+  box-shadow: 0 18rpx 38rpx rgba(97, 63, 28, 0.11);
+}
+
+.login-page__scene-image {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  border: 3rpx solid rgba(190, 142, 78, 0.22);
+  border-radius: 34rpx;
+}
+
+.login-page__leaf,
+.login-page__book {
+  z-index: 1;
+  pointer-events: none;
+}
+
+.login-page__leaf {
+  top: -12rpx;
+  left: 24rpx;
+  width: 70rpx;
+  height: 42rpx;
+  border: 0;
+}
+
+.login-page__leaf::after {
+  position: absolute;
+  top: 8rpx;
+  left: 33rpx;
+  width: 3rpx;
+  height: 27rpx;
+  content: '';
+  background: rgba(85, 117, 60, 0.62);
+  border-radius: 999rpx;
+  transform: rotate(32deg);
+}
+
+.login-page__book {
+  right: 22rpx;
+  bottom: -18rpx;
+  left: auto;
+  width: auto;
+  height: auto;
+  padding: 13rpx 20rpx;
+  font-size: 22rpx;
+  background: rgba(255, 250, 240, 0.94);
+  border: 2rpx solid rgba(190, 142, 78, 0.2);
+  transform: rotate(-3deg);
+}
+
+.login-page__copy {
+  margin-top: 44rpx;
+}
+
+.login-page__headline {
+  font-size: 42rpx;
+}
+
+.login-page__form,
+.login-page__value-card {
+  position: relative;
+}
+
+.login-page__form {
+  padding: 6rpx 0 0;
+}
+
+.login-page__field {
+  border-color: rgba(190, 142, 78, 0.38);
+  box-shadow: 0 8rpx 18rpx rgba(97, 63, 28, 0.05);
+}
+
+.login-page__primary {
+  box-shadow: 0 14rpx 24rpx rgba(217, 75, 18, 0.24);
+}
+
+@media (max-width: 370px) {
+  .login-page {
+    padding-right: 30rpx;
+    padding-left: 30rpx;
+  }
+
+  .login-page__scene {
+    height: 350rpx;
+  }
+
+  .login-page__headline {
+    font-size: 38rpx;
+  }
 }
 </style>

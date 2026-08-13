@@ -10,13 +10,15 @@
     {
       "path": "pages/plan/index",
       "style": {
-        "navigationBarTitleText": "计划"
+        "navigationBarTitleText": "计划",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/guide/index",
       "style": {
-        "navigationBarTitleText": "讲解卡"
+        "navigationBarTitleText": "讲解卡",
+        "navigationStyle": "custom"
       }
     },
     {

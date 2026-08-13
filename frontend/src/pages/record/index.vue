@@ -3,14 +3,14 @@
     <view class="record-page__paper">
       <view class="record-header">
         <view class="record-header__title-wrap">
-          <text class="record-header__spark">记</text>
+          <view class="record-header__spark" aria-hidden="true"></view>
           <text class="record-header__title">记录</text>
-          <text class="record-header__star">星</text>
+          <view class="record-header__star" aria-hidden="true"></view>
         </view>
       </view>
 
       <view class="record-intro">
-        <view class="record-intro__tape"></view>
+        <view class="record-intro__tape" aria-hidden="true"></view>
         <text class="record-intro__title">探索相册</text>
         <text class="record-intro__desc">每一次观察和发现，都会慢慢收藏在这里。</text>
       </view>
@@ -22,7 +22,7 @@
       </view>
 
       <view v-else-if="showFullError" class="record-state record-state--error">
-        <text class="record-state__icon">！</text>
+        <view class="record-state__icon" aria-hidden="true"></view>
         <text class="record-state__title">旅行记录暂时加载失败</text>
         <text class="record-state__desc">{{ errorMessage }}</text>
         <button class="record-state__retry" @click="retryRecords">重新加载</button>
@@ -44,7 +44,7 @@
           <view class="section-title__camera"></view>
           <text>旅行记录</text>
           <view class="section-title__line"></view>
-          <text class="section-title__star">星</text>
+          <view class="section-title__star" aria-hidden="true"></view>
         </view>
 
         <view class="record-list">
@@ -58,7 +58,7 @@
           >
             <PolaroidCard
               class="record-card__photo"
-              :image-path="record.displayCoverImage"
+              :image-path="record.displayCoverImage || recordWatercolorFallback"
               :title="record.displayTitle"
               :description="record.destination"
               :date-label="record.displayUpdatedAt"
@@ -95,6 +95,7 @@
 <script>
 import AppTabbar from '../../components/AppTabbar.vue'
 import PolaroidCard from '../../components/PolaroidCard.vue'
+import recordWatercolorFallback from '../../assets/record/record-watercolor-fallback.webp'
 import { useChildStore } from '../../stores/child'
 import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
@@ -262,12 +263,21 @@ export default {
 }
 
 .record-header__spark,
-.record-header__star,
-.section-title__star {
+.record-header__star {
   position: absolute;
-  font-size: 24rpx;
-  font-weight: 900;
+  width: 19rpx;
+  height: 19rpx;
   color: #f4aa23;
+}
+
+.record-header__spark::after,
+.record-header__star::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: currentColor;
+  border-radius: 5rpx;
+  transform: rotate(45deg);
 }
 
 .record-header__spark {
@@ -297,12 +307,14 @@ export default {
 
 .record-intro__tape {
   position: absolute;
-  top: -16rpx;
-  left: 36rpx;
-  width: 74rpx;
-  height: 38rpx;
-  background: rgba(255, 208, 119, 0.72);
-  border-radius: 8rpx;
+  top: 12rpx;
+  left: 18rpx;
+  width: 48rpx;
+  height: 18rpx;
+  pointer-events: none;
+  background: rgba(225, 171, 94, 0.48);
+  border: 1rpx solid rgba(190, 142, 78, 0.2);
+  border-radius: 5rpx;
   transform: rotate(10deg);
 }
 
@@ -361,9 +373,34 @@ export default {
 }
 
 .record-state__icon {
-  font-size: 48rpx;
+  position: relative;
+  box-sizing: border-box;
   color: #fff;
   background: #f26a21;
+  border: 4rpx solid currentColor;
+}
+
+.record-state__icon::before,
+.record-state__icon::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  margin: auto;
+  content: '';
+  background: currentColor;
+  border-radius: 999rpx;
+}
+
+.record-state__icon::before {
+  top: 15rpx;
+  width: 4rpx;
+  height: 19rpx;
+}
+
+.record-state__icon::after {
+  bottom: 11rpx;
+  width: 5rpx;
+  height: 5rpx;
 }
 
 .record-state__retry {
@@ -422,7 +459,14 @@ export default {
 }
 
 .section-title__star {
-  position: static;
+  flex: 0 0 auto;
+  width: 12rpx;
+  height: 12rpx;
+  color: #f4aa23;
+  pointer-events: none;
+  background: currentColor;
+  border-radius: 3rpx;
+  transform: rotate(45deg);
 }
 
 .record-list {
@@ -536,6 +580,62 @@ export default {
   .record-card__destination,
   .record-card__updated {
     font-size: 13px;
+  }
+}
+
+.record-page__paper {
+  max-width: var(--tl-content-max-width, 430px);
+}
+
+.record-intro,
+.record-card__note {
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, transparent 0 24rpx, rgba(216, 171, 105, 0.13) 24rpx 26rpx, transparent 26rpx),
+    rgba(255, 250, 238, 0.94);
+}
+
+.record-intro::after,
+.record-card__note::after {
+  position: absolute;
+  top: 14rpx;
+  right: 14rpx;
+  width: 32rpx;
+  height: 32rpx;
+  content: '';
+  pointer-events: none;
+  border-top: 3rpx solid rgba(244, 170, 35, 0.34);
+  border-right: 3rpx solid rgba(244, 170, 35, 0.34);
+  border-radius: 0 8rpx 0 0;
+}
+
+.record-card {
+  padding: 12rpx 4rpx;
+  border-bottom: 2rpx dashed rgba(190, 142, 78, 0.24);
+}
+
+.record-card__note {
+  box-shadow: 10rpx 12rpx 0 rgba(190, 142, 78, 0.12);
+}
+
+.record-card__photo {
+  filter: saturate(0.96);
+}
+
+@media (max-width: 370px) {
+  .record-page__paper {
+    padding-right: 24rpx;
+    padding-left: 24rpx;
+  }
+
+  .record-card,
+  .record-card--reverse {
+    grid-template-columns: 1fr;
+  }
+
+  .record-card--reverse .record-card__photo,
+  .record-card--reverse .record-card__note {
+    order: initial;
   }
 }
 </style>

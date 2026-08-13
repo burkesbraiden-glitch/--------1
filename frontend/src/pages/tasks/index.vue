@@ -2,7 +2,9 @@
   <view class="tasks-page">
     <view class="tasks-page__paper">
       <view class="tasks-header">
-        <view class="tasks-header__back" @click="goPlan">‹</view>
+        <view class="tasks-header__back" @click="goPlan" aria-label="返回">
+          <view aria-hidden="true"></view>
+        </view>
         <view class="tasks-header__title-wrap">
           <view class="tasks-header__spark"></view>
           <text class="tasks-header__title">观察任务</text>
@@ -16,16 +18,17 @@
           <text class="tasks-hero__desc">边走边看，发现细节</text>
           <view class="tasks-hero__tags">
             <view class="tasks-hero__tag tasks-hero__tag--orange">
-              <text class="tasks-hero__tag-icon">包</text>
+              <view class="tasks-hero__tag-icon tasks-hero__tag-icon--age" aria-hidden="true"></view>
               <text>{{ displayPlan.ageGroup }}岁</text>
             </view>
             <view class="tasks-hero__tag tasks-hero__tag--blue">
-              <text class="tasks-hero__tag-icon">时</text>
+              <view class="tasks-hero__tag-icon tasks-hero__tag-icon--time" aria-hidden="true"></view>
               <text>约30分钟</text>
             </view>
           </view>
         </view>
         <view class="tasks-hero__art">
+          <image class="tasks-hero__watercolor" src="../../assets/tasks/task-roof-beast-watercolor.webp" mode="aspectFill" />
           <view class="tasks-hero__cloud tasks-hero__cloud--one"></view>
           <view class="tasks-hero__cloud tasks-hero__cloud--two"></view>
           <view class="tasks-hero__branch"></view>
@@ -38,6 +41,7 @@
       </view>
 
       <view class="tasks-progress">
+        <text class="tasks-progress__stamp">探索进度</text>
         <view class="tasks-progress__icon">
           <view class="tasks-progress__clip"></view>
           <view class="tasks-progress__line"></view>
@@ -399,7 +403,20 @@ export default {
 }
 
 .tasks-header__back {
+  position: relative;
   font-size: 64rpx;
+}
+
+.tasks-header__back view::after {
+  position: absolute;
+  top: 24rpx;
+  left: 27rpx;
+  width: 16rpx;
+  height: 16rpx;
+  content: '';
+  border-bottom: 4rpx solid currentColor;
+  border-left: 4rpx solid currentColor;
+  transform: rotate(45deg);
 }
 
 .tasks-header__title-wrap {
@@ -477,8 +494,42 @@ export default {
 }
 
 .tasks-hero__tag-icon {
+  position: relative;
+  width: 18rpx;
+  height: 18rpx;
   margin-right: 8rpx;
-  font-size: 20rpx;
+}
+
+.tasks-hero__tag-icon::before,
+.tasks-hero__tag-icon::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: '';
+}
+
+.tasks-hero__tag-icon--age::before,
+.tasks-hero__tag-icon--time::before {
+  inset: 1rpx;
+  border: 2rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.tasks-hero__tag-icon--age::after {
+  bottom: 0;
+  left: 8rpx;
+  width: 2rpx;
+  height: 8rpx;
+  background: currentColor;
+}
+
+.tasks-hero__tag-icon--time::after {
+  top: 4rpx;
+  left: 8rpx;
+  width: 2rpx;
+  height: 7rpx;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: rotate(-35deg);
 }
 
 .tasks-hero__tag--orange {
@@ -947,6 +998,7 @@ export default {
 }
 
 :global(.tasks-header__back) {
+  position: relative;
   font-size: 64rpx;
 }
 
@@ -1015,8 +1067,10 @@ export default {
 }
 
 :global(.tasks-hero__tag-icon) {
+  position: relative;
+  width: 18rpx;
+  height: 18rpx;
   margin-right: 8rpx;
-  font-size: 20rpx;
 }
 
 :global(.tasks-hero__tag--orange) {
@@ -1176,5 +1230,153 @@ export default {
   background: #e6863b;
   border: 4rpx solid #f7c379;
   border-radius: 14rpx;
+}
+
+/* FE-R6: museum observation booklet treatment.  All state and handlers remain above. */
+.tasks-page {
+  background:
+    radial-gradient(circle at 88% 7%, rgba(244, 170, 35, 0.16) 0 34rpx, transparent 35rpx),
+    radial-gradient(circle at 12% 20%, rgba(255, 255, 255, 0.48) 0 2rpx, transparent 3rpx 19rpx),
+    #f8efd9;
+}
+
+.tasks-page__paper {
+  padding-bottom: calc(218rpx + env(safe-area-inset-bottom));
+}
+
+.tasks-header__back {
+  width: 68rpx;
+  height: 68rpx;
+  font-family: serif;
+  line-height: 1;
+  color: #593719;
+  background: rgba(255, 248, 232, 0.78);
+  border: 2rpx solid rgba(213, 159, 75, 0.46);
+  border-radius: 50%;
+  box-shadow: 0 5rpx 0 rgba(187, 128, 46, 0.14);
+}
+
+.tasks-header__title-wrap::before,
+.tasks-header__title-wrap::after {
+  position: absolute;
+  top: 8rpx;
+  color: #ef9a18;
+  content: '✦';
+  font-size: 30rpx;
+}
+
+.tasks-header__title-wrap::before { left: 38rpx; }
+.tasks-header__title-wrap::after { right: 42rpx; transform: rotate(20deg); }
+
+.tasks-header__title {
+  letter-spacing: 4rpx;
+  text-shadow: 0 3rpx 0 rgba(255, 248, 232, 0.9);
+}
+
+.tasks-hero {
+  min-height: 318rpx;
+  border-color: rgba(220, 160, 69, 0.72);
+  box-shadow: 0 14rpx 0 rgba(211, 149, 56, 0.08), 0 20rpx 32rpx rgba(97, 63, 28, 0.09);
+}
+
+.tasks-hero::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto 0 42%;
+  width: 22%;
+  pointer-events: none;
+  content: '';
+  background: linear-gradient(90deg, rgba(255, 247, 232, 0.98), rgba(255, 247, 232, 0));
+}
+
+.tasks-hero__copy { width: 54%; padding-top: 54rpx; }
+
+.tasks-hero__title { font-size: 46rpx; letter-spacing: 1rpx; }
+
+.tasks-hero__desc { margin-bottom: 34rpx; }
+
+.tasks-hero__watercolor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.98;
+}
+
+.tasks-hero__art { background: #bfe1f5; }
+
+.tasks-hero__cloud { z-index: 1; box-shadow: 16rpx 8rpx 0 rgba(255, 253, 245, 0.42); }
+
+.tasks-palace { display: none; }
+
+.tasks-progress {
+  position: relative;
+  min-height: 132rpx;
+  padding-top: 42rpx;
+  overflow: hidden;
+  background: rgba(255, 251, 240, 0.9);
+  border-color: rgba(217, 166, 82, 0.62);
+  box-shadow: 0 8rpx 0 rgba(211, 149, 56, 0.06);
+}
+
+.tasks-progress__stamp {
+  position: absolute;
+  top: 11rpx;
+  right: 23rpx;
+  padding: 4rpx 13rpx;
+  font-size: 19rpx;
+  font-weight: 900;
+  letter-spacing: 2rpx;
+  color: #c66020;
+  border: 2rpx solid rgba(212, 101, 32, 0.64);
+  border-radius: 8rpx;
+  transform: rotate(3deg);
+}
+
+.tasks-progress__icon { background: #fff8e8; box-shadow: 5rpx 5rpx 0 rgba(225, 163, 58, 0.12); }
+
+.tasks-progress__bar { height: 18rpx; }
+
+.tasks-progress__fill {
+  background: repeating-linear-gradient(135deg, #ff8018 0 18rpx, #f56d17 18rpx 36rpx);
+}
+
+.tasks-ready,
+.tasks-completion,
+.tasks-state {
+  border-radius: 30rpx;
+  box-shadow: 0 8rpx 0 rgba(211, 149, 56, 0.05);
+}
+
+.tasks-page__list { gap: 20rpx; }
+
+.tasks-reward {
+  min-height: 142rpx;
+  background:
+    radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.42) 0 6rpx, transparent 7rpx),
+    rgba(255, 240, 189, 0.72);
+  border-color: rgba(225, 174, 84, 0.76);
+  box-shadow: 0 10rpx 0 rgba(211, 149, 56, 0.08);
+}
+
+.tasks-reward__medal::after {
+  position: absolute;
+  top: 15rpx;
+  left: 20rpx;
+  color: #fff7d1;
+  content: '★';
+  font-size: 39rpx;
+  line-height: 1;
+}
+
+@media (max-width: 374px) {
+  .tasks-page__paper { padding-right: 24rpx; padding-left: 24rpx; }
+  .tasks-header__title { font-size: 44rpx; }
+  .tasks-header__title-wrap::before { left: 26rpx; }
+  .tasks-header__title-wrap::after { right: 26rpx; }
+  .tasks-hero__title { font-size: 40rpx; }
+  .tasks-hero__tag { padding: 0 12rpx; font-size: 22rpx; }
+  .tasks-progress__text { font-size: 30rpx; }
+  .tasks-reward { margin-right: 42rpx; }
 }
 </style>

@@ -2,111 +2,122 @@
   <view class="guide-page">
     <view class="guide-page__paper">
       <view class="guide-header">
-        <view class="guide-header__spacer"></view>
+        <view class="guide-header__seal">童旅记</view>
         <view class="guide-header__title-wrap">
+          <text class="guide-header__eyebrow">MUSEUM NOTEBOOK</text>
           <text class="guide-header__title">讲解卡</text>
         </view>
-        <view class="guide-header__spacer"></view>
+        <view class="guide-header__star" aria-hidden="true"></view>
       </view>
 
-      <view v-if="!displayPlan" class="guide-card guide-card--listen">
-        <view class="guide-card__body">
-          <text class="guide-card__title">还没有探索计划</text>
-          <text class="guide-card__text">先创建计划，再准备专属讲解卡。</text>
-        </view>
+      <view v-if="!displayPlan" class="guide-state-card">
+        <text class="guide-state-card__stamp">空白讲解卡</text>
+        <text class="guide-state-card__title">还没有探索计划</text>
+        <text class="guide-state-card__text">先创建计划，再准备专属讲解卡。</text>
       </view>
 
       <template v-else>
-      <view class="guide-hero">
-        <view class="guide-hero__copy">
-          <text class="guide-hero__eyebrow">给孩子的旅行讲解</text>
-          <text class="guide-hero__title">{{ guideDestination }}</text>
-          <text class="guide-hero__desc">家长轻松讲给孩子听</text>
+        <view class="guide-hero">
+          <view class="guide-hero__copy">
+            <text class="guide-hero__eyebrow">给孩子的旅行讲解</text>
+            <text class="guide-hero__title">{{ guideDestination }}</text>
+            <text class="guide-hero__desc">把眼前的文化故事，讲成孩子听得懂的发现。</text>
 
-          <button class="guide-audio" @click="toggleAudio">
-            <view class="guide-audio__icon">
-              <text v-if="audioState === 'playing'">停</text>
-              <text v-else>播</text>
-            </view>
-            <view class="guide-audio__copy">
-              <text class="guide-audio__title">{{ audioTitle }}</text>
-              <text class="guide-audio__status">{{ audioStatus }}</text>
-            </view>
-          </button>
-        </view>
+            <button class="guide-audio" @click="toggleAudio">
+              <view class="guide-audio__icon" :class="{ 'guide-audio__icon--playing': audioState === 'playing' }" aria-hidden="true">
+                <view></view>
+              </view>
+              <view class="guide-audio__copy">
+                <text class="guide-audio__title">{{ audioTitle }}</text>
+                <text class="guide-audio__status">{{ audioStatus }}</text>
+              </view>
+            </button>
+          </view>
 
-        <view class="guide-polaroid-stack">
-          <view class="guide-polaroid guide-polaroid--back"></view>
-          <view class="guide-polaroid guide-polaroid--middle"></view>
-          <view class="guide-polaroid guide-polaroid--front">
-            <view class="guide-polaroid__image">
-              <view class="guide-palace">
-                <view class="guide-palace__sky"></view>
-                <view class="guide-palace__roof"></view>
-                <view class="guide-palace__hall"></view>
-                <view class="guide-palace__stairs"></view>
+          <view class="guide-polaroid-stack">
+            <view class="guide-polaroid guide-polaroid--back"></view>
+            <view class="guide-polaroid guide-polaroid--middle"></view>
+            <view class="guide-polaroid guide-polaroid--front">
+              <view class="guide-polaroid__tape"></view>
+              <image class="guide-polaroid__image" src="../../assets/guide/guide-palace-detail.webp" mode="aspectFill" />
+              <view class="guide-polaroid__caption">
+                <text>今天的发现</text>
+                <view class="guide-polaroid__caption-spark" aria-hidden="true"></view>
               </view>
             </view>
-            <view class="guide-polaroid__line"></view>
-            <view class="guide-polaroid__line guide-polaroid__line--short"></view>
-            <view class="guide-polaroid__star">星</view>
           </view>
         </view>
-      </view>
 
-      <view v-if="isGuideBusy" class="guide-card guide-card--listen">
-        <view class="guide-card__body">
-          <text class="guide-card__title">{{ guideLoadingTitle }}</text>
-          <text class="guide-card__text">请稍等，正在整理适合孩子听的讲解内容。</text>
+        <view v-if="isGuideBusy" class="guide-state-card">
+          <text class="guide-state-card__stamp">正在准备</text>
+          <text class="guide-state-card__title">{{ guideLoadingTitle }}</text>
+          <text class="guide-state-card__text">请稍等，正在整理适合孩子听的讲解内容。</text>
         </view>
-      </view>
 
-      <view v-else-if="guideStore.error" class="guide-card guide-card--listen">
-        <view class="guide-card__body">
-          <text class="guide-card__title">{{ guideErrorTitle }}</text>
-          <text class="guide-card__text">{{ guideErrorText }}</text>
+        <view v-else-if="guideStore.error" class="guide-state-card">
+          <text class="guide-state-card__stamp">小小提醒</text>
+          <text class="guide-state-card__title">{{ guideErrorTitle }}</text>
+          <text class="guide-state-card__text">{{ guideErrorText }}</text>
           <button class="guide-retry" @click="reloadGuide">重新加载</button>
         </view>
-      </view>
 
-      <template v-else-if="currentGuide.id">
-      <view class="guide-card guide-card--listen">
-        <view class="guide-card__avatar">
-          <view class="guide-card__circle"></view>
-        </view>
-        <view class="guide-card__body">
-          <text class="guide-card__title">讲给孩子听</text>
-          <text v-for="intro in currentGuide.childIntro" :key="intro" class="guide-card__text">{{ intro }}</text>
-        </view>
-      </view>
-
-      <view class="guide-card guide-card--ask">
-        <view class="guide-card__avatar">
-          <view class="guide-card__circle"></view>
-        </view>
-        <view class="guide-card__body">
-          <text class="guide-card__title">可以先问孩子</text>
-          <view class="guide-question-list">
-            <text v-for="question in currentGuide.questions" :key="question" class="guide-question-list__item">{{ question }}</text>
+        <template v-else-if="currentGuide.id">
+          <view class="guide-section-heading">
+            <text>翻开今天的讲解</text>
+            <text>01</text>
           </view>
-        </view>
-      </view>
 
-      <view class="guide-card guide-card--focus">
-        <view class="guide-card__avatar">
-          <view class="guide-card__circle"></view>
-        </view>
-        <view class="guide-card__body">
-          <text class="guide-card__title">今天重点看</text>
-          <view class="guide-focus-list">
-            <view v-for="focus in currentGuide.focusItems" :key="focus" class="guide-focus-list__item">
-              <text>{{ focus }}</text>
+          <view class="guide-card guide-card--listen">
+            <view class="guide-card__tape"></view>
+            <view class="guide-card__avatar">
+              <view class="guide-card__circle">
+                <view class="guide-card__icon guide-card__icon--listen" aria-hidden="true"></view>
+              </view>
+            </view>
+            <view class="guide-card__body">
+              <text class="guide-card__eyebrow">故事时间</text>
+              <text class="guide-card__title">讲给孩子听</text>
+              <text v-for="intro in currentGuide.childIntro" :key="intro" class="guide-card__text">{{ intro }}</text>
             </view>
           </view>
-        </view>
-      </view>
 
-      </template>
+          <view class="guide-card guide-card--ask">
+            <view class="guide-card__avatar">
+              <view class="guide-card__circle">
+                <view class="guide-card__icon guide-card__icon--ask" aria-hidden="true"></view>
+              </view>
+            </view>
+            <view class="guide-card__body">
+              <text class="guide-card__eyebrow">一起想一想</text>
+              <text class="guide-card__title">可以先问孩子</text>
+              <view class="guide-question-list">
+                <text v-for="(question, index) in currentGuide.questions" :key="question" class="guide-question-list__item">
+                  <text class="guide-question-list__number">0{{ index + 1 }}</text>
+                  {{ question }}
+                </text>
+              </view>
+            </view>
+          </view>
+
+          <view class="guide-card guide-card--focus">
+            <view class="guide-card__avatar">
+              <view class="guide-card__circle">
+                <view class="guide-card__icon guide-card__icon--focus" aria-hidden="true"></view>
+              </view>
+            </view>
+            <view class="guide-card__body">
+              <text class="guide-card__eyebrow">观察小任务</text>
+              <text class="guide-card__title">今天重点看</text>
+              <view class="guide-focus-list">
+                <view v-for="(focus, index) in currentGuide.focusItems" :key="focus" class="guide-focus-list__item">
+                  <view class="guide-focus-list__dot" aria-hidden="true"></view>
+                  <text>{{ focus }}</text>
+                  <text class="guide-focus-list__index">0{{ index + 1 }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </template>
       </template>
     </view>
 
@@ -242,170 +253,298 @@ export default {
 .guide-page {
   min-height: 100vh;
   overflow-x: hidden;
-  color: #4a2f1b;
+  color: var(--tl-text-main);
   background:
-    radial-gradient(circle at 14% 10%, rgba(255, 238, 181, 0.55) 0, rgba(255, 238, 181, 0) 110rpx),
-    linear-gradient(135deg, rgba(148, 104, 48, 0.05) 0 1rpx, transparent 1rpx 22rpx),
-    #f8efd9;
+    radial-gradient(circle at 85% 5%, rgba(211, 232, 242, 0.58) 0, rgba(211, 232, 242, 0) 200rpx),
+    linear-gradient(135deg, rgba(141, 101, 49, 0.04) 0 1rpx, transparent 1rpx 24rpx),
+    var(--tl-bg);
 }
 
 .guide-page__paper {
   width: 100%;
-  max-width: 430px;
+  max-width: var(--tl-content-max-width);
   min-height: 100vh;
   margin: 0 auto;
-  padding: calc(28rpx + env(safe-area-inset-top)) 34rpx calc(260rpx + env(safe-area-inset-bottom));
+  padding: calc(var(--tl-page-padding) + var(--tl-safe-top)) var(--tl-page-padding) calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 56rpx);
 }
 
 .guide-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 86rpx;
   margin-bottom: 30rpx;
 }
 
-.guide-header__spacer {
+.guide-header__seal {
   display: flex;
-  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   width: 64rpx;
   height: 64rpx;
+  font-size: 17rpx;
   font-weight: 900;
-  color: #4a2f1b;
+  color: var(--tl-primary-deep);
+  background: var(--tl-yellow);
+  border: 2rpx solid var(--tl-primary);
+  border-radius: 50%;
+  transform: rotate(-9deg);
 }
 
 .guide-header__title-wrap {
-  position: relative;
+  display: flex;
   flex: 1;
-  text-align: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+.guide-header__eyebrow {
+  margin-bottom: 5rpx;
+  font-size: 16rpx;
+  font-weight: 800;
+  color: var(--tl-primary);
+  letter-spacing: 3rpx;
 }
 
 .guide-header__title {
   font-size: 48rpx;
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.1;
+}
+
+.guide-header__title::after {
+  display: inline-block;
+  width: 14rpx;
+  height: 14rpx;
+  margin: 0 0 18rpx 10rpx;
+  content: '';
+  background: var(--tl-yellow);
+  border: 3rpx solid var(--tl-primary);
+  border-radius: 4rpx 12rpx;
+  transform: rotate(28deg);
+}
+
+.guide-header__star {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26rpx;
+  height: 26rpx;
+  color: var(--tl-primary);
+  transform: rotate(14deg);
+}
+
+.guide-header__star::after,
+.guide-polaroid__caption-spark::after,
+.guide-focus-list__dot::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: currentColor;
+  border-radius: 5rpx;
+  transform: rotate(45deg);
+}
+
+.guide-state-card {
+  padding: 52rpx 36rpx;
+  text-align: center;
+  background: var(--tl-paper);
+  border: 3rpx dashed var(--tl-line);
+  border-radius: var(--tl-radius-lg);
+  box-shadow: var(--tl-shadow-card);
+}
+
+.guide-state-card__stamp {
+  display: inline-flex;
+  margin-bottom: 16rpx;
+  padding: 8rpx 18rpx;
+  font-size: 22rpx;
+  font-weight: 900;
+  color: var(--tl-primary-deep);
+  background: var(--tl-yellow);
+  border: 2rpx solid var(--tl-primary);
+  border-radius: var(--tl-radius-sm);
+  transform: rotate(-3deg);
+}
+
+.guide-state-card__title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 900;
+}
+
+.guide-state-card__text {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: var(--tl-text-secondary);
 }
 
 .guide-hero {
   position: relative;
   display: flex;
-  min-height: 350rpx;
-  margin-bottom: 22rpx;
-  padding: 54rpx 26rpx 32rpx;
+  min-height: 356rpx;
+  margin-bottom: 26rpx;
   overflow: hidden;
-  background: rgba(255, 247, 232, 0.92);
-  border: 4rpx solid rgba(190, 142, 78, 0.42);
-  border-radius: 36rpx;
-  box-shadow: 0 16rpx 28rpx rgba(97, 63, 28, 0.1);
+  background: var(--tl-paper);
+  border: 3rpx solid var(--tl-line);
+  border-radius: var(--tl-radius-lg);
+  box-shadow: var(--tl-shadow-card);
+}
+
+.guide-hero::after {
+  position: absolute;
+  right: -22rpx;
+  bottom: -44rpx;
+  width: 130rpx;
+  height: 130rpx;
+  content: '';
+  border: 3rpx solid var(--tl-green-deep);
+  border-radius: 80% 20% 72% 28%;
+  opacity: 0.4;
+  transform: rotate(36deg);
 }
 
 .guide-hero__copy {
   position: relative;
   z-index: 2;
-  width: 48%;
+  display: flex;
+  flex: 0 0 49%;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 44rpx 6rpx 24rpx 28rpx;
 }
 
 .guide-hero__eyebrow {
   display: block;
   margin-bottom: 12rpx;
-  font-size: 28rpx;
+  font-size: 20rpx;
   font-weight: 800;
-  color: #8a6d54;
+  color: var(--tl-primary-deep);
+  letter-spacing: 1rpx;
 }
 
 .guide-hero__title {
-  display: block;
-  font-size: 50rpx;
+  display: -webkit-box;
+  max-width: 290rpx;
+  overflow: hidden;
+  font-size: 48rpx;
   font-weight: 900;
-  line-height: 1.1;
+  line-height: 1.18;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .guide-hero__desc {
   display: block;
-  margin-top: 18rpx;
-  font-size: 28rpx;
-  line-height: 1.45;
-  color: #5e3c22;
+  max-width: 258rpx;
+  margin-top: 14rpx;
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: var(--tl-text-secondary);
 }
 
 .guide-audio {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   width: 100%;
-  margin-top: 34rpx;
+  margin-top: auto;
+  padding: 12rpx 13rpx;
   text-align: left;
+  background: rgba(255, 241, 216, 0.72);
+  border: 2rpx solid rgba(225, 123, 44, 0.28);
+  border-radius: 18rpx;
 }
 
 .guide-audio__icon {
+  position: relative;
   display: flex;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 76rpx;
-  height: 76rpx;
-  margin-right: 14rpx;
-  font-size: 26rpx;
-  font-weight: 900;
-  color: #fffaf0;
-  background: #f26a21;
-  border: 5rpx solid rgba(255, 250, 240, 0.9);
+  width: 52rpx;
+  height: 52rpx;
+  margin-right: 10rpx;
+  color: var(--tl-paper);
+  background: var(--tl-primary);
   border-radius: 50%;
-  box-shadow: 0 10rpx 16rpx rgba(217, 75, 18, 0.2);
+}
+
+.guide-audio__icon view {
+  width: 0;
+  height: 0;
+  margin-left: 5rpx;
+  border-top: 10rpx solid transparent;
+  border-bottom: 10rpx solid transparent;
+  border-left: 15rpx solid currentColor;
+}
+
+.guide-audio__icon--playing view {
+  width: 13rpx;
+  height: 20rpx;
+  margin-left: 0;
+  border: 0;
+  border-right: 4rpx solid currentColor;
+  border-left: 4rpx solid currentColor;
 }
 
 .guide-audio__copy {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
 }
 
-.guide-audio__title,
-.guide-audio__status {
-  display: block;
-}
-
 .guide-audio__title {
-  margin-bottom: 6rpx;
-  font-size: 24rpx;
+  overflow: hidden;
+  font-size: 20rpx;
   font-weight: 900;
-  line-height: 1.25;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .guide-audio__status {
-  font-size: 19rpx;
-  line-height: 1.35;
-  color: #8a6d54;
+  overflow: hidden;
+  margin-top: 4rpx;
+  font-size: 17rpx;
+  line-height: 1.3;
+  color: var(--tl-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .guide-polaroid-stack {
   position: absolute;
-  top: 46rpx;
-  right: 22rpx;
-  width: 282rpx;
-  height: 248rpx;
+  top: 32rpx;
+  right: 12rpx;
+  z-index: 1;
+  width: 298rpx;
+  height: 258rpx;
 }
 
 .guide-polaroid {
   position: absolute;
-  width: 218rpx;
-  height: 238rpx;
-  background: #fffaf0;
-  border: 3rpx solid rgba(190, 142, 78, 0.3);
-  border-radius: 18rpx;
-  box-shadow: 0 12rpx 20rpx rgba(97, 63, 28, 0.12);
+  width: 208rpx;
+  height: 232rpx;
+  border: 2rpx solid var(--tl-line);
+  border-radius: 16rpx;
+  box-shadow: 0 10rpx 16rpx rgba(92, 60, 29, 0.09);
 }
 
 .guide-polaroid--back {
-  top: 8rpx;
-  right: 8rpx;
-  background: #dceecb;
-  transform: rotate(8deg);
+  top: 16rpx;
+  right: 5rpx;
+  background: rgba(198, 219, 175, 0.72);
+  transform: rotate(10deg);
 }
 
 .guide-polaroid--middle {
-  top: 4rpx;
-  right: 34rpx;
-  background: #f4c7a9;
+  top: 5rpx;
+  right: 35rpx;
+  background: rgba(247, 195, 156, 0.7);
   transform: rotate(-8deg);
 }
 
@@ -413,144 +552,197 @@ export default {
   top: 0;
   right: 22rpx;
   z-index: 2;
-  padding: 14rpx 14rpx 18rpx;
-  transform: rotate(6deg);
+  padding: 12rpx 12rpx 16rpx;
+  overflow: visible;
+  background: var(--tl-paper);
+  transform: rotate(5deg);
+}
+
+.guide-polaroid__tape {
+  position: absolute;
+  top: -11rpx;
+  left: 50%;
+  z-index: 2;
+  width: 88rpx;
+  height: 24rpx;
+  background: rgba(243, 205, 114, 0.7);
+  transform: translateX(-50%) rotate(-7deg);
 }
 
 .guide-polaroid__image {
-  height: 128rpx;
-  overflow: hidden;
-  background: #cfe7f5;
-  border: 2rpx solid rgba(126, 82, 35, 0.16);
-  border-radius: 12rpx;
+  width: 100%;
+  height: 144rpx;
+  border-radius: 9rpx;
 }
 
-.guide-palace {
-  position: relative;
-  height: 100%;
-}
-
-.guide-palace__sky {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.86) 0 28rpx, transparent 30rpx),
-    #bfe1f5;
-}
-
-.guide-palace__roof {
-  position: absolute;
-  right: 18rpx;
-  bottom: 58rpx;
-  left: 18rpx;
-  height: 30rpx;
-  background: #ee9d1f;
-  border-radius: 40rpx 40rpx 10rpx 10rpx;
-}
-
-.guide-palace__hall {
-  position: absolute;
-  right: 28rpx;
-  bottom: 24rpx;
-  left: 28rpx;
-  height: 42rpx;
-  background:
-    repeating-linear-gradient(90deg, rgba(90, 51, 26, 0.25) 0 5rpx, transparent 5rpx 20rpx),
-    #d45528;
-  border-radius: 6rpx;
-}
-
-.guide-palace__stairs {
-  position: absolute;
-  right: 58rpx;
-  bottom: 10rpx;
-  left: 58rpx;
-  height: 14rpx;
-  background: rgba(255, 250, 240, 0.9);
-  border-radius: 8rpx;
-}
-
-.guide-polaroid__line {
-  width: 126rpx;
-  height: 6rpx;
-  margin: 18rpx auto 0;
-  background: rgba(190, 142, 78, 0.28);
-  border-radius: 999rpx;
-}
-
-.guide-polaroid__line--short {
-  width: 84rpx;
-  margin-top: 10rpx;
-}
-
-.guide-polaroid__star {
-  position: absolute;
-  right: 18rpx;
-  bottom: 18rpx;
-  font-size: 20rpx;
+.guide-polaroid__caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 13rpx 5rpx 0;
+  font-size: 18rpx;
   font-weight: 900;
-  color: #f4aa23;
-  transform: rotate(18deg);
+  color: var(--tl-text-secondary);
+}
+
+.guide-polaroid__caption-spark {
+  position: relative;
+  width: 16rpx;
+  height: 16rpx;
+  color: var(--tl-primary);
+  transform: rotate(45deg);
+}
+
+.guide-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 6rpx 16rpx;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.guide-section-heading text:last-child {
+  font-size: 19rpx;
+  color: var(--tl-primary);
+  letter-spacing: 2rpx;
 }
 
 .guide-card {
   position: relative;
   display: flex;
-  gap: 22rpx;
-  min-height: 168rpx;
+  gap: 18rpx;
+  min-height: 164rpx;
   margin-bottom: 18rpx;
-  padding: 24rpx 24rpx 24rpx 22rpx;
+  padding: 22rpx 22rpx 22rpx 18rpx;
   overflow: hidden;
-  background: rgba(255, 247, 232, 0.92);
-  border: 3rpx solid rgba(190, 142, 78, 0.34);
-  border-radius: 28rpx;
-  box-shadow: 0 10rpx 18rpx rgba(97, 63, 28, 0.08);
+  background: var(--tl-paper);
+  border: 2rpx solid var(--tl-line);
+  border-radius: var(--tl-radius-md);
+  box-shadow: 0 8rpx 14rpx rgba(92, 60, 29, 0.05);
+}
+
+.guide-card--listen {
+  border-color: rgba(230, 147, 61, 0.54);
+}
+
+.guide-card--listen .guide-card__circle { color: var(--tl-primary-deep); background: #fff0d2; }
+.guide-card--ask .guide-card__circle { color: var(--tl-blue-deep); background: var(--tl-blue); }
+.guide-card--focus .guide-card__circle { color: var(--tl-green-deep); background: var(--tl-green); }
+
+.guide-card__tape {
+  position: absolute;
+  top: 0;
+  right: 44rpx;
+  width: 84rpx;
+  height: 18rpx;
+  background: rgba(243, 205, 114, 0.68);
+  transform: rotate(4deg);
 }
 
 .guide-card__avatar {
-  position: relative;
-  flex-shrink: 0;
-  width: 118rpx;
-  height: 118rpx;
+  flex: 0 0 auto;
+  width: 86rpx;
+  padding-top: 5rpx;
 }
 
 .guide-card__circle {
-  width: 118rpx;
-  height: 118rpx;
-  border: 5rpx solid rgba(255, 250, 240, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80rpx;
+  height: 80rpx;
+  border: 4rpx solid var(--tl-paper);
+  border-radius: 50%;
+  box-shadow: 0 5rpx 8rpx rgba(92, 60, 29, 0.08);
+}
+
+.guide-card__icon {
+  position: relative;
+  display: block;
+  width: 26rpx;
+  height: 26rpx;
+}
+
+.guide-card__icon::before,
+.guide-card__icon::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: '';
+}
+
+.guide-card__icon--listen::before {
+  top: 3rpx;
+  left: 2rpx;
+  width: 15rpx;
+  height: 18rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 8rpx;
+}
+
+.guide-card__icon--listen::after {
+  right: 2rpx;
+  bottom: 3rpx;
+  width: 11rpx;
+  height: 3rpx;
+  background: currentColor;
+  border-radius: 999rpx;
+}
+
+.guide-card__icon--ask::before,
+.guide-card__icon--focus::before {
+  inset: 2rpx;
+  border: 3rpx solid currentColor;
   border-radius: 50%;
 }
 
-.guide-card--listen .guide-card__circle {
-  background: #fff0bd;
+.guide-card__icon--ask::after {
+  top: 7rpx;
+  left: 12rpx;
+  width: 3rpx;
+  height: 10rpx;
+  background: currentColor;
+  border-radius: 999rpx;
 }
 
-.guide-card--ask .guide-card__circle {
-  background: #f4c7a9;
-}
-
-.guide-card--focus .guide-card__circle {
-  background: #dfeff8;
+.guide-card__icon--focus::after {
+  top: 10rpx;
+  left: 10rpx;
+  width: 6rpx;
+  height: 6rpx;
+  background: currentColor;
+  border-radius: 50%;
 }
 
 .guide-card__body {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
 }
 
+.guide-card__eyebrow {
+  display: block;
+  margin-bottom: 4rpx;
+  font-size: 18rpx;
+  font-weight: 800;
+  color: var(--tl-text-secondary);
+  letter-spacing: 1rpx;
+}
+
 .guide-card__title {
   display: block;
-  margin-bottom: 14rpx;
-  font-size: 34rpx;
+  margin-bottom: 10rpx;
+  font-size: 31rpx;
   font-weight: 900;
 }
 
 .guide-card__text {
   display: block;
-  margin-bottom: 8rpx;
-  font-size: 27rpx;
+  margin-bottom: 6rpx;
+  font-size: 24rpx;
   line-height: 1.55;
-  color: #4f3b28;
+  color: var(--tl-text-secondary);
 }
 
 .guide-question-list {
@@ -560,44 +752,71 @@ export default {
 }
 
 .guide-question-list__item {
-  position: relative;
-  display: block;
-  padding-left: 24rpx;
-  font-size: 27rpx;
+  display: flex;
+  gap: 9rpx;
+  align-items: flex-start;
+  font-size: 24rpx;
   line-height: 1.45;
-  color: #4f3b28;
+  color: var(--tl-text-secondary);
 }
 
-.guide-question-list__item::before {
-  position: absolute;
-  top: 13rpx;
-  left: 0;
-  width: 10rpx;
-  height: 10rpx;
-  content: '';
-  background: #f26a21;
-  border-radius: 50%;
+.guide-question-list__number {
+  flex: 0 0 auto;
+  padding-top: 2rpx;
+  font-size: 17rpx;
+  font-weight: 900;
+  color: var(--tl-primary);
 }
 
 .guide-focus-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: 10rpx;
 }
 
 .guide-focus-list__item {
   display: flex;
+  gap: 6rpx;
   align-items: center;
-  justify-content: center;
-  min-width: 112rpx;
-  height: 58rpx;
-  padding: 0 24rpx;
-  font-size: 27rpx;
+  min-width: 126rpx;
+  max-width: 100%;
+  padding: 9rpx 12rpx;
+  font-size: 21rpx;
   font-weight: 800;
-  color: #5e3c22;
-  background: #fff6dc;
-  border: 2rpx solid rgba(190, 142, 78, 0.32);
-  border-radius: 18rpx;
+  color: var(--tl-text-secondary);
+  background: var(--tl-paper-deep);
+  border: 2rpx solid rgba(151, 109, 59, 0.24);
+  border-radius: 16rpx;
+}
+
+.guide-focus-list__dot {
+  position: relative;
+  flex: 0 0 auto;
+  width: 11rpx;
+  height: 11rpx;
+  color: var(--tl-primary);
+  transform: rotate(45deg);
+}
+
+.guide-focus-list__index {
+  margin-left: auto;
+  font-size: 14rpx;
+  color: var(--tl-text-secondary);
+  opacity: 0.75;
+}
+
+.guide-retry {
+  display: inline-flex;
+  min-height: 60rpx;
+  margin-top: 20rpx;
+  padding: 0 26rpx;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 60rpx;
+  color: var(--tl-paper);
+  background: var(--tl-primary);
+  border: 2rpx solid var(--tl-primary-deep);
+  border-radius: var(--tl-radius-sm);
 }
 
 @media (max-width: 360px) {
@@ -606,60 +825,92 @@ export default {
     padding-left: 24rpx;
   }
 
+  .guide-hero__copy {
+    flex-basis: 53%;
+    padding-left: 21rpx;
+  }
+
   .guide-hero__title {
-    font-size: 44rpx;
+    font-size: 43rpx;
   }
 
   .guide-polaroid-stack {
-    right: 4rpx;
-    transform: scale(0.9);
+    right: -14rpx;
+    transform: scale(0.91);
     transform-origin: right top;
+  }
+
+  .guide-audio {
+    padding: 9rpx;
+  }
+
+  .guide-audio__status {
+    display: none;
+  }
+
+  .guide-card {
+    gap: 12rpx;
+    padding-right: 16rpx;
+    padding-left: 14rpx;
+  }
+
+  .guide-card__avatar {
+    width: 72rpx;
+  }
+
+  .guide-card__circle {
+    width: 68rpx;
+    height: 68rpx;
   }
 }
 
 @media (min-width: 431px) {
   .guide-page__paper {
-    padding: calc(18px + env(safe-area-inset-top)) 18px calc(144px + env(safe-area-inset-bottom));
+    padding: calc(18px + var(--tl-safe-top)) 18px calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 34px);
   }
 
   .guide-header {
+    min-height: 44px;
     margin-bottom: 16px;
   }
 
-  .guide-header__title {
-    font-size: 28px;
+  .guide-header__seal {
+    width: 32px;
+    height: 32px;
   }
+
+  .guide-header__star { width: 13px; height: 13px; }
+
+  .guide-header__seal { font-size: 10px; }
+  .guide-header__eyebrow { margin-bottom: 3px; font-size: 10px; }
+  .guide-header__title { font-size: 28px; }
+  .guide-header__star { font-size: 0; }
 
   .guide-hero {
-    min-height: 202px;
-    padding: 30px 15px 18px;
+    min-height: 205px;
     border-width: 2px;
-    border-radius: 20px;
   }
 
-  .guide-hero__title {
-    font-size: 29px;
+  .guide-hero__copy {
+    padding: 24px 4px 15px 15px;
   }
 
-  .guide-hero__desc {
-    font-size: 16px;
-  }
-
-  .guide-card {
-    min-height: 98px;
-    padding: 14px;
-    border-width: 2px;
-    border-radius: 16px;
-  }
-
-  .guide-card__title {
-    font-size: 20px;
-  }
-
+  .guide-hero__eyebrow { font-size: 12px; }
+  .guide-hero__title { max-width: 158px; font-size: 28px; }
+  .guide-hero__desc { max-width: 155px; font-size: 13px; }
+  .guide-audio { padding: 7px; }
+  .guide-audio__icon { width: 28px; height: 28px; font-size: 0; }
+  .guide-audio__title { font-size: 11px; }
+  .guide-audio__status { font-size: 9px; }
+  .guide-polaroid-stack { top: 18px; right: 6px; transform: scale(0.59); transform-origin: right top; }
+  .guide-section-heading { font-size: 20px; }
+  .guide-card { min-height: 96px; padding: 13px; }
+  .guide-card__avatar { width: 46px; }
+  .guide-card__circle { width: 42px; height: 42px; }
+  .guide-card__icon { font-size: 16px; }
+  .guide-card__title { font-size: 19px; }
   .guide-card__text,
-  .guide-question-list__item,
-  .guide-focus-list__item {
-    font-size: 15px;
-  }
+  .guide-question-list__item { font-size: 14px; }
+  .guide-focus-list__item { font-size: 12px; }
 }
 </style>

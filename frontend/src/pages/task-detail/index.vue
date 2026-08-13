@@ -4,7 +4,7 @@
       <view class="detail-header">
         <button class="detail-header__back" @click="goBack">‹</button>
         <view class="detail-header__title-wrap">
-          <text class="detail-header__spark">任务</text>
+          <view class="detail-header__spark" aria-hidden="true"></view>
           <text class="detail-header__title">任务详情</text>
         </view>
         <view class="detail-header__spacer"></view>
@@ -17,20 +17,21 @@
           <text class="detail-hero__summary">{{ currentTask.summary || '正在加载任务内容' }}</text>
           <view class="detail-hero__tags">
             <view class="detail-hero__tag detail-hero__tag--orange">
-              <text class="detail-hero__tag-icon">包</text>
+              <view class="detail-hero__tag-icon detail-hero__tag-icon--age" aria-hidden="true"></view>
               <text>{{ currentTask.ageGroup }}岁</text>
             </view>
             <view class="detail-hero__tag detail-hero__tag--blue">
-              <text class="detail-hero__tag-icon">时</text>
+              <view class="detail-hero__tag-icon detail-hero__tag-icon--time" aria-hidden="true"></view>
               <text>{{ currentTask.duration }}</text>
             </view>
             <view class="detail-hero__tag detail-hero__tag--green">
-              <text class="detail-hero__tag-icon">看</text>
+              <view class="detail-hero__tag-icon detail-hero__tag-icon--focus" aria-hidden="true"></view>
               <text>{{ currentTask.type }}</text>
             </view>
           </view>
         </view>
         <view class="detail-hero__art">
+          <image class="detail-hero__watercolor" src="../../assets/tasks/task-roof-beast-watercolor.webp" mode="aspectFill" />
           <view class="detail-hero__cloud detail-hero__cloud--one"></view>
           <view class="detail-hero__cloud detail-hero__cloud--two"></view>
           <view class="detail-roof">
@@ -690,10 +691,19 @@ export default {
   position: absolute;
   top: -22rpx;
   left: 94rpx;
-  font-size: 20rpx;
-  font-weight: 900;
+  width: 18rpx;
+  height: 18rpx;
   color: #f4aa23;
-  transform: rotate(-20deg);
+  transform: rotate(25deg);
+}
+
+.detail-header__spark::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: currentColor;
+  border-radius: 5rpx;
+  transform: rotate(45deg);
 }
 
 .detail-header__title {
@@ -770,8 +780,52 @@ export default {
 }
 
 .detail-hero__tag-icon {
+  position: relative;
+  width: 18rpx;
+  height: 18rpx;
   margin-right: 8rpx;
-  font-size: 20rpx;
+}
+
+.detail-hero__tag-icon::before,
+.detail-hero__tag-icon::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: '';
+}
+
+.detail-hero__tag-icon--age::before,
+.detail-hero__tag-icon--time::before,
+.detail-hero__tag-icon--focus::before {
+  inset: 1rpx;
+  border: 2rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.detail-hero__tag-icon--age::after {
+  bottom: 0;
+  left: 8rpx;
+  width: 2rpx;
+  height: 8rpx;
+  background: currentColor;
+}
+
+.detail-hero__tag-icon--time::after {
+  top: 4rpx;
+  left: 8rpx;
+  width: 2rpx;
+  height: 7rpx;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: rotate(-35deg);
+}
+
+.detail-hero__tag-icon--focus::after {
+  top: 7rpx;
+  left: 7rpx;
+  width: 4rpx;
+  height: 4rpx;
+  background: currentColor;
+  border-radius: 50%;
 }
 
 .detail-hero__tag--orange {
@@ -1158,5 +1212,150 @@ export default {
   .detail-record__note {
     font-size: 15px;
   }
+}
+
+/* FE-R6: a child-friendly observation worksheet; submission and lock bindings are unchanged. */
+.task-detail {
+  background:
+    radial-gradient(circle at 87% 9%, rgba(244, 170, 35, 0.15) 0 34rpx, transparent 35rpx),
+    radial-gradient(circle at 12% 20%, rgba(255, 255, 255, 0.45) 0 2rpx, transparent 3rpx 19rpx),
+    #f8efd9;
+}
+
+.task-detail__paper { padding-bottom: calc(218rpx + env(safe-area-inset-bottom)); }
+
+.detail-header__back {
+  width: 68rpx;
+  height: 68rpx;
+  font-family: serif;
+  line-height: 1;
+  color: #593719;
+  background: rgba(255, 248, 232, 0.78);
+  border: 2rpx solid rgba(213, 159, 75, 0.46);
+  border-radius: 50%;
+  box-shadow: 0 5rpx 0 rgba(187, 128, 46, 0.14);
+}
+
+.detail-header__title-wrap::before,
+.detail-header__title-wrap::after {
+  position: absolute;
+  top: 7rpx;
+  color: #ef9a18;
+  content: '✦';
+  font-size: 30rpx;
+}
+
+.detail-header__title-wrap::before { left: 28rpx; }
+.detail-header__title-wrap::after { right: 30rpx; transform: rotate(20deg); }
+
+.detail-header__title { letter-spacing: 4rpx; text-shadow: 0 3rpx 0 rgba(255, 248, 232, 0.9); }
+
+.detail-hero {
+  min-height: 408rpx;
+  border-color: rgba(220, 160, 69, 0.72);
+  box-shadow: 0 14rpx 0 rgba(211, 149, 56, 0.08), 0 20rpx 32rpx rgba(97, 63, 28, 0.09);
+}
+
+.detail-hero::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto 0 47%;
+  width: 24%;
+  pointer-events: none;
+  content: '';
+  background: linear-gradient(90deg, rgba(255, 247, 232, 0.98), rgba(255, 247, 232, 0));
+}
+
+.detail-hero__copy { width: 59%; padding-top: 54rpx; }
+.detail-hero__title { font-size: 49rpx; letter-spacing: 1rpx; }
+.detail-hero__summary { margin-bottom: 27rpx; }
+.detail-hero__watercolor { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.98; }
+.detail-hero__art { background: #bfe1f5; }
+.detail-hero__cloud { z-index: 1; box-shadow: 16rpx 8rpx 0 rgba(255, 253, 245, 0.42); }
+.detail-roof { display: none; }
+
+.detail-sections { gap: 18rpx; margin-bottom: 26rpx; }
+
+.detail-section {
+  position: relative;
+  min-height: 138rpx;
+  overflow: hidden;
+  background: rgba(255, 251, 240, 0.92);
+  border-color: rgba(217, 166, 82, 0.62);
+  box-shadow: 0 8rpx 0 rgba(211, 149, 56, 0.05);
+}
+
+.detail-section::before {
+  position: absolute;
+  top: 0;
+  left: 22rpx;
+  width: 80rpx;
+  height: 8rpx;
+  content: '';
+  background: rgba(245, 183, 80, 0.36);
+  border-radius: 0 0 8rpx 8rpx;
+  transform: rotate(-3deg);
+}
+
+.detail-section__icon { background: #fff7de; box-shadow: 5rpx 6rpx 0 rgba(221, 167, 76, 0.12); }
+.detail-section__title { font-size: 35rpx; }
+.detail-section__arrow { color: #a36529; }
+
+.detail-record {
+  position: relative;
+  padding: 26rpx;
+  overflow: hidden;
+  background: #fffaf0;
+  border-color: rgba(209, 149, 59, 0.68);
+  box-shadow: 0 11rpx 0 rgba(211, 149, 56, 0.06);
+}
+
+.detail-record::before {
+  position: absolute;
+  top: -13rpx;
+  right: 38rpx;
+  width: 126rpx;
+  height: 28rpx;
+  content: '';
+  background: rgba(244, 190, 95, 0.38);
+  transform: rotate(4deg);
+}
+
+.detail-record__status {
+  color: #aa5a1f;
+  background: #fff4d8;
+  border: 2rpx solid rgba(212, 139, 48, 0.38);
+  transform: rotate(2deg);
+}
+
+.detail-record__image-picker {
+  height: 230rpx;
+  background: #fffdf6;
+  border-style: dashed;
+  border-color: rgba(204, 145, 55, 0.66);
+}
+
+.detail-record__empty { color: #81552b; }
+.detail-record__camera { position: relative; background: #d88326; box-shadow: 0 5rpx 0 rgba(127, 73, 28, 0.16); }
+.detail-record__camera::before { position: absolute; top: -12rpx; left: 18rpx; width: 25rpx; height: 14rpx; content: ''; background: #d88326; border-radius: 6rpx 6rpx 0 0; }
+.detail-record__note { background: #fffdf7; border-style: dashed; border-color: rgba(204, 145, 55, 0.55); }
+
+.detail-actions { gap: 20rpx; }
+.detail-actions__back,
+.detail-actions__complete { height: 92rpx; border-radius: 30rpx; }
+.detail-actions__back { background: #fffaf0; border-color: rgba(213, 154, 60, 0.82); }
+.detail-actions__complete { background: linear-gradient(180deg, #ff8a21, #ef6417); box-shadow: 0 12rpx 0 rgba(194, 85, 20, 0.2); }
+.detail-actions__complete--done { background: linear-gradient(180deg, #8da95c, #6e8a43); box-shadow: 0 12rpx 0 rgba(72, 99, 42, 0.18); }
+
+@media (max-width: 374px) {
+  .task-detail__paper { padding-right: 24rpx; padding-left: 24rpx; }
+  .detail-header__title { font-size: 44rpx; }
+  .detail-header__title-wrap::before { left: 14rpx; }
+  .detail-header__title-wrap::after { right: 16rpx; }
+  .detail-hero { min-height: 388rpx; }
+  .detail-hero__title { font-size: 42rpx; }
+  .detail-hero__tag { height: 52rpx; padding: 0 12rpx; font-size: 21rpx; }
+  .detail-section { padding-right: 18rpx; padding-left: 18rpx; }
+  .detail-record { padding: 22rpx; }
 }
 </style>

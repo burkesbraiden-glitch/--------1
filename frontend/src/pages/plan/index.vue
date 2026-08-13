@@ -2,98 +2,111 @@
   <view class="plan-page">
     <view class="plan-page__paper">
       <view class="plan-header">
-        <button class="plan-header__back" @click="goHome">‹</button>
+        <button class="plan-header__back" @click="goHome" aria-label="返回首页">‹</button>
         <view class="plan-header__title-wrap">
+          <text class="plan-header__eyebrow">TRAVEL NOTEBOOK</text>
           <text class="plan-header__title">探索计划</text>
         </view>
         <view class="plan-header__spacer"></view>
       </view>
 
-      <view v-if="isPageLoading" class="plan-basic">
-        <text class="plan-basic__value">正在加载探索计划...</text>
+      <view v-if="isPageLoading" class="plan-state-card">
+        <text class="plan-state-card__stamp">正在整理</text>
+        <text class="plan-state-card__title">正在加载探索计划...</text>
       </view>
 
-      <view v-else-if="planStore.error" class="plan-basic">
-        <text class="plan-basic__value">计划加载失败</text>
-        <text class="plan-basic__status" @click="loadPlans(true)">重试</text>
+      <view v-else-if="planStore.error" class="plan-state-card">
+        <text class="plan-state-card__stamp">小小提醒</text>
+        <text class="plan-state-card__title">计划加载失败</text>
+        <text class="plan-state-card__action" @click="loadPlans(true)">重新试一次</text>
       </view>
 
-      <view v-else-if="!displayPlan" class="plan-basic">
-        <text class="plan-basic__value">还没有探索计划</text>
-        <text class="plan-basic__status" @click="goHome">先去首页创建一次亲子探索吧</text>
+      <view v-else-if="!displayPlan" class="plan-state-card">
+        <text class="plan-state-card__stamp">空白一页</text>
+        <text class="plan-state-card__title">还没有探索计划</text>
+        <text class="plan-state-card__action" @click="goHome">先去首页创建一次亲子探索吧</text>
       </view>
 
       <template v-else>
-      <view class="plan-hero">
-        <view class="plan-hero__copy">
-          <text class="plan-hero__title">{{ displayPlan.title }}</text>
-          <view class="plan-hero__underline"></view>
-          <text class="plan-hero__desc">和孩子一起先做好这次旅行的小计划</text>
+        <view class="plan-hero">
+          <view class="plan-hero__tape"></view>
+          <view class="plan-hero__copy">
+            <text class="plan-hero__kicker">本次亲子文化探索</text>
+            <text class="plan-hero__title">{{ displayPlan.title }}</text>
+            <view class="plan-hero__underline"></view>
+            <text class="plan-hero__desc">和孩子一起，把好奇心装进旅行背包。</text>
 
-          <view class="plan-hero__tags">
-            <view class="plan-hero__tag plan-hero__tag--orange">
-              <text class="plan-hero__tag-mark">童</text>
-              <text>{{ formattedAgeGroup }}</text>
+            <view class="plan-hero__tags">
+              <view class="plan-hero__tag plan-hero__tag--orange">
+                <view class="plan-hero__tag-mark plan-hero__tag-mark--age" aria-hidden="true"></view>
+                <text>{{ formattedAgeGroup }}</text>
+              </view>
+              <view class="plan-hero__tag plan-hero__tag--blue">
+                <view class="plan-hero__tag-mark plan-hero__tag-mark--time" aria-hidden="true"></view>
+                <text>{{ formattedDuration }}</text>
+              </view>
+              <view class="plan-hero__tag plan-hero__tag--green">
+                <view class="plan-hero__tag-mark plan-hero__tag-mark--tasks" aria-hidden="true"></view>
+                <text>{{ realTaskCount }}个</text>
+              </view>
             </view>
-            <view class="plan-hero__tag plan-hero__tag--blue">
-              <text class="plan-hero__tag-mark">时</text>
-              <text>{{ formattedDuration }}</text>
-            </view>
-            <view class="plan-hero__tag plan-hero__tag--green">
-              <text class="plan-hero__tag-mark">任</text>
-              <text>{{ realTaskCount }}个任务</text>
-            </view>
+          </view>
+
+          <view class="plan-hero__art">
+            <image class="plan-hero__image" src="../../assets/plan/plan-cultural-watercolor.webp" mode="aspectFill" />
+            <view class="plan-hero__postmark">出发</view>
           </view>
         </view>
 
-        <view class="plan-hero__scene">
-          <view class="plan-scene">
-            <view class="plan-scene__sky"></view>
-            <view class="plan-scene__cloud plan-scene__cloud--one"></view>
-            <view class="plan-scene__cloud plan-scene__cloud--two"></view>
-            <view class="plan-scene__palace">
-              <view class="plan-scene__roof"></view>
-              <view class="plan-scene__hall"></view>
-              <view class="plan-scene__stairs"></view>
-            </view>
-            <view class="plan-scene__leaf plan-scene__leaf--one"></view>
-            <view class="plan-scene__leaf plan-scene__leaf--two"></view>
+        <view class="plan-destination-card">
+          <view class="plan-destination-card__pin"></view>
+          <view class="plan-destination-card__copy">
+            <text class="plan-destination-card__label">今天要去</text>
+            <text class="plan-destination-card__value">{{ displayPlan.destination }}</text>
+          </view>
+          <view class="plan-destination-card__status">{{ statusText }}</view>
+        </view>
+
+        <view class="plan-interest-strip">
+          <text class="plan-interest-strip__label">探索关键词</text>
+          <view class="plan-interest-strip__items">
+            <text v-for="interest in displayPlan.interests" :key="interest" class="plan-interest-strip__item">{{ interest }}</text>
           </view>
         </view>
-      </view>
 
-      <view class="plan-basic">
-        <text class="plan-basic__label">今天要去</text>
-        <text class="plan-basic__value">{{ displayPlan.destination }}</text>
-        <text class="plan-basic__status">状态：{{ statusText }}</text>
-      </view>
-
-      <view class="plan-sections">
-        <view
-          v-for="section in sections"
-          :key="section.title"
-          class="plan-section-card"
-          :class="`plan-section-card--${section.theme}`"
-        >
-          <view class="plan-section-card__art">
-            <view class="plan-section-card__paper"></view>
-            <view class="plan-section-card__mark"></view>
-          </view>
-          <view class="plan-section-card__content">
-            <text class="plan-section-card__title">{{ section.title }}</text>
-            <text class="plan-section-card__summary">{{ section.summary }}</text>
-            <view class="plan-section-card__items">
-              <text v-for="item in section.items" :key="item" class="plan-section-card__item">{{ item }}</text>
-            </view>
-          </view>
-          <text class="plan-section-card__arrow">›</text>
+        <view class="plan-section-heading">
+          <text class="plan-section-heading__title">随身探索清单</text>
+          <text class="plan-section-heading__note">准备好，就出发</text>
         </view>
-      </view>
 
-      <button class="plan-start" :disabled="isStarting" @click="startExploration">
-        <text>{{ isStarting ? '启动中' : '开始今天的探索' }}</text>
-        <text class="plan-start__star">星</text>
-      </button>
+        <view class="plan-sections">
+          <view
+            v-for="(section, index) in sections"
+            :key="section.title"
+            class="plan-section-card"
+            :class="`plan-section-card--${section.theme}`"
+          >
+            <view class="plan-section-card__number">0{{ index + 1 }}</view>
+            <view class="plan-section-card__art">
+              <view class="plan-section-card__paper"></view>
+              <view class="plan-section-card__mark"></view>
+            </view>
+            <view class="plan-section-card__content">
+              <text class="plan-section-card__title">{{ section.title }}</text>
+              <text class="plan-section-card__summary">{{ section.summary }}</text>
+              <view class="plan-section-card__items">
+                <text v-for="item in section.items.slice(0, 2)" :key="item" class="plan-section-card__item">{{ item }}</text>
+              </view>
+            </view>
+            <text class="plan-section-card__arrow">›</text>
+          </view>
+        </view>
+
+        <button class="plan-start" :disabled="isStarting" @click="startExploration">
+          <text class="plan-start__dot"></text>
+          <text>{{ isStarting ? '正在打开探索清单' : '开始今天的探索' }}</text>
+          <view class="plan-start__star" aria-hidden="true"></view>
+        </button>
       </template>
     </view>
 
@@ -242,367 +255,586 @@ export default {
 .plan-page {
   min-height: 100vh;
   overflow-x: hidden;
-  color: #4a2f1b;
+  color: var(--tl-text-main);
   background:
-    radial-gradient(circle at 12% 8%, rgba(255, 238, 181, 0.55) 0, rgba(255, 238, 181, 0) 110rpx),
-    linear-gradient(135deg, rgba(148, 104, 48, 0.05) 0 1rpx, transparent 1rpx 22rpx),
-    #f8efd9;
+    radial-gradient(circle at 9% 8%, rgba(255, 239, 184, 0.72) 0, rgba(255, 239, 184, 0) 180rpx),
+    linear-gradient(135deg, rgba(141, 101, 49, 0.04) 0 1rpx, transparent 1rpx 24rpx),
+    var(--tl-bg);
 }
 
 .plan-page__paper {
   width: 100%;
-  max-width: 430px;
+  max-width: var(--tl-content-max-width);
   min-height: 100vh;
   margin: 0 auto;
-  padding: calc(28rpx + env(safe-area-inset-top)) 34rpx calc(210rpx + env(safe-area-inset-bottom));
+  padding: calc(var(--tl-page-padding) + var(--tl-safe-top)) var(--tl-page-padding) calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 56rpx);
 }
 
 .plan-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 86rpx;
   margin-bottom: 30rpx;
 }
 
 .plan-header__back,
 .plan-header__spacer {
   display: flex;
-  flex-shrink: 0;
+  flex: 0 0 64rpx;
   align-items: center;
   justify-content: center;
   width: 64rpx;
   height: 64rpx;
-  font-weight: 900;
-  color: #4a2f1b;
 }
 
 .plan-header__back {
-  font-size: 56rpx;
+  padding: 0 0 8rpx;
+  font-size: 64rpx;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--tl-text-main);
+  background: transparent;
 }
 
 .plan-header__title-wrap {
-  position: relative;
+  display: flex;
   flex: 1;
-  text-align: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+.plan-header__eyebrow {
+  margin-bottom: 5rpx;
+  font-size: 16rpx;
+  font-weight: 800;
+  color: var(--tl-primary);
+  letter-spacing: 3rpx;
 }
 
 .plan-header__title {
+  position: relative;
   font-size: 48rpx;
   font-weight: 900;
-  line-height: 1;
-  color: #4a2f1b;
+  line-height: 1.1;
+  color: var(--tl-text-main);
+}
+
+.plan-header__title::after {
+  display: inline-block;
+  width: 14rpx;
+  height: 14rpx;
+  margin: 0 0 18rpx 10rpx;
+  content: '';
+  background: var(--tl-yellow);
+  border: 3rpx solid var(--tl-primary);
+  border-radius: 4rpx 12rpx;
+  transform: rotate(28deg);
+}
+
+.plan-state-card {
+  padding: 52rpx 36rpx;
+  text-align: center;
+  background: var(--tl-paper);
+  border: 3rpx dashed var(--tl-line);
+  border-radius: var(--tl-radius-lg);
+  box-shadow: var(--tl-shadow-card);
+}
+
+.plan-state-card__stamp {
+  display: inline-flex;
+  margin-bottom: 16rpx;
+  padding: 8rpx 18rpx;
+  font-size: 22rpx;
+  font-weight: 900;
+  color: var(--tl-primary-deep);
+  background: var(--tl-yellow);
+  border: 2rpx solid var(--tl-primary);
+  border-radius: var(--tl-radius-sm);
+  transform: rotate(-3deg);
+}
+
+.plan-state-card__title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.plan-state-card__action {
+  display: inline-block;
+  margin-top: 20rpx;
+  padding-bottom: 4rpx;
+  font-size: 26rpx;
+  font-weight: 800;
+  color: var(--tl-primary-deep);
+  border-bottom: 2rpx solid currentColor;
 }
 
 .plan-hero {
   position: relative;
   display: flex;
-  min-height: 382rpx;
+  min-height: 394rpx;
   margin-bottom: 22rpx;
   overflow: hidden;
-  background: rgba(255, 247, 232, 0.92);
-  border: 4rpx solid rgba(190, 142, 78, 0.46);
-  border-radius: 36rpx;
-  box-shadow: 0 18rpx 30rpx rgba(97, 63, 28, 0.13);
+  background: var(--tl-paper);
+  border: 3rpx solid var(--tl-line);
+  border-radius: var(--tl-radius-lg);
+  box-shadow: var(--tl-shadow-card);
+}
+
+.plan-hero::before {
+  position: absolute;
+  top: -56rpx;
+  left: -30rpx;
+  width: 180rpx;
+  height: 180rpx;
+  content: '';
+  background: rgba(255, 235, 170, 0.42);
+  border-radius: 50%;
+}
+
+.plan-hero__tape {
+  position: absolute;
+  top: 18rpx;
+  right: 48rpx;
+  z-index: 3;
+  width: 104rpx;
+  height: 28rpx;
+  background: rgba(243, 205, 114, 0.66);
+  transform: rotate(8deg);
 }
 
 .plan-hero__copy {
   position: relative;
   z-index: 2;
-  width: 56%;
-  padding: 56rpx 18rpx 30rpx 28rpx;
+  display: flex;
+  flex: 0 0 55%;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 48rpx 12rpx 24rpx 28rpx;
+}
+
+.plan-hero__kicker {
+  margin-bottom: 10rpx;
+  font-size: 20rpx;
+  font-weight: 800;
+  color: var(--tl-primary-deep);
+  letter-spacing: 2rpx;
 }
 
 .plan-hero__title {
-  display: block;
-  max-width: 300rpx;
+  display: -webkit-box;
+  max-width: 326rpx;
+  overflow: hidden;
   font-size: 44rpx;
   font-weight: 900;
-  line-height: 1.14;
+  line-height: 1.22;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .plan-hero__underline {
-  width: 96rpx;
+  width: 84rpx;
   height: 8rpx;
-  margin: 18rpx 0 20rpx;
-  background: #f26a21;
-  border-radius: 999rpx;
+  margin: 18rpx 0;
+  background: var(--tl-primary);
+  border-radius: 99rpx;
+  transform: rotate(-2deg);
 }
 
 .plan-hero__desc {
   display: block;
-  margin-bottom: 28rpx;
-  font-size: 28rpx;
+  max-width: 284rpx;
+  margin-bottom: 24rpx;
+  font-size: 26rpx;
   line-height: 1.6;
-  color: #5e3c22;
+  color: var(--tl-text-secondary);
 }
 
 .plan-hero__tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 14rpx;
+  gap: 10rpx;
 }
 
 .plan-hero__tag {
   display: flex;
-  gap: 8rpx;
+  gap: 7rpx;
   align-items: center;
-  justify-content: center;
-  min-width: 132rpx;
-  height: 58rpx;
-  padding: 0 16rpx;
-  font-size: 25rpx;
+  height: 52rpx;
+  padding: 0 12rpx;
+  font-size: 20rpx;
   font-weight: 800;
-  border: 2rpx solid rgba(190, 142, 78, 0.28);
-  border-radius: 22rpx;
+  border: 2rpx solid rgba(151, 109, 59, 0.22);
+  border-radius: 18rpx;
 }
 
-.plan-hero__tag--orange {
-  color: #d94b12;
-  background: #fff1d8;
-}
-
-.plan-hero__tag--blue {
-  color: #235b83;
-  background: #dfeff8;
-}
-
-.plan-hero__tag--green {
-  color: #55753c;
-  background: #eef6dc;
-}
+.plan-hero__tag--orange { color: var(--tl-primary-deep); background: #fff0d2; }
+.plan-hero__tag--blue { color: var(--tl-blue-deep); background: var(--tl-blue); }
+.plan-hero__tag--green { color: var(--tl-green-deep); background: var(--tl-green); }
 
 .plan-hero__tag-mark {
-  font-size: 20rpx;
+  position: relative;
+  width: 18rpx;
+  height: 18rpx;
+  opacity: 0.82;
 }
 
-.plan-hero__scene {
+.plan-hero__tag-mark::before,
+.plan-hero__tag-mark::after {
+  position: absolute;
+  box-sizing: border-box;
+  content: '';
+  border-color: currentColor;
+}
+
+.plan-hero__tag-mark--age::before,
+.plan-hero__tag-mark--time::before {
+  inset: 1rpx;
+  border: 2rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.plan-hero__tag-mark--age::after {
+  bottom: 0;
+  left: 8rpx;
+  width: 2rpx;
+  height: 9rpx;
+  background: currentColor;
+}
+
+.plan-hero__tag-mark--time::after {
+  top: 4rpx;
+  left: 8rpx;
+  width: 2rpx;
+  height: 7rpx;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: rotate(-35deg);
+}
+
+.plan-hero__tag-mark--tasks::before {
+  inset: 2rpx;
+  border: 2rpx solid currentColor;
+  border-radius: 3rpx;
+}
+
+.plan-hero__tag-mark--tasks::after {
+  top: 8rpx;
+  left: 5rpx;
+  width: 8rpx;
+  height: 4rpx;
+  border-bottom: 2rpx solid currentColor;
+  border-left: 2rpx solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.plan-hero__art {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 54%;
-}
-
-.plan-scene {
-  position: relative;
-  height: 100%;
+  width: 52%;
   overflow: hidden;
-  background: #cfe7f5;
+  border-radius: 0 var(--tl-radius-lg) var(--tl-radius-lg) 0;
 }
 
-.plan-scene__sky {
+.plan-hero__art::after {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.88) 0 44rpx, transparent 46rpx),
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.7) 0 28rpx, transparent 30rpx),
-    #bfe1f5;
+  content: '';
+  background: linear-gradient(90deg, var(--tl-paper) 0, rgba(255, 251, 239, 0) 34%);
+  pointer-events: none;
 }
 
-.plan-scene__cloud {
+.plan-hero__image {
+  width: 100%;
+  height: 100%;
+}
+
+.plan-hero__postmark {
   position: absolute;
-  height: 24rpx;
-  background: rgba(255, 250, 240, 0.8);
+  right: 22rpx;
+  bottom: 24rpx;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62rpx;
+  height: 62rpx;
+  font-size: 19rpx;
+  font-weight: 900;
+  color: var(--tl-primary-deep);
+  background: rgba(255, 248, 224, 0.86);
+  border: 3rpx solid var(--tl-primary);
+  border-radius: 50%;
+  transform: rotate(-12deg);
+}
+
+.plan-destination-card {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+  min-height: 104rpx;
+  margin-bottom: 16rpx;
+  padding: 18rpx 20rpx;
+  background: var(--tl-paper);
+  border: 2rpx solid var(--tl-line);
+  border-radius: var(--tl-radius-md);
+  box-shadow: 0 8rpx 14rpx rgba(92, 60, 29, 0.05);
+}
+
+.plan-destination-card__pin {
+  position: relative;
+  flex: 0 0 auto;
+  width: 26rpx;
+  height: 32rpx;
+  margin-left: 4rpx;
+  background: var(--tl-primary);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+}
+
+.plan-destination-card__pin::after {
+  position: absolute;
+  top: 8rpx;
+  left: 8rpx;
+  width: 10rpx;
+  height: 10rpx;
+  content: '';
+  background: var(--tl-paper);
+  border-radius: 50%;
+}
+
+.plan-destination-card__copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.plan-destination-card__label {
+  margin-bottom: 4rpx;
+  font-size: 20rpx;
+  font-weight: 800;
+  color: var(--tl-text-secondary);
+}
+
+.plan-destination-card__value {
+  overflow: hidden;
+  font-size: 30rpx;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-destination-card__status {
+  flex: 0 0 auto;
+  padding: 8rpx 12rpx;
+  font-size: 20rpx;
+  font-weight: 800;
+  color: var(--tl-green-deep);
+  background: var(--tl-green);
   border-radius: 999rpx;
 }
 
-.plan-scene__cloud--one {
-  top: 92rpx;
-  left: 44rpx;
-  width: 120rpx;
-}
-
-.plan-scene__cloud--two {
-  top: 128rpx;
-  right: 28rpx;
-  width: 86rpx;
-}
-
-.plan-scene__palace {
-  position: absolute;
-  right: 18rpx;
-  bottom: 74rpx;
-  left: 26rpx;
-}
-
-.plan-scene__roof {
-  height: 66rpx;
-  background: #ee9d1f;
-  border: 4rpx solid rgba(126, 82, 35, 0.24);
-  border-radius: 68rpx 68rpx 18rpx 18rpx;
-  transform: skewX(-8deg);
-}
-
-.plan-scene__hall {
-  height: 100rpx;
-  margin: -4rpx 18rpx 0;
-  background:
-    repeating-linear-gradient(90deg, rgba(90, 51, 26, 0.26) 0 8rpx, transparent 8rpx 34rpx),
-    #d45528;
-  border: 4rpx solid rgba(126, 82, 35, 0.2);
-  border-radius: 8rpx;
-}
-
-.plan-scene__stairs {
-  width: 180rpx;
-  height: 38rpx;
-  margin: 10rpx auto 0;
-  background: rgba(255, 250, 240, 0.86);
-  border-radius: 12rpx;
-}
-
-.plan-scene__leaf {
-  position: absolute;
-  width: 48rpx;
-  height: 18rpx;
-  background: #88a85f;
-  border-radius: 100% 0 100% 0;
-}
-
-.plan-scene__leaf--one {
-  top: 36rpx;
-  right: 24rpx;
-  transform: rotate(-20deg);
-}
-
-.plan-scene__leaf--two {
-  top: 72rpx;
-  right: 68rpx;
-  transform: rotate(24deg);
-}
-
-.plan-basic {
+.plan-interest-strip {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx 18rpx;
-  align-items: center;
-  margin-bottom: 20rpx;
-  padding: 18rpx 22rpx;
-  background: rgba(255, 250, 240, 0.82);
-  border: 2rpx dashed rgba(190, 142, 78, 0.5);
-  border-radius: 24rpx;
+  gap: 12rpx;
+  align-items: flex-start;
+  margin-bottom: 30rpx;
+  padding: 0 4rpx;
 }
 
-.plan-basic__label,
-.plan-basic__status {
-  font-size: 24rpx;
+.plan-interest-strip__label {
+  flex: 0 0 auto;
+  padding-top: 7rpx;
+  font-size: 21rpx;
   font-weight: 800;
-  color: #8a6d54;
+  color: var(--tl-text-secondary);
 }
 
-.plan-basic__value {
-  font-size: 30rpx;
+.plan-interest-strip__items {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.plan-interest-strip__item {
+  padding: 7rpx 13rpx;
+  font-size: 20rpx;
+  font-weight: 800;
+  color: var(--tl-blue-deep);
+  background: rgba(210, 232, 242, 0.72);
+  border-radius: 999rpx;
+}
+
+.plan-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+  padding: 0 6rpx;
+}
+
+.plan-section-heading__title {
+  font-size: 34rpx;
   font-weight: 900;
-  color: #4a2f1b;
+}
+
+.plan-section-heading__note {
+  font-size: 20rpx;
+  color: var(--tl-text-secondary);
 }
 
 .plan-sections {
   display: flex;
   flex-direction: column;
-  gap: 18rpx;
-  margin-bottom: 22rpx;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
 }
 
 .plan-section-card {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 140rpx;
-  padding: 20rpx 58rpx 20rpx 20rpx;
+  min-height: 146rpx;
+  padding: 18rpx 48rpx 18rpx 18rpx;
   overflow: hidden;
-  background: rgba(255, 247, 232, 0.92);
-  border: 3rpx solid rgba(190, 142, 78, 0.34);
-  border-radius: 28rpx;
-  box-shadow: 0 10rpx 18rpx rgba(97, 63, 28, 0.08);
+  background: var(--tl-paper);
+  border: 2rpx solid var(--tl-line);
+  border-radius: var(--tl-radius-md);
+  box-shadow: 0 8rpx 14rpx rgba(92, 60, 29, 0.05);
+}
+
+.plan-section-card::after {
+  position: absolute;
+  right: -20rpx;
+  bottom: -42rpx;
+  width: 110rpx;
+  height: 110rpx;
+  content: '';
+  opacity: 0.34;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.plan-section-card__number {
+  position: absolute;
+  top: 12rpx;
+  right: 24rpx;
+  font-size: 16rpx;
+  font-weight: 900;
+  color: var(--tl-text-secondary);
+  letter-spacing: 1rpx;
 }
 
 .plan-section-card__art {
   position: relative;
-  flex-shrink: 0;
-  width: 156rpx;
-  height: 96rpx;
-  margin-right: 20rpx;
+  flex: 0 0 98rpx;
+  width: 98rpx;
+  height: 98rpx;
+  margin-right: 18rpx;
 }
 
 .plan-section-card__paper {
   position: absolute;
-  right: 18rpx;
-  bottom: 6rpx;
-  width: 104rpx;
+  top: 10rpx;
+  right: 0;
+  width: 70rpx;
   height: 76rpx;
-  background: #fffaf0;
-  border: 2rpx solid rgba(126, 82, 35, 0.2);
-  border-radius: 16rpx;
-  transform: rotate(-5deg);
+  background: var(--tl-paper-deep);
+  border: 2rpx solid var(--tl-line);
+  border-radius: 10rpx;
+  transform: rotate(7deg);
+}
+
+.plan-section-card__paper::after {
+  position: absolute;
+  top: 15rpx;
+  left: 12rpx;
+  width: 44rpx;
+  height: 3rpx;
+  content: '';
+  background: var(--tl-line);
+  box-shadow: 0 13rpx 0 var(--tl-line), 0 26rpx 0 var(--tl-line);
 }
 
 .plan-section-card__mark {
   position: absolute;
-  left: 12rpx;
-  bottom: 16rpx;
+  bottom: 7rpx;
+  left: 2rpx;
   width: 58rpx;
   height: 58rpx;
-  border: 6rpx solid rgba(255, 250, 240, 0.78);
+  border: 5rpx solid var(--tl-paper);
   border-radius: 50%;
+  box-shadow: 0 5rpx 8rpx rgba(92, 60, 29, 0.08);
 }
 
-.plan-section-card--book .plan-section-card__mark {
-  background: #f26a21;
-}
-
-.plan-section-card--bag .plan-section-card__mark {
-  background: #7b9a50;
-}
-
-.plan-section-card--palace .plan-section-card__mark {
-  background: #ee9d1f;
-}
-
-.plan-section-card--question .plan-section-card__mark {
-  background: #7bb8d6;
-}
+.plan-section-card--book { color: var(--tl-primary-deep); }
+.plan-section-card--book .plan-section-card__mark { background: var(--tl-primary); }
+.plan-section-card--bag { color: var(--tl-green-deep); }
+.plan-section-card--bag .plan-section-card__mark { background: var(--tl-green-deep); }
+.plan-section-card--palace { color: #a06a15; }
+.plan-section-card--palace .plan-section-card__mark { background: var(--tl-yellow); }
+.plan-section-card--question { color: var(--tl-blue-deep); }
+.plan-section-card--question .plan-section-card__mark { background: var(--tl-blue-deep); }
 
 .plan-section-card__content {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
 }
 
 .plan-section-card__title {
   display: block;
-  margin-bottom: 8rpx;
-  font-size: 34rpx;
+  margin-bottom: 6rpx;
+  font-size: 31rpx;
   font-weight: 900;
+  color: var(--tl-text-main);
 }
 
 .plan-section-card__summary {
   display: block;
   margin-bottom: 8rpx;
-  font-size: 27rpx;
-  line-height: 1.35;
-  color: #5e3c22;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: var(--tl-text-secondary);
 }
 
 .plan-section-card__items {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8rpx;
+  overflow: hidden;
+  gap: 7rpx;
+  max-height: 45rpx;
 }
 
 .plan-section-card__item {
-  padding: 7rpx 12rpx;
-  font-size: 21rpx;
-  line-height: 1.2;
-  color: #6b482d;
-  background: rgba(255, 240, 189, 0.62);
+  flex: 0 0 auto;
+  max-width: 190rpx;
+  padding: 5rpx 10rpx;
+  overflow: hidden;
+  font-size: 17rpx;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--tl-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--tl-paper-deep);
   border-radius: 999rpx;
 }
 
 .plan-section-card__arrow {
   position: absolute;
-  top: 50%;
-  right: 24rpx;
-  font-size: 58rpx;
-  color: #6b482d;
+  top: 54%;
+  right: 18rpx;
+  z-index: 2;
+  font-size: 48rpx;
+  font-weight: 300;
+  line-height: 1;
+  color: currentColor;
   transform: translateY(-50%);
 }
 
@@ -610,29 +842,110 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(100% - 96rpx);
-  height: 96rpx;
-  font-size: 34rpx;
+  width: 100%;
+  min-height: 100rpx;
+  padding: 0 28rpx;
+  font-size: 32rpx;
   font-weight: 900;
-  color: #fff;
-  background: #f26a21;
-  border-radius: 32rpx;
-  box-shadow: 0 16rpx 22rpx rgba(217, 75, 18, 0.22);
+  color: var(--tl-paper);
+  letter-spacing: 1rpx;
+  background: var(--tl-primary);
+  border: 3rpx solid var(--tl-primary-deep);
+  border-radius: var(--tl-radius-md);
+  box-shadow: 0 12rpx 0 var(--tl-primary-deep), 0 18rpx 24rpx rgba(194, 91, 28, 0.22);
+}
+
+.plan-start[disabled] {
+  opacity: 0.7;
+}
+
+.plan-start__dot {
+  width: 13rpx;
+  height: 13rpx;
+  margin-right: 14rpx;
+  background: var(--tl-yellow);
+  border-radius: 50%;
 }
 
 .plan-start__star {
+  position: relative;
+  width: 18rpx;
+  height: 18rpx;
   margin-left: 14rpx;
-  font-size: 22rpx;
-  transform: rotate(18deg);
+  color: currentColor;
+  transform: rotate(45deg);
+}
+
+.plan-start__star::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: currentColor;
+  border-radius: 5rpx;
+}
+
+@media (max-width: 360px) {
+  .plan-page__paper {
+    padding-right: 24rpx;
+    padding-left: 24rpx;
+  }
+
+  .plan-hero {
+    min-height: 378rpx;
+  }
+
+  .plan-hero__copy {
+    flex-basis: 60%;
+    padding-left: 22rpx;
+  }
+
+  .plan-hero__title {
+    font-size: 40rpx;
+  }
+
+  .plan-hero__art {
+    width: 54%;
+  }
+
+  .plan-hero__tag {
+    padding: 0 9rpx;
+    font-size: 18rpx;
+  }
+
+  .plan-interest-strip {
+    display: block;
+  }
+
+  .plan-interest-strip__label {
+    display: block;
+    margin-bottom: 8rpx;
+  }
 }
 
 @media (min-width: 431px) {
   .plan-page__paper {
-    padding: calc(18px + env(safe-area-inset-top)) 18px calc(120px + env(safe-area-inset-bottom));
+    padding: calc(18px + var(--tl-safe-top)) 18px calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 34px);
   }
 
   .plan-header {
+    min-height: 44px;
     margin-bottom: 16px;
+  }
+
+  .plan-header__back,
+  .plan-header__spacer {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .plan-header__back {
+    font-size: 32px;
+  }
+
+  .plan-header__eyebrow {
+    margin-bottom: 3px;
+    font-size: 10px;
   }
 
   .plan-header__title {
@@ -640,40 +953,28 @@ export default {
   }
 
   .plan-hero {
-    min-height: 220px;
+    min-height: 224px;
     border-width: 2px;
-    border-radius: 20px;
   }
 
   .plan-hero__copy {
-    padding: 32px 12px 18px 16px;
+    padding: 28px 8px 15px 15px;
   }
 
-  .plan-hero__title {
-    font-size: 28px;
-  }
-
-  .plan-hero__desc {
-    font-size: 16px;
-  }
-
-  .plan-section-card {
-    min-height: 82px;
-    padding: 12px 34px 12px 12px;
-    border-width: 2px;
-    border-radius: 16px;
-  }
-
-  .plan-section-card__title {
-    font-size: 20px;
-  }
-
-  .plan-section-card__summary {
-    font-size: 15px;
-  }
-
-  .plan-section-card__item {
-    font-size: 12px;
-  }
+  .plan-hero__kicker { font-size: 12px; }
+  .plan-hero__title { max-width: 170px; font-size: 27px; }
+  .plan-hero__desc { max-width: 158px; font-size: 14px; }
+  .plan-hero__tag { height: 28px; font-size: 11px; }
+  .plan-hero__postmark { width: 36px; height: 36px; font-size: 11px; }
+  .plan-destination-card { min-height: 58px; padding: 10px 12px; }
+  .plan-destination-card__value { font-size: 18px; }
+  .plan-section-card { min-height: 84px; padding: 10px 32px 10px 10px; }
+  .plan-section-card__art { flex-basis: 54px; width: 54px; height: 54px; margin-right: 12px; }
+  .plan-section-card__paper { width: 40px; height: 42px; }
+  .plan-section-card__mark { width: 33px; height: 33px; }
+  .plan-section-card__title { font-size: 19px; }
+  .plan-section-card__summary { font-size: 14px; }
+  .plan-section-card__item { font-size: 10px; }
+  .plan-start { min-height: 52px; font-size: 19px; }
 }
 </style>
