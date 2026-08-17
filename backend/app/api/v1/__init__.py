@@ -1,5 +1,6 @@
 from flask import Blueprint
 
+from app.api.v1.attractions import attractions_bp
 from app.api.v1.auth import auth_bp
 from app.api.v1.children import children_bp
 from app.api.v1.guides import guides_bp
@@ -10,6 +11,7 @@ from app.api.v1.tasks import tasks_bp
 
 
 v1_bp = Blueprint("v1", __name__)
+v1_bp.register_blueprint(attractions_bp, url_prefix="/attractions")
 v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
 v1_bp.register_blueprint(children_bp, url_prefix="/children")
 v1_bp.register_blueprint(plans_bp, url_prefix="/plans")
