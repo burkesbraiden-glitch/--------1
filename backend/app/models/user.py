@@ -31,3 +31,9 @@ class User(db.Model):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    routes = db.relationship(
+        "Route",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

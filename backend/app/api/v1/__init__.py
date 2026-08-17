@@ -7,6 +7,7 @@ from app.api.v1.guides import guides_bp
 from app.api.v1.health import health_bp
 from app.api.v1.journey_records import journey_records_bp
 from app.api.v1.plans import plans_bp
+from app.api.v1.routes import routes_bp
 from app.api.v1.tasks import tasks_bp
 
 
@@ -15,6 +16,7 @@ v1_bp.register_blueprint(attractions_bp, url_prefix="/attractions")
 v1_bp.register_blueprint(auth_bp, url_prefix="/auth")
 v1_bp.register_blueprint(children_bp, url_prefix="/children")
 v1_bp.register_blueprint(plans_bp, url_prefix="/plans")
+v1_bp.register_blueprint(routes_bp, url_prefix="/routes")
 v1_bp.register_blueprint(guides_bp, url_prefix="/plans")
 v1_bp.register_blueprint(tasks_bp, url_prefix="/plans")
 v1_bp.register_blueprint(journey_records_bp)
