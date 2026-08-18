@@ -2,6 +2,7 @@ import { useChildStore } from '../stores/child'
 import { useGuideStore } from '../stores/guide'
 import { usePlanStore } from '../stores/plan'
 import { useRecordStore } from '../stores/record'
+import { useRouteStore } from '../stores/route'
 import { useTaskStore } from '../stores/task'
 import { useUserStore } from '../stores/user'
 
@@ -32,6 +33,7 @@ export function endUserSession() {
   activeSessionEnd = (async () => {
     const childStore = useChildStore()
     const planStore = usePlanStore()
+    const routeStore = useRouteStore()
     const guideStore = useGuideStore()
     const taskStore = useTaskStore()
     const recordStore = useRecordStore()
@@ -40,6 +42,7 @@ export function endUserSession() {
     userStore.invalidateSession()
     childStore.resetSessionState()
     planStore.resetSessionState()
+    routeStore.resetSessionState()
     guideStore.resetSessionState()
     taskStore.resetSessionState()
     recordStore.resetRecordState()

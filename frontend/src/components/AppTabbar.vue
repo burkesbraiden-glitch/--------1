@@ -30,8 +30,8 @@ export default {
     return {
       tabs: [
         { key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' },
-        { key: 'plan', label: '计划', icon: 'plan', path: '/pages/plan/index' },
-        { key: 'tasks', label: '任务', icon: 'tasks', path: '/pages/tasks/index' },
+        { key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' },
+        { key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' },
         { key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' },
         { key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' },
       ],

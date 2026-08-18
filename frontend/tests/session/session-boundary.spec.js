@@ -5,6 +5,7 @@ import { useChildStore } from '../../src/stores/child.js'
 import { useGuideStore } from '../../src/stores/guide.js'
 import { usePlanStore } from '../../src/stores/plan.js'
 import { useRecordStore } from '../../src/stores/record.js'
+import { useRouteStore } from '../../src/stores/route.js'
 import { useTaskStore } from '../../src/stores/task.js'
 import { useUserStore } from '../../src/stores/user.js'
 import { endUserSession } from '../../src/utils/sessionBoundary.js'
@@ -22,6 +23,7 @@ function login() {
 function seedBusinessStores() {
   const child = useChildStore()
   const plan = usePlanStore()
+  const route = useRouteStore()
   const guide = useGuideStore()
   const task = useTaskStore()
   const record = useRecordStore()
@@ -33,6 +35,7 @@ function seedBusinessStores() {
     currentChild: { id: 6001, name: 'Test Child', age: 8 },
   }, userId)
   plan.applyPlanList([{ id: planId, title: 'Session Test Plan', status: 'in-progress' }], userId)
+  route.applyReturnedRoute({ id: 3001, title: 'Session Test Route', city: '北京', days: [] })
   guide.applyGuide({ id: 5001, planId, title: 'Test Guide' }, planId)
   task.setTasksForPlan(planId, [{
     id: taskId,
@@ -62,7 +65,7 @@ function seedBusinessStores() {
     cleanup: recordCleanup,
   })
 
-  return { child, plan, guide, task, record, taskCleanup, recordCleanup }
+  return { child, plan, route, guide, task, record, taskCleanup, recordCleanup }
 }
 
 function respondLogout(statusCode = 200, data = { success: true, data: {} }) {
@@ -72,12 +75,14 @@ function respondLogout(statusCode = 200, data = { success: true, data: {} }) {
   })
 }
 
-function expectCleared({ child, plan, guide, task, record }) {
+function expectCleared({ child, plan, route, guide, task, record }) {
   const user = useUserStore()
   expect(child.children).toEqual([])
   expect(child.hasRemoteChild).toBe(false)
   expect(plan.plans).toEqual([])
   expect(plan.currentPlan).toBeNull()
+  expect(route.routes).toEqual([])
+  expect(route.currentRoute).toBeNull()
   expect(guide.currentGuide).toBeNull()
   expect(task.tasksByPlanId).toEqual({})
   expect(task.taskImageCache).toEqual({})

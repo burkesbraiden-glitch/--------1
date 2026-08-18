@@ -61,6 +61,20 @@
         "navigationBarTitleText": "登录",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/route/index",
+      "style": {
+        "navigationBarTitleText": "路线",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/route-detail/index",
+      "style": {
+        "navigationBarTitleText": "路线详情",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

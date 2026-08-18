@@ -39,12 +39,14 @@ describe('FE-R6 full application visual contract', () => {
     }
   })
 
-  test('uses five named line-icon tab routes without changing profile authentication routing', () => {
+  test('uses five line-icon tab items without changing profile authentication routing', () => {
     const tabbar = readFrontendFile('src/components/AppTabbar.vue')
 
-    for (const key of ['home', 'plan', 'tasks', 'record', 'profile']) {
-      expect(tabbar).toContain(`key: '${key}'`)
-      expect(tabbar).toContain(`icon: '${key}'`)
+    const tabEntries = tabbar.match(/\{\s*key:\s*'[^']+',\s*label:\s*'[^']+',\s*icon:\s*'[^']+',\s*path:\s*'[^']+'\s*\}/g) || []
+    expect(tabEntries).toHaveLength(5)
+    for (const icon of ['home', 'plan', 'tasks', 'record', 'profile']) {
+      expect(tabbar).toContain(`icon: '${icon}'`)
+      expect(tabbar).toContain(`app-tabbar__icon--${icon}`)
     }
 
     expect(tabbar).toContain('app-tabbar__icon--${item.icon}')

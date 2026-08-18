@@ -110,7 +110,7 @@
       </template>
     </view>
 
-    <AppTabbar active="plan" />
+    <AppTabbar active="explore" />
   </view>
 </template>
 

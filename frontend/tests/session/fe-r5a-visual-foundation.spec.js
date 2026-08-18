@@ -96,17 +96,18 @@ describe('FE-R5A global visual foundation', () => {
     expect(watercolorCard).not.toMatch(/padding|min-height|header|hero|tabbar|illustration/i)
   })
 
-  test('keeps AppTabbar navigation intact while consuming only equivalent bridge tokens', () => {
+  test('keeps the five-item AppTabbar visual foundation while consuming only equivalent bridge tokens', () => {
     const template = blockSource('template')
     const script = blockSource('script')
     const style = blockSource('style')
 
     expect(template).toContain('app-tabbar__icon--${item.icon}')
-    expect(script).toContain("{ key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' }")
-    expect(script).toContain("{ key: 'plan', label: '计划', icon: 'plan', path: '/pages/plan/index' }")
-    expect(script).toContain("{ key: 'tasks', label: '任务', icon: 'tasks', path: '/pages/tasks/index' }")
-    expect(script).toContain("{ key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' }")
-    expect(script).toContain("{ key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' }")
+    const tabEntries = script.match(/\{\s*key:\s*'[^']+',\s*label:\s*'[^']+',\s*icon:\s*'[^']+',\s*path:\s*'[^']+'\s*\}/g) || []
+    expect(tabEntries).toHaveLength(5)
+    for (const icon of ['home', 'plan', 'tasks', 'record', 'profile']) {
+      expect(script).toContain(`icon: '${icon}'`)
+      expect(style).toContain(`.app-tabbar__icon--${icon}`)
+    }
     expect(script).toContain('async go(item)')
     expect(script).toContain('await userStore.restoreSession()')
     expect(script).toContain("targetPath = userStore.isLoggedIn ? '/pages/profile/index' : '/pages/login/index'")

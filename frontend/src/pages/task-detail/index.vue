@@ -125,7 +125,7 @@
       </view>
     </view>
 
-    <AppTabbar active="tasks" />
+    <AppTabbar active="explore" />
   </view>
 </template>
 
