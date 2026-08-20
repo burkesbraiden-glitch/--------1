@@ -33,11 +33,13 @@ def test_exploration_plan_columns_and_constraints():
         "id",
         "user_id",
         "child_id",
+        "route_stop_id",
         "title",
         "destination",
         "age_group",
         "duration",
         "interests",
+        "source_snapshot",
         "status",
         "completed_at",
         "created_at",
@@ -49,6 +51,7 @@ def test_exploration_plan_columns_and_constraints():
     assert table.c.user_id.index is True
     assert table.c.child_id.nullable is False
     assert table.c.child_id.index is True
+    assert table.c.route_stop_id.nullable is True
     assert table.c.title.nullable is False
     assert table.c.title.type.length == 120
     assert table.c.destination.nullable is False
@@ -60,6 +63,8 @@ def test_exploration_plan_columns_and_constraints():
     assert table.c.interests.nullable is False
     assert isinstance(table.c.interests.type, JSON)
     _assert_list_default(table.c.interests)
+    assert table.c.source_snapshot.nullable is True
+    assert isinstance(table.c.source_snapshot.type, JSON)
     assert table.c.status.nullable is False
     assert table.c.status.type.length == 24
     assert table.c.status.default.arg == "draft"
@@ -77,6 +82,7 @@ def test_exploration_plan_columns_and_constraints():
 def test_exploration_plan_foreign_keys():
     user_foreign_keys = list(ExplorationPlan.__table__.c.user_id.foreign_keys)
     child_foreign_keys = list(ExplorationPlan.__table__.c.child_id.foreign_keys)
+    route_stop_foreign_keys = list(ExplorationPlan.__table__.c.route_stop_id.foreign_keys)
 
     assert len(user_foreign_keys) == 1
     assert user_foreign_keys[0].target_fullname == "users.id"
@@ -85,6 +91,10 @@ def test_exploration_plan_foreign_keys():
     assert len(child_foreign_keys) == 1
     assert child_foreign_keys[0].target_fullname == "children.id"
     assert child_foreign_keys[0].ondelete == "RESTRICT"
+
+    assert len(route_stop_foreign_keys) == 1
+    assert route_stop_foreign_keys[0].target_fullname == "route_stops.id"
+    assert route_stop_foreign_keys[0].ondelete == "RESTRICT"
 
 
 def test_guide_card_columns_and_constraints():

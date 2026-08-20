@@ -49,6 +49,9 @@ export const useRouteStore = defineStore('route', {
     currentRoute: null,
     isLoading: false,
     error: null,
+    planGenerationResult: null,
+    isGeneratingPlans: false,
+    planGenerationError: null,
     isLoaded: false,
     loadedForUserId: null,
     total: 0,
@@ -61,6 +64,9 @@ export const useRouteStore = defineStore('route', {
       this.currentRoute = null
       this.isLoading = false
       this.error = null
+      this.planGenerationResult = null
+      this.isGeneratingPlans = false
+      this.planGenerationError = null
       this.isLoaded = false
       this.loadedForUserId = userId
       this.total = 0
@@ -185,6 +191,24 @@ export const useRouteStore = defineStore('route', {
         throw error
       } finally {
         if (isCurrentSession(requestSession)) this.isLoading = false
+      }
+    },
+    async generateExplorationPlans(routeId, childId, routeStopIds) {
+      const requestSession = getCurrentSession()
+      this.isGeneratingPlans = true
+      this.planGenerationError = null
+      try {
+        const data = await routesApi.generateRouteExplorationPlans(routeId, childId, routeStopIds)
+        if (isCurrentSession(requestSession)) {
+          this.planGenerationResult = data
+          this.planGenerationError = null
+        }
+        return data
+      } catch (error) {
+        if (isCurrentSession(requestSession)) this.planGenerationError = error
+        throw error
+      } finally {
+        if (isCurrentSession(requestSession)) this.isGeneratingPlans = false
       }
     },
     async createRoute(payload) {

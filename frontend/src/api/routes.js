@@ -27,6 +27,15 @@ export function getRoute(routeId) {
   return request({ path: `/routes/${routeId}`, method: 'GET', auth: true })
 }
 
+export function generateRouteExplorationPlans(routeId, childId, routeStopIds) {
+  return request({
+    path: `/routes/${routeId}/exploration-plans/generate`,
+    method: 'POST',
+    data: { childId, routeStopIds },
+    auth: true,
+  })
+}
+
 export function updateRoute(routeId, payload) {
   return request({ path: `/routes/${routeId}`, method: 'PATCH', data: payload, auth: true })
 }

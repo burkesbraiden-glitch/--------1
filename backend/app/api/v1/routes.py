@@ -2,6 +2,11 @@ from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services.auth import AuthError, get_user_by_identity
+from app.services.plans import serialize_plan
+from app.services.route_plan_generation import (
+    RoutePlanGenerationError,
+    generate_exploration_plans_from_route,
+)
 from app.services.routes import (
     RouteError,
     create_route,
@@ -26,8 +31,12 @@ from app.utils.responses import error_response, success_response
 routes_bp = Blueprint("routes", __name__)
 
 
+def _current_user():
+    return get_user_by_identity(get_jwt_identity())
+
+
 def _current_user_id():
-    return get_user_by_identity(get_jwt_identity()).id
+    return _current_user().id
 
 
 def _json_object():
@@ -59,6 +68,13 @@ def _route_response(route, *, message="ok", status_code=200):
     return success_response(data={"route": serialize_route_detail(route)}, message=message, status_code=status_code)
 
 
+def _generation_payload():
+    payload = _json_object()
+    if set(payload) != {"childId", "routeStopIds"}:
+        raise RouteError("VALIDATION_ERROR", "childId and routeStopIds are required", 400)
+    return payload
+
+
 @routes_bp.get("")
 @jwt_required()
 def index():
@@ -87,6 +103,36 @@ def create():
     try:
         return _route_response(create_route(_current_user_id(), _json_object()), message="Route created", status_code=201)
     except (AuthError, RouteError) as error:
+        return _handle_error(error)
+
+
+@routes_bp.post("/<int:route_id>/exploration-plans/generate")
+@jwt_required()
+def generate_exploration_plans(route_id):
+    try:
+        payload = _generation_payload()
+        generation = generate_exploration_plans_from_route(
+            _current_user(),
+            route_id,
+            payload["childId"],
+            payload["routeStopIds"],
+        )
+        return success_response(
+            data={
+                "routeId": generation["route"].id,
+                "childId": generation["child"].id,
+                "results": [
+                    {
+                        "routeStopId": item["routeStopId"],
+                        "result": item["result"],
+                        "plan": serialize_plan(item["plan"]),
+                    }
+                    for item in generation["results"]
+                ],
+            },
+            message="Exploration plans generated",
+        )
+    except (AuthError, RouteError, RoutePlanGenerationError) as error:
         return _handle_error(error)
 
 

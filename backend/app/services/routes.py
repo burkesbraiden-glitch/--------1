@@ -4,7 +4,7 @@ from datetime import date
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
-from app.models import Attraction, Route, RouteDay, RouteStop
+from app.models import Attraction, ExplorationPlan, Route, RouteDay, RouteStop
 
 
 DEFAULT_LIMIT = 20
@@ -119,6 +119,33 @@ def _get_route_stop(day, stop_id):
     if stop is None:
         raise RouteError("ROUTE_STOP_NOT_FOUND", "Route stop not found", 404)
     return stop
+
+
+def _stop_has_exploration_plans(stop_id):
+    return ExplorationPlan.query.filter_by(route_stop_id=stop_id).first() is not None
+
+
+def _day_has_exploration_plans(day_id):
+    return (
+        ExplorationPlan.query.join(
+            RouteStop, ExplorationPlan.route_stop_id == RouteStop.id
+        )
+        .filter(RouteStop.route_day_id == day_id)
+        .first()
+        is not None
+    )
+
+
+def _route_has_exploration_plans(route_id):
+    return (
+        ExplorationPlan.query.join(
+            RouteStop, ExplorationPlan.route_stop_id == RouteStop.id
+        )
+        .join(RouteDay, RouteStop.route_day_id == RouteDay.id)
+        .filter(RouteDay.route_id == route_id)
+        .first()
+        is not None
+    )
 
 
 def _next_value(model, field, parent_field, parent_id):
@@ -254,6 +281,8 @@ def update_route(user_id, route_id, data):
 
 def delete_route(user_id, route_id):
     route = _get_route(user_id, route_id)
+    if _route_has_exploration_plans(route.id):
+        raise RouteError("ROUTE_HAS_EXPLORATION_PLANS", "Route has exploration plans", 409)
     db.session.delete(route)
     _commit()
 
@@ -295,6 +324,8 @@ def update_route_day(user_id, route_id, day_id, data):
 def delete_route_day(user_id, route_id, day_id):
     route = _get_route(user_id, route_id)
     day = _get_route_day(route, day_id)
+    if _day_has_exploration_plans(day.id):
+        raise RouteError("ROUTE_DAY_HAS_EXPLORATION_PLANS", "Route day has exploration plans", 409)
     db.session.delete(day)
     db.session.flush()
     _resequence_days(route.id)
@@ -357,6 +388,12 @@ def delete_route_stop(user_id, route_id, day_id, stop_id):
     route = _get_route(user_id, route_id)
     day = _get_route_day(route, day_id)
     stop = _get_route_stop(day, stop_id)
+    if _stop_has_exploration_plans(stop.id):
+        raise RouteError(
+            "ROUTE_STOP_HAS_EXPLORATION_PLANS",
+            "Route stop has exploration plans",
+            409,
+        )
     db.session.delete(stop)
     db.session.flush()
     _resequence_stops(day.id)

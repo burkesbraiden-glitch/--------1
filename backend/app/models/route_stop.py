@@ -29,3 +29,8 @@ class RouteStop(db.Model):
 
     route_day = db.relationship("RouteDay", back_populates="stops")
     attraction = db.relationship("Attraction")
+    exploration_plans = db.relationship(
+        "ExplorationPlan",
+        back_populates="route_stop",
+        passive_deletes="all",
+    )

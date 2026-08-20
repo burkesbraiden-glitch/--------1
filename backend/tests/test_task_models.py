@@ -189,6 +189,7 @@ def test_existing_business_model_fields_are_unchanged():
         "id",
         "user_id",
         "child_id",
+        "route_stop_id",
         "title",
         "destination",
         "age_group",
@@ -196,6 +197,7 @@ def test_existing_business_model_fields_are_unchanged():
         "interests",
         "status",
         "completed_at",
+        "source_snapshot",
         "created_at",
         "updated_at",
     }
