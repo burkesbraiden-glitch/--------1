@@ -1,0 +1,2333 @@
+# 童旅记（亲子文化旅游指南）
+
+## Master Handoff / 项目完整交接文档
+
+> 文档版本：2026-08-20
+> 用途：交给新的 AI / Codex / Claude / Gemini / Cursor 等继续开发
+> 项目名称：**童旅记**
+> 项目原始定位：**亲子文化旅游指南 / 亲子研学旅行 App**
+> 当前阶段：**前端主体页面已经完成，视觉回归已经通过，正在进入前后端真实数据联调与后续功能完善阶段**
+>
+> ⚠️ 本文不是 ChatGPT 账户原始聊天记录导出，而是根据当前可访问的历史上下文、项目记忆和此前开发过程整理出的工程级交接文档。
+
+---
+
+# 一、项目一句话定义
+
+**童旅记是一款面向亲子旅行场景的文化研学 App，核心不是“帮用户找旅游景点”，而是让孩子在旅行过程中通过“计划 → 探索任务 → 观察/完成 → 记录 → 回顾”的方式，把一次普通旅游转化为一次有学习成果的亲子文化体验。**
+
+核心理念：
+
+> **旅行不是终点，探索和记录才是学习发生的过程。**
+
+---
+
+# 二、项目最初的产品目标
+
+项目最初是一个“亲子文化旅游指南”方向的 App。
+
+后来逐渐明确：
+
+* 用户主体：家长 + 儿童
+* 使用场景：亲子旅游、博物馆、历史文化景点、城市文化探索
+* 核心问题：
+
+  * 家长不知道如何让孩子真正参与旅行
+  * 孩子到景点后容易变成“看一看、拍一拍”
+  * 旅行结束后缺少学习成果
+  * 传统旅游 App 更偏向“去哪儿”，而不是“到了以后学什么”
+* 因此童旅记重点解决：
+
+  * **旅行前：规划**
+  * **旅行中：探索**
+  * **旅行后：记录与回顾**
+
+---
+
+# 三、产品核心闭环
+
+当前已经基本形成以下产品闭环：
+
+```text
+首页
+ ↓
+选择 / 创建旅行计划
+ ↓
+计划
+ ↓
+景点 / 探索内容
+ ↓
+探索任务
+ ↓
+完成任务
+ ↓
+提交观察 / 图片 / 文字等内容
+ ↓
+形成记录
+ ↓
+记录详情
+ ↓
+回顾旅行学习成果
+```
+
+可以进一步理解为：
+
+```text
+Plan
+  ↓
+Guide
+  ↓
+Task
+  ↓
+Submission
+  ↓
+Record
+```
+
+这五个概念是整个系统后续前后端数据设计最重要的主线。
+
+---
+
+# 四、非常重要的产品设计决策
+
+## 4.1 “计划”和“探索任务”的关系
+
+之前专门讨论过一个问题：
+
+> “探索计划”和“探索任务”到底是不是两个页面？
+
+经过讨论后，不再建议把“探索计划”单独做成一个复杂的一级导航页面。
+
+更合理的层级是：
+
+```text
+旅行计划
+  ↓
+景点 / 旅行内容
+  ↓
+这个景点需要探索什么
+  ↓
+具体探索任务
+```
+
+也就是说：
+
+**计划是任务的上一层，而不是和任务平行的独立系统。**
+
+例如：
+
+```text
+故宫旅行计划
+│
+├── 午门
+│   ├── 观察建筑颜色
+│   ├── 寻找门钉
+│   └── 了解午门作用
+│
+├── 太和殿
+│   ├── 寻找龙纹
+│   ├── 观察屋顶
+│   └── 记录最喜欢的细节
+│
+└── 珍宝馆
+    ├── 寻找特殊文物
+    └── 完成观察记录
+```
+
+因此后续开发时：
+
+**不要重新把“探索计划”设计成一个与任务完全平行的大模块。**
+
+---
+
+# 五、产品定位上的重要取舍
+
+项目早期曾有一个右侧 AI Pet / AI 小宠物设计。
+
+后来决定：
+
+> **删除 AI Pet。**
+
+原因是：
+
+* 页面容易变得杂乱
+* 会分散孩子对任务的注意力
+* 当前项目的核心价值不是 AI 聊天，而是文化探索和学习记录
+* UI 希望保持简单、绘本化、教育性
+
+因此：
+
+**后续不要重新加入 AI Pet，除非用户明确要求。**
+
+---
+
+# 六、视觉设计方向
+
+项目不是传统旅游 App 风格。
+
+总体视觉方向：
+
+> **米黄色 + 绘本水彩 + 儿童研学 + 博物馆导览 + 学习手账**
+
+不同页面有不同视觉语境。
+
+## 首页
+
+定位：
+
+> 儿童绘本风
+
+特点：
+
+* 温暖
+* 米黄色
+* 水彩 / 绘本
+* 亲子旅行氛围
+* 不追求传统互联网产品的冷色科技感
+
+---
+
+## Plan 页面
+
+定位：
+
+> **博物馆导览风**
+
+重点：
+
+* 景点
+* 旅行计划
+* 时间
+* 地点
+* 计划内容
+* 探索路径
+
+---
+
+## Guide 页面
+
+定位：
+
+> **博物馆导览卡 / 文化讲解**
+
+作用：
+
+让孩子在真正开始任务之前，先了解：
+
+* 这个地方是什么
+* 为什么重要
+* 应该观察什么
+* 有什么文化背景
+
+---
+
+## Tasks 页面
+
+定位：
+
+> **研学笔记风**
+
+任务不是简单的：
+
+> “点击完成”
+
+而是：
+
+> “观察 → 思考 → 回答 → 提交”
+
+因此视觉上更接近：
+
+* 研学手册
+* 观察笔记
+* 儿童任务卡
+
+---
+
+## Task Detail 页面
+
+定位：
+
+> **博物馆导览风**
+
+重点突出：
+
+* 当前任务
+* 观察目标
+* 任务说明
+* 完成要求
+* 提交入口
+
+---
+
+## Record 页面
+
+定位：
+
+> **学习手账风**
+
+强调：
+
+* 孩子的旅行成果
+* 个人记录
+* 图片
+* 文字
+* 已完成任务
+* 学习过程
+
+---
+
+# 七、当前页面体系
+
+目前已经形成以下页面体系：
+
+```text
+Home
+Plan
+Guide
+Tasks
+Task Detail
+Record
+Record Detail
+Login
+Profile / My
+```
+
+也就是至少：
+
+**9 个核心页面 / 页面状态体系。**
+
+此前项目周报中也曾按照页面维度统计完成情况。
+
+---
+
+# 八、页面完成情况
+
+根据目前保存的项目记忆：
+
+### 已完成
+
+* 首页 Home
+* 计划 Plan
+* 导览 Guide
+* 任务 Tasks
+* 任务详情 Task Detail
+* 记录 Record
+* 记录详情 Record Detail
+* 登录 Login
+* 我的 / Profile
+
+并且这些页面曾进行过 HBuilderX 实际视觉回归。
+
+---
+
+# 九、HBuilderX 视觉回归情况
+
+此前记录：
+
+```text
+FE-R5A Visual Foundation
+```
+
+完成后进行了 HBuilderX 人工视觉回归。
+
+回归页面：
+
+```text
+HOME
+PLAN
+GUIDE
+TASKS
+TASK_DETAIL
+RECORD
+RECORD_DETAIL
+LOGIN
+PROFILE
+```
+
+结果：
+
+> **PASS**
+
+因此后续如果继续开发：
+
+**不要因为换了 AI 就重新把这 9 个页面全部推倒重做。**
+
+除非发现明确 Bug 或用户主动要求重新设计。
+
+---
+
+# 十、前端技术栈
+
+## Framework
+
+```text
+uni-app
+Vue 3
+Vite
+```
+
+具体已知版本：
+
+```text
+Vue 3.4.21
+Vite 5.2.8
+Pinia 2.1.7
+```
+
+---
+
+## 开发工具
+
+主要使用：
+
+```text
+HBuilderX
+```
+
+实际 H5 运行环境曾确认：
+
+```text
+http://localhost:5173/
+```
+
+例如 Record 页面：
+
+```text
+http://localhost:5173/#/pages/record/index
+```
+
+---
+
+## Node
+
+已知环境：
+
+```text
+Node v20.19.5
+npm v10.8.2
+npx v10.8.2
+```
+
+---
+
+# 十一、前端项目结构中的重要文件
+
+此前明确涉及：
+
+```text
+frontend/
+├── src/
+│   ├── main.js
+│   ├── App.vue
+│   ├── pages.json
+│   ├── components/
+│   │   └── AppTabbar.vue
+│   ├── stores/
+│   │   ├── plan store
+│   │   ├── task store
+│   │   └── record store
+│   ├── mock/
+│   │   └── mock data
+│   └── styles/
+│       ├── variables.scss
+│       ├── global.scss
+│       └── mixins.scss
+```
+
+实际仓库中可能还有更多文件。
+
+**接手时必须以当前 Git 仓库真实目录为准，不要仅根据本文重新创建目录。**
+
+---
+
+# 十二、Pinia
+
+项目已经使用 Pinia。
+
+核心数据状态概念包括：
+
+```text
+Plan Store
+Task Store
+Record Store
+```
+
+此前还存在：
+
+```text
+currentPlan
+```
+
+等核心状态。
+
+---
+
+# 十三、Mock 数据
+
+早期前端开发大量依赖 Mock 数据。
+
+`mockPlans` 曾经统一标准化为：
+
+```text
+id
+title
+destination
+ageGroup
+duration
+taskCount
+interests
+status
+```
+
+这一点很重要。
+
+如果后端接口字段与这些前端字段不一致：
+
+**不要直接到处修改页面。**
+
+应该建立：
+
+```text
+Backend DTO
+      ↓
+Frontend Adapter / Mapping
+      ↓
+统一前端数据结构
+```
+
+或者明确统一 API 字段。
+
+---
+
+# 十四、视觉 Foundation
+
+FE-R5A 阶段进行了视觉基础整理。
+
+加入 / 固化了一些 Design Tokens：
+
+```scss
+$tl-content-max-width
+$tl-safe-top
+$tl-border-soft
+$tl-shadow-card
+```
+
+这意味着后续开发不应该随意：
+
+```text
+每个页面自己定义一套颜色
+每个页面自己定义一套阴影
+每个页面自己定义一套间距
+```
+
+而应该继续使用已有视觉 Foundation。
+
+---
+
+# 十五、前端阶段历史
+
+项目开发大体经过：
+
+```text
+Phase 0
+↓
+项目基础搭建
+
+Phase 1
+↓
+Home
+
+Phase 2
+↓
+Plan + Guide
+
+Phase 3
+↓
+Tasks + Task Detail
+
+Phase 4
+↓
+Record + Record Detail
+
+Phase 5
+↓
+Login + Profile
+
+Phase 6
+↓
+Flask + MySQL 联调
+```
+
+---
+
+# 十六、Phase 0：项目基础
+
+完成：
+
+* uni-app Vue 3 项目基础
+* Vite
+* 页面路由
+* 全局样式
+* 组件基础
+* Tabbar
+* Mock 数据体系
+* Store 基础
+
+---
+
+# 十七、Phase 1：Home
+
+完成首页。
+
+设计方向：
+
+```text
+儿童绘本
++
+旅行入口
++
+计划入口
++
+当前旅行状态
+```
+
+重点：
+
+首页不是传统旅游平台的“酒店 / 攻略 / 门票”首页。
+
+而是：
+
+> **孩子和家长进入一次研学旅行的入口。**
+
+---
+
+# 十八、Phase 2：Plan + Guide
+
+完成：
+
+```text
+Plan
+Guide
+```
+
+Plan：
+
+负责：
+
+* 旅行计划
+* 景点
+* 时间
+* 探索内容入口
+
+Guide：
+
+负责：
+
+* 文化讲解
+* 景点介绍
+* 观察提示
+
+---
+
+# 十九、Phase 3：Tasks
+
+完成：
+
+```text
+Tasks
+Task Detail
+```
+
+任务体系是项目核心之一。
+
+任务应该体现：
+
+```text
+观察
+↓
+思考
+↓
+回答 / 行动
+↓
+提交
+```
+
+而不是简单：
+
+```text
+任务标题
+[完成]
+```
+
+---
+
+# 二十、Phase 4：Record
+
+完成：
+
+```text
+Record
+Record Detail
+```
+
+Record 是整个学习闭环的重要出口。
+
+它不是简单的“旅游相册”。
+
+应该体现：
+
+```text
+旅行去了哪里
+↓
+做了哪些探索
+↓
+观察到了什么
+↓
+留下了什么记录
+↓
+形成什么学习成果
+```
+
+---
+
+# 二十一、Phase 5：Login + Profile
+
+完成：
+
+```text
+Login
+Profile / My
+```
+
+真实登录之后，用户身份开始成为后端数据关联的重要基础。
+
+---
+
+# 二十二、后端技术栈
+
+后端：
+
+```text
+Flask
+MySQL
+```
+
+MySQL：
+
+```text
+3306
+```
+
+Flask：
+
+```text
+127.0.0.1:5000
+```
+
+---
+
+# 二十三、后端启动方式
+
+此前实际使用：
+
+```powershell
+cd "D:\Obsidian\codex对话记录\codex对话记录\亲子文化旅游指南\backend"
+
+.\.venv\Scripts\python.exe -m flask run
+```
+
+也曾使用：
+
+```powershell
+.\.venv\Scripts\python.exe -m flask --app app:create_app routes
+```
+
+来检查 Flask 路由。
+
+---
+
+# 二十四、后端结构
+
+后端核心是 Flask App Factory：
+
+```text
+app:create_app
+```
+
+因此接手后不要假设项目是：
+
+```python
+app = Flask(__name__)
+```
+
+而应该先检查当前：
+
+```text
+backend/app/
+```
+
+以及：
+
+```text
+create_app()
+```
+
+的真实结构。
+
+---
+
+# 二十五、数据库
+
+MySQL 已经能够运行。
+
+已知：
+
+```text
+MySQL
+Port: 3306
+```
+
+项目后端已经进入真实数据库阶段。
+
+此前项目中已经出现这些核心概念：
+
+```text
+Plan
+Task
+Submission
+Record
+User
+```
+
+其中一个真实数据关系示例曾经验证过：
+
+```text
+Plan id = 100
+Plan status = in-progress
+
+Task:
+67 → sort_order 1
+68 → sort_order 2
+69 → sort_order 3
+
+Submission:
+Task 67 → 1 条
+Task 68 → 1 条
+Task 69 → 0 条
+```
+
+这说明后端数据库不是纯 Mock，而是已经有真实业务数据关系验证。
+
+---
+
+# 二十六、Submission 的重要性
+
+Task 与 Submission 不是一回事。
+
+例如：
+
+```text
+Task 67
+   ↓
+Submission 1
+```
+
+意味着：
+
+> 任务本身存在，但孩子完成任务之后产生了提交记录。
+
+因此数据模型应该保持：
+
+```text
+Plan
+ ↓
+Task
+ ↓
+Submission
+```
+
+而不要把：
+
+```text
+Task = Submission
+```
+
+混为一谈。
+
+---
+
+# 二十七、曾经出现过的 API 问题
+
+此前测试过：
+
+```text
+/api/v1/journey-records
+```
+
+曾出现：
+
+```text
+404
+```
+
+这说明当时：
+
+* 前端调用路径
+* 后端实际注册路由
+
+之间存在不一致，或者接口尚未实现。
+
+因此后续如果再次遇到：
+
+```text
+404
+```
+
+不要马上修改前端。
+
+首先执行：
+
+```powershell
+.\.venv\Scripts\python.exe -m flask --app app:create_app routes
+```
+
+确认：
+
+```text
+实际 route
+HTTP method
+endpoint
+```
+
+然后再判断是：
+
+```text
+接口未实现
+/
+URL 写错
+/
+Blueprint 前缀错误
+/
+API version 错误
+```
+
+---
+
+# 二十八、Git 工作流
+
+这个项目高度依赖 Git 审计。
+
+此前进行了多轮：
+
+```text
+FE-R2
+FE-R3
+FE-R4A
+FE-R5A
+```
+
+等阶段性审计。
+
+开发过程中一直强调：
+
+```text
+实现
+↓
+验证
+↓
+Audit
+↓
+Commit
+↓
+Push
+```
+
+而不是：
+
+```text
+写完代码
+↓
+直接说完成
+```
+
+---
+
+# 二十九、Git 审计风格
+
+此前出现过类似：
+
+```text
+FE_R4A_PUSH_GATE
+
+STATUS=PASS
+BRANCH=main
+```
+
+以及：
+
+```text
+LOCAL_HEAD_BEFORE=...
+REMOTE_HEAD_BEFORE=...
+```
+
+这说明项目已经形成比较严格的 Git Gate 思维。
+
+后续继续开发时，应保持：
+
+```text
+工作区状态
+↓
+当前分支
+↓
+当前 HEAD
+↓
+修改内容
+↓
+测试
+↓
+Commit
+↓
+Push
+↓
+Remote HEAD
+```
+
+可追踪。
+
+---
+
+# 三十、已知 Commit 信息
+
+目前可从历史上下文确认的一个较新的前端提交：
+
+```text
+6efc0119
+refactor(frontend): establish visual foundation
+```
+
+此前还存在 FE-R4A 阶段的：
+
+```text
+LOCAL_HEAD_BEFORE
+c4f1ef8e206fb7effe5c4e3b3ccbb49922384b99
+```
+
+⚠️ 注意：
+
+这里的 `c4f1ef8...` 是此前某个 Gate 的 `LOCAL_HEAD_BEFORE`，不能直接理解成当前 HEAD。
+
+当前真正 HEAD 必须以接手时：
+
+```bash
+git rev-parse HEAD
+```
+
+的结果为准。
+
+---
+
+# 三十一、FE-R5A
+
+FE-R5A 主要完成：
+
+> **Visual Foundation**
+
+核心工作：
+
+* 统一视觉变量
+* 统一内容宽度
+* safe area
+* border
+* card shadow
+* 视觉基础规范
+
+并完成：
+
+```text
+HOME PASS
+PLAN PASS
+GUIDE PASS
+TASKS PASS
+TASK_DETAIL PASS
+RECORD PASS
+RECORD_DETAIL PASS
+LOGIN PASS
+PROFILE PASS
+```
+
+---
+
+# 三十二、当前真正的开发阶段
+
+根据目前能够恢复的历史：
+
+**前端页面视觉实现已经不是项目当前最主要的问题。**
+
+项目已经从：
+
+> “页面长什么样？”
+
+逐渐进入：
+
+> “真实业务数据如何贯通？”
+
+阶段。
+
+也就是：
+
+```text
+UI
+↓
+真实登录
+↓
+真实 Plan
+↓
+真实 Task
+↓
+真实 Submission
+↓
+真实 Record
+```
+
+---
+
+# 三十三、接下来最重要的事情
+
+优先级建议：
+
+## P0：确认当前仓库真实状态
+
+新 AI 接手后第一件事：
+
+```bash
+git status
+git branch --show-current
+git log --oneline -10
+git remote -v
+git rev-parse HEAD
+```
+
+不要根据本 HandOff 假设 HEAD。
+
+---
+
+## P0：确认前后端是否都能启动
+
+前端：
+
+```text
+HBuilderX
+```
+
+后端：
+
+```powershell
+cd ".../backend"
+
+.\.venv\Scripts\python.exe -m flask run
+```
+
+确认：
+
+```text
+127.0.0.1:5000
+```
+
+---
+
+## P0：检查 Flask 路由
+
+```powershell
+.\.venv\Scripts\python.exe -m flask --app app:create_app routes
+```
+
+重点检查：
+
+```text
+auth
+plans
+tasks
+submissions
+records
+journey-records
+```
+
+实际命名必须以当前代码为准。
+
+---
+
+# 三十四、真实联调应该按照什么顺序做
+
+不要一上来全部联调。
+
+建议：
+
+```text
+1. Login
+   ↓
+2. User identity
+   ↓
+3. Plan
+   ↓
+4. Task
+   ↓
+5. Submission
+   ↓
+6. Record
+```
+
+理由：
+
+Record 是最末端的数据结果。
+
+如果：
+
+```text
+Task
+```
+
+没有真实数据，
+
+那么：
+
+```text
+Submission
+```
+
+无法真实创建。
+
+如果：
+
+```text
+Submission
+```
+
+没有，
+
+那么：
+
+```text
+Record
+```
+
+也没有可靠的数据来源。
+
+---
+
+# 三十五、建议的业务数据链
+
+最终希望形成：
+
+```text
+User
+ │
+ └── Plan
+      │
+      ├── Plan / Destination information
+      │
+      └── Task
+           │
+           └── Submission
+                 │
+                 └── Record
+```
+
+或者从业务角度：
+
+```text
+用户
+ ↓
+旅行计划
+ ↓
+旅行景点
+ ↓
+探索任务
+ ↓
+孩子完成任务
+ ↓
+提交学习成果
+ ↓
+形成旅行记录
+```
+
+---
+
+# 三十六、前端不要再大量依赖 Mock
+
+当前 Mock 的价值：
+
+* 页面展示
+* 空状态设计
+* UI 开发
+* 视觉回归
+
+但进入真实联调后：
+
+**核心业务页面应该逐步切换到 API。**
+
+建议保留 Mock，但区分：
+
+```text
+mock/
+api/
+stores/
+```
+
+不要把 Mock 数据直接散落在：
+
+```text
+.vue
+```
+
+文件中。
+
+---
+
+# 三十七、API 联调原则
+
+建议统一：
+
+```text
+API Layer
+↓
+Store
+↓
+Page
+```
+
+而不是：
+
+```text
+Page
+ ↓
+axios/fetch
+ ↓
+各种 API
+```
+
+例如：
+
+```text
+pages/plan/index.vue
+        ↓
+stores/plan.js
+        ↓
+api/plan.js
+        ↓
+Flask
+```
+
+这样未来接口变化时不会影响大量页面。
+
+---
+
+# 三十八、不要破坏已有页面
+
+接手 AI 最容易犯的错误：
+
+> 看到旧代码，就认为“可以顺手重构”。
+
+这个项目不应该这样做。
+
+目前页面已经：
+
+```text
+设计完成
++
+HBuilderX 验证 PASS
+```
+
+所以真实联调阶段应该：
+
+> **优先接数据，不重新设计 UI。**
+
+如果接口字段不一致：
+
+优先做：
+
+```text
+mapping
+adapter
+store transformation
+```
+
+而不是：
+
+```text
+为了适配后端
+重新改页面结构
+```
+
+---
+
+# 三十九、UI 设计原则
+
+继续保持：
+
+```text
+简单
+儿童友好
+温暖
+有学习感
+有文化感
+不堆功能
+```
+
+避免：
+
+```text
+互联网后台风
+科技蓝
+复杂卡片
+大量按钮
+AI 聊天机器人
+信息过载
+```
+
+---
+
+# 四十、项目不是普通旅游 App
+
+这是交接时必须让新 AI 理解的事情。
+
+不要把它继续发展成：
+
+```text
+携程
+去哪儿
+马蜂窝
+旅游攻略平台
+```
+
+它真正的核心是：
+
+```text
+亲子
++
+文化旅行
++
+儿童观察
++
+研学任务
++
+学习记录
+```
+
+---
+
+# 四十一、孩子是重要使用者
+
+虽然家长承担：
+
+* 计划
+* 管理
+* 组织
+
+但孩子不是被动接受者。
+
+产品应该让孩子：
+
+```text
+看
+↓
+找
+↓
+想
+↓
+回答
+↓
+记录
+```
+
+因此任务设计不能全部变成：
+
+```text
+阅读文字
+```
+
+应该尽量包含：
+
+```text
+观察
+寻找
+比较
+判断
+拍照
+回答
+记录
+```
+
+---
+
+# 四十二、Record 的产品意义
+
+Record 不应该只是：
+
+```text
+历史订单
+```
+
+也不应该只是：
+
+```text
+图片相册
+```
+
+它是：
+
+> **孩子旅行学习成果的沉淀。**
+
+理想状态：
+
+```text
+这次旅行去了哪里
++
+做过哪些任务
++
+完成了哪些探索
++
+留下哪些图片/文字
++
+孩子学到了什么
+```
+
+---
+
+# 四十三、产品设计演变过程
+
+项目经历过明显的产品收敛。
+
+早期思路比较复杂：
+
+```text
+旅行
++
+计划
++
+探索计划
++
+任务
++
+AI Pet
++
+讲解
++
+记录
+```
+
+后来逐渐收敛为：
+
+```text
+旅行计划
+ ↓
+景点/讲解
+ ↓
+探索任务
+ ↓
+记录
+```
+
+这是正确的方向。
+
+后续不要重新把已经砍掉的复杂层级加回来。
+
+---
+
+# 四十四、页面风格不是完全统一成一种风格
+
+这里有一个容易误解的点。
+
+不是：
+
+> “整个 App 所有页面都必须完全一样。”
+
+而是：
+
+```text
+统一 Design Foundation
++
+不同页面有不同场景表达
+```
+
+例如：
+
+```text
+Home
+→ 绘本
+
+Plan
+→ 博物馆导览
+
+Task
+→ 研学笔记
+
+Record
+→ 学习手账
+```
+
+所以后续重构时：
+
+**统一基础 Token，不要抹掉页面自身的视觉语境。**
+
+---
+
+# 四十五、此前已经做过的工作，不应该重复
+
+新 AI 不应该从零开始做：
+
+```text
+❌ 重新设计首页
+❌ 重新设计 Plan
+❌ 重新设计 Task
+❌ 重新设计 Record
+❌ 重新设计 Login
+❌ 重新设计 Profile
+❌ 重新加入 AI Pet
+❌ 重新增加“探索计划”一级页面
+```
+
+除非当前仓库实际状态与本文严重不一致。
+
+---
+
+# 四十六、必须优先检查的代码
+
+新 AI 接手后建议先检查：
+
+```text
+frontend/src/main.js
+frontend/src/App.vue
+frontend/src/pages.json
+frontend/src/components/AppTabbar.vue
+frontend/src/stores/
+frontend/src/mock/
+frontend/src/styles/
+```
+
+然后：
+
+```text
+backend/
+```
+
+重点寻找：
+
+```text
+create_app
+routes
+models
+services
+schemas
+blueprints
+api
+```
+
+具体目录以仓库实际状态为准。
+
+---
+
+# 四十七、前后端当前的核心风险
+
+## 风险 1：接口和前端页面字段不一致
+
+例如：
+
+```text
+mockPlans
+```
+
+和：
+
+```text
+backend Plan
+```
+
+字段可能不同。
+
+解决：
+
+```text
+API mapping
+```
+
+---
+
+## 风险 2：页面已经完成，但真实数据还没有完全贯通
+
+所以不要把：
+
+> “页面显示出来了”
+
+误判成：
+
+> “业务完成了”。
+
+---
+
+## 风险 3：Record 数据来源尚未完全闭环
+
+Record 最终应该来自：
+
+```text
+Task Submission
+```
+
+而不是长期使用 Mock。
+
+---
+
+## 风险 4：旧 API 路径残留
+
+此前：
+
+```text
+/api/v1/journey-records
+```
+
+出现过 404。
+
+因此接手时必须全局搜索：
+
+```text
+journey-records
+```
+
+并核对后端实际 route。
+
+---
+
+# 四十八、建议的新 AI 接手流程
+
+新 AI 第一轮不要直接改代码。
+
+应该依次执行：
+
+```text
+STEP 1
+读取项目 README / AGENTS / CLAUDE / Codex instructions
+
+STEP 2
+git status
+
+STEP 3
+git branch
+
+STEP 4
+git log
+
+STEP 5
+检查 frontend
+
+STEP 6
+检查 backend
+
+STEP 7
+检查 Flask routes
+
+STEP 8
+检查 MySQL
+
+STEP 9
+启动前端
+
+STEP 10
+启动后端
+
+STEP 11
+确认登录
+
+STEP 12
+确认 Plan
+
+STEP 13
+确认 Task
+
+STEP 14
+确认 Submission
+
+STEP 15
+确认 Record
+```
+
+---
+
+# 四十九、开发任务优先级
+
+推荐：
+
+```text
+P0
+环境与仓库状态确认
+
+P0
+后端 Route 审计
+
+P0
+前后端 API 对齐
+
+P0
+真实登录
+
+P1
+Plan API
+
+P1
+Task API
+
+P1
+Submission API
+
+P1
+Record API
+
+P1
+前端 Store 切换真实数据
+
+P2
+异常状态 / 空状态
+
+P2
+Loading / Error
+
+P2
+数据刷新
+
+P2
+边界场景
+
+P3
+视觉微调
+
+P3
+体验优化
+```
+
+---
+
+# 五十、不要过早做的事情
+
+当前不建议优先做：
+
+```text
+❌ AI Agent
+❌ AI Pet
+❌ 推荐算法
+❌ 大规模旅游搜索
+❌ 地图复杂系统
+❌ 社交系统
+❌ 评论系统
+❌ 商业化
+❌ 支付
+❌ 酒店/门票
+```
+
+因为这些都会把项目从：
+
+> “亲子文化研学 App”
+
+带偏成：
+
+> “综合旅游平台”。
+
+---
+
+# 五十一、项目最终应该证明什么
+
+这个项目如果用于：
+
+* 课程项目
+* 创新创业项目
+* 实习项目
+* 软件著作权
+* 毕业设计 / 毕业论文
+* 后续升学申请作品集
+
+最值得证明的是：
+
+> **如何利用数字化产品把传统旅游转化为结构化亲子研学体验。**
+
+技术上则应该证明：
+
+```text
+Vue / uni-app
++
+Flask
++
+MySQL
++
+REST API
++
+状态管理
++
+真实业务数据
+```
+
+能够组成一个完整应用。
+
+---
+
+# 五十二、与软件著作权相关的背景
+
+此前项目已经进入过软件著作权相关工作。
+
+因此项目名称、页面功能、模块结构应尽量稳定。
+
+核心功能模块可以概括为：
+
+```text
+用户管理
+旅行计划管理
+文化景点 / 导览
+探索任务
+任务提交
+旅行学习记录
+个人中心
+```
+
+---
+
+# 五十三、项目当前成熟度判断
+
+按目前可恢复的历史：
+
+### UI 层
+
+**较成熟**
+
+原因：
+
+* 主要页面已经完成
+* 视觉体系已经建立
+* HBuilderX 人工回归 PASS
+
+### 前端工程层
+
+**中高成熟度**
+
+已有：
+
+* Vue 3
+* uni-app
+* Pinia
+* Store
+* Mock
+* Design Tokens
+* 页面路由
+
+### 后端
+
+**正在完善**
+
+已有：
+
+* Flask
+* App Factory
+* MySQL
+* 真实数据
+* 路由体系
+* 登录 / 业务数据开发
+
+但需要继续做：
+
+```text
+API 完整性
++
+前后端字段统一
++
+真实数据闭环
+```
+
+### 完整业务闭环
+
+**尚未认为完全完成。**
+
+---
+
+# 五十四、当前最重要的验收标准
+
+不要只验收：
+
+```text
+页面能不能打开
+```
+
+而应该验收：
+
+## 登录
+
+```text
+用户登录
+↓
+身份有效
+```
+
+## Plan
+
+```text
+用户
+↓
+获取自己的计划
+```
+
+## Task
+
+```text
+Plan
+↓
+Task
+```
+
+## Submission
+
+```text
+User
++
+Task
+↓
+Submission
+```
+
+## Record
+
+```text
+Plan
++
+Task
++
+Submission
+↓
+Record
+```
+
+最终：
+
+```text
+前端看到的数据
+=
+数据库真实数据
+```
+
+---
+
+# 五十五、建议最终做一次完整业务回归
+
+测试路径：
+
+```text
+注册 / 登录
+ ↓
+进入首页
+ ↓
+打开旅行计划
+ ↓
+打开景点
+ ↓
+查看讲解
+ ↓
+进入探索任务
+ ↓
+完成一个任务
+ ↓
+提交内容
+ ↓
+返回任务列表
+ ↓
+查看完成状态
+ ↓
+进入 Record
+ ↓
+查看记录详情
+```
+
+如果这条链能够真实跑通：
+
+> 项目的核心 MVP 就真正闭环了。
+
+---
+
+# 五十六、交接给新 AI 时最重要的一句话
+
+请新 AI 理解：
+
+> **童旅记目前不是一个“从零开始设计 App”的任务，而是一个已经完成主要 UI 和视觉体系、正在从 Mock 数据向 Flask + MySQL 真实业务闭环过渡的项目。**
+
+---
+
+# 五十七、开发原则
+
+后续所有开发建议遵循：
+
+```text
+先理解
+↓
+再检查
+↓
+再修改
+↓
+再测试
+↓
+再审计
+↓
+再 Commit
+↓
+再 Push
+```
+
+而不是：
+
+```text
+看到问题
+↓
+直接重构
+```
+
+---
+
+# 五十八、Git 原则
+
+任何重要改动：
+
+```text
+git status
+↓
+确认 branch
+↓
+确认 HEAD
+↓
+修改
+↓
+测试
+↓
+git diff
+↓
+commit
+↓
+push
+↓
+确认 remote
+```
+
+不要：
+
+```text
+强制 reset
+强制 push
+删除历史 commit
+```
+
+除非用户明确授权。
+
+---
+
+# 五十九、如果新 AI 发现本文与代码不一致
+
+以优先级排序：
+
+```text
+1. 当前代码
+2. 当前数据库实际状态
+3. 当前 Git HEAD
+4. 最新用户明确指令
+5. 本 Handoff
+6. 更早的聊天记忆
+```
+
+特别是：
+
+> **Handoff 是交接依据，不是代码事实的替代品。**
+
+如果代码已经发生新变化，应以代码为准。
+
+---
+
+# 六十、当前项目一句话状态
+
+截至 2026-08-20：
+
+> **“童旅记”已经完成主要前端页面和视觉体系建设，并通过 HOME、PLAN、GUIDE、TASKS、TASK_DETAIL、RECORD、RECORD_DETAIL、LOGIN、PROFILE 等页面的 HBuilderX 视觉回归；当前重点已经从 UI 搭建转向 Flask + MySQL 后端真实数据、API、Pinia Store 与前端页面之间的业务联调，目标是最终跑通“登录 → 计划 → 任务 → 提交 → 记录”的完整业务闭环。**
+
+---
+
+# 六十一、给新 AI 的启动 Prompt
+
+把下面这段直接交给新 AI，可以作为第一条项目上下文：
+
+> 你现在接手的是一个已经开发了一段时间的 uni-app + Vue 3 + Vite + Pinia + Flask + MySQL 项目，项目名称叫“童旅记”，定位是亲子文化旅游 / 亲子研学 App。
+>
+> 你必须先阅读项目代码和 Git 状态，再开始任何修改。不要把项目当成从零开始。
+>
+> 当前项目已经完成 Home、Plan、Guide、Tasks、Task Detail、Record、Record Detail、Login、Profile 等主要页面，并已经完成视觉 Foundation；此前这些页面在 HBuilderX 中进行过人工视觉回归，结果为 PASS。
+>
+> 当前项目已经从 UI 开发阶段进入 Flask + MySQL 真实业务联调阶段。核心业务闭环是：
+>
+> `User → Plan → Task → Submission → Record`
+>
+> 产品设计上，“探索计划”不应该重新设计成一个独立一级模块。计划是任务的上一层，典型结构是：
+>
+> `旅行计划 → 景点 → 景点需要探索的内容 → 具体探索任务`
+>
+> 项目早期存在 AI Pet，但后来已经明确删除，不要重新加入。
+>
+> 视觉风格为米黄色绘本水彩风，但不同页面拥有不同场景风格：
+>
+> * Home：儿童绘本风
+> * Plan：博物馆导览风
+> * Guide：文化导览风
+> * Tasks：研学笔记风
+> * Task Detail：博物馆导览风
+> * Record：学习手账风
+>
+> 不要因为接手项目就重新设计这些页面。优先保持现有 UI，只做真实数据接入和必要 Bug 修复。
+>
+> 前端使用：
+>
+> `Vue 3.4.21`
+>
+> `Vite 5.2.8`
+>
+> `Pinia 2.1.7`
+>
+> `uni-app`
+>
+> Node 环境此前为：
+>
+> `Node v20.19.5`
+>
+> `npm v10.8.2`
+>
+> 后端使用 Flask，MySQL 使用 3306 端口。
+>
+> Flask 使用 App Factory：
+>
+> `app:create_app`
+>
+> 后端此前启动方式：
+>
+> `.\.venv\Scripts\python.exe -m flask run`
+>
+> 路由检查方式：
+>
+> `.\.venv\Scripts\python.exe -m flask --app app:create_app routes`
+>
+> 前端此前使用 HBuilderX 运行 H5。
+>
+> 在开始修改前，请先完成：
+>
+> 1. `git status`
+> 2. `git branch --show-current`
+> 3. `git rev-parse HEAD`
+> 4. `git log --oneline -10`
+> 5. 检查 frontend 目录
+> 6. 检查 backend 目录
+> 7. 检查 Flask routes
+> 8. 检查数据库连接
+> 9. 启动前后端
+> 10. 确认当前真实业务状态
+>
+> 然后告诉我：
+>
+> * 当前代码实际做到哪里
+> * Handoff 中哪些内容仍然准确
+> * 哪些内容已经发生变化
+> * 当前最大的缺口是什么
+> * 下一步准备做什么
+>
+> 不要在没有检查代码之前直接重构。
+>
+> 任何重要修改都要遵循：
+>
+> `检查 → 修改 → 测试 → Audit → Commit → Push`
+>
+> 当前最重要目标：
+>
+> **让“登录 → Plan → Task → Submission → Record”真实跑通，而不是继续堆新的 UI 页面。**
+
+---
+
+# 六十二、最终接手路线图
+
+```text
+                    童旅记
+                      │
+              ┌───────┴───────┐
+              │               │
+           Frontend         Backend
+              │               │
+        uni-app/Vue3        Flask
+              │               │
+           Pinia            MySQL
+              │               │
+              └───────┬───────┘
+                      │
+                 API Integration
+                      │
+        ┌─────────────┼─────────────┐
+        ↓             ↓             ↓
+      Login          Plan          Task
+        │             │             │
+        └─────────────┴──────┬──────┘
+                             ↓
+                        Submission
+                             ↓
+                           Record
+                             ↓
+                     完整学习闭环
+```
+
+---
+
+# 六十三、最终项目目标
+
+最终不是为了证明：
+
+> “我做了很多页面。”
+
+而是证明：
+
+> **我设计并实现了一个完整的亲子文化研学数字化系统，让家长能够规划旅行，让孩子能够在旅行过程中进行文化探索任务，并将探索过程转化为可保存、可回顾的学习记录。**
+
+技术实现：
+
+```text
+uni-app
++
+Vue 3
++
+Pinia
++
+Flask
++
+MySQL
++
+REST API
++
+真实业务数据
+```
+
+产品闭环：
+
+```text
+计划
+→
+导览
+→
+探索
+→
+任务
+→
+提交
+→
+记录
+→
+回顾
+```
+
+这就是当前“童旅记”项目最核心的技术与产品主线。
+
+---
+
+## END OF HANDOFF
+
+**交接时间：2026-08-20**
+
+**下一 AI 第一原则：先检查当前仓库真实状态，再继续开发；不要从零重新设计项目。**
