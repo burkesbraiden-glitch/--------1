@@ -996,6 +996,38 @@ Remote HEAD
 
 ---
 
+## Implementation Environment Gate
+
+本项目支持以下执行环境：
+
+```text
+Lenovo 本地开发环境
+Codex sandbox runtime
+```
+
+不得将固定的 Windows 用户名或某个预设身份值作为项目级硬阻断。`whoami` 仅用于记录当前执行上下文；身份名称不同于历史预期时，不得仅凭此项停止任务。
+
+开始实现或测试前，必须通过以下真实门禁：
+
+1. `repository` 正确：当前工作目录属于童旅记目标仓库。
+2. `branch` 正确：当前分支符合本次任务授权的目标分支。
+3. `HEAD` 可确认：能够读取并记录当前 `git rev-parse HEAD`。
+4. `workspace clean`：工作区没有未授权的修改、暂存内容或未跟踪文件。
+5. `workspace writable`：当前运行时对本次授权范围内的工作区具有写入能力。
+
+推荐检查：
+
+```powershell
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse HEAD
+git status --short
+```
+
+任一真实门禁失败都必须停止并报告观察到的证据与要求，不得通过更换身份、修改权限、删除锁文件或其他绕过方式继续执行。
+
+---
+
 # 三十、已知 Commit 信息
 
 目前可从历史上下文确认的一个较新的前端提交：
