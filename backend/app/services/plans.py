@@ -35,8 +35,8 @@ def format_datetime(value):
     return f"{value.isoformat()}Z"
 
 
-def serialize_plan(plan):
-    return {
+def serialize_plan(plan, *, include_projection=False):
+    serialized = {
         "id": plan.id,
         "title": plan.title,
         "destination": plan.destination,
@@ -50,6 +50,23 @@ def serialize_plan(plan):
         "createdAt": format_datetime(plan.created_at),
         "updatedAt": format_datetime(plan.updated_at),
     }
+    if include_projection:
+        tasks = plan.tasks or []
+        serialized.update(
+            {
+                "routeStopId": plan.route_stop_id,
+                "sourceSnapshot": plan.source_snapshot,
+                "progress": {
+                    "total": len(tasks),
+                    "completed": sum(
+                        task.submission is not None
+                        and task.submission.status == "completed"
+                        for task in tasks
+                    ),
+                },
+            }
+        )
+    return serialized
 
 
 def normalize_required_string(payload, field_name, max_length):
@@ -140,9 +157,12 @@ def validate_create_payload(payload):
     }
 
 
-def get_plan_model_for_user(user, plan_id):
+def get_plan_model_for_user(user, plan_id, *, include_task_submissions=False):
+    task_loader = selectinload(ExplorationPlan.tasks)
+    if include_task_submissions:
+        task_loader = task_loader.selectinload(Task.submission)
     plan = (
-        ExplorationPlan.query.options(selectinload(ExplorationPlan.tasks))
+        ExplorationPlan.query.options(task_loader)
         .filter_by(id=plan_id, user_id=user.id)
         .first()
     )
@@ -153,16 +173,21 @@ def get_plan_model_for_user(user, plan_id):
 
 def list_plans(user):
     plans = (
-        ExplorationPlan.query.options(selectinload(ExplorationPlan.tasks))
+        ExplorationPlan.query.options(
+            selectinload(ExplorationPlan.tasks).selectinload(Task.submission)
+        )
         .filter_by(user_id=user.id)
         .order_by(ExplorationPlan.updated_at.desc(), ExplorationPlan.created_at.desc())
         .all()
     )
-    return {"plans": [serialize_plan(plan) for plan in plans]}
+    return {"plans": [serialize_plan(plan, include_projection=True) for plan in plans]}
 
 
 def get_plan(user, plan_id):
-    return serialize_plan(get_plan_model_for_user(user, plan_id))
+    return serialize_plan(
+        get_plan_model_for_user(user, plan_id, include_task_submissions=True),
+        include_projection=True,
+    )
 
 
 def create_plan(user, payload):

@@ -6,7 +6,20 @@ from sqlalchemy import event
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
-from app.models import Child, ExplorationPlan, Task, TaskSubmission, User
+from app.models import (
+    Attraction,
+    Child,
+    ExplorationPlan,
+    GuideCard,
+    JourneyRecord,
+    Route,
+    RouteDay,
+    RouteStop,
+    Task,
+    TaskSubmission,
+    User,
+)
+from app.services.route_plan_generation import generate_exploration_plans_from_route
 
 
 @pytest.fixture()
@@ -107,6 +120,53 @@ def create_complete_task_set(plan_id, *, submission_statuses=("completed", "comp
     for index, (task, status) in enumerate(zip(tasks, submission_statuses), start=1):
         create_submission(5000 + index, task.id, status=status)
     return tasks
+
+
+def create_route_generated_plan(
+    user,
+    child,
+    *,
+    attraction_id=300,
+    route_id=400,
+    day_id=500,
+    stop_id=600,
+):
+    attraction = Attraction(
+        id=attraction_id,
+        name="故宫博物院",
+        city="北京",
+        district="东城区",
+        address="景山前街4号",
+        summary="明清两代皇家宫殿",
+        tags=["历史", "建筑"],
+        recommended_duration_minutes=180,
+        cover_image="https://example.test/forbidden-city.webp",
+    )
+    route = Route(
+        id=route_id,
+        user_id=user.id,
+        title="北京文化探索路线",
+        city="北京",
+        status="ready",
+    )
+    day = RouteDay(
+        id=day_id,
+        route_id=route.id,
+        day_number=1,
+        title="第一天",
+    )
+    stop = RouteStop(
+        id=stop_id,
+        route_day_id=day.id,
+        attraction_id=attraction.id,
+        sort_order=1,
+        note="先看午门",
+    )
+    db.session.add_all([attraction, route, day, stop])
+    db.session.commit()
+
+    with assign_sqlite_plan_ids():
+        return generate_exploration_plans_from_route(user, route.id, child.id, [stop.id])
 
 
 def valid_payload(**overrides):
@@ -440,6 +500,150 @@ def test_get_plans_returns_dynamic_task_count_without_cross_user_leak(client, ap
     assert response.status_code == 200
     task_counts = {plan["id"]: plan["taskCount"] for plan in response.get_json()["data"]["plans"]}
     assert task_counts == {100: 2, 101: 0}
+
+
+def test_get_plans_projects_route_generated_plan_source_and_empty_progress(client, app, plans_db):
+    with app.app_context():
+        user = create_user(1, "13800138000")
+        child = create_child(10, user.id)
+        create_route_generated_plan(user, child)
+
+    response = client.get("/api/v1/plans", headers=auth_headers(app, 1))
+
+    assert response.status_code == 200
+    plan = response.get_json()["data"]["plans"][0]
+    assert plan["routeStopId"] == 600
+    assert plan["sourceSnapshot"] == {
+        "schemaVersion": 1,
+        "route": {
+            "id": 400,
+            "title": "北京文化探索路线",
+            "city": "北京",
+            "startDate": None,
+            "endDate": None,
+        },
+        "day": {
+            "id": 500,
+            "dayNumber": 1,
+            "date": None,
+            "title": "第一天",
+        },
+        "stop": {
+            "id": 600,
+            "sortOrder": 1,
+            "note": "先看午门",
+        },
+        "attraction": {
+            "id": 300,
+            "name": "故宫博物院",
+            "city": "北京",
+            "district": "东城区",
+            "address": "景山前街4号",
+            "summary": "明清两代皇家宫殿",
+            "tags": ["历史", "建筑"],
+            "recommendedDurationMinutes": 180,
+            "coverImage": "https://example.test/forbidden-city.webp",
+        },
+    }
+    assert plan["progress"] == {"total": 0, "completed": 0}
+
+
+def test_get_plan_detail_projects_manual_plan_with_null_source(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10)
+
+    response = client.get("/api/v1/plans/100", headers=auth_headers(app, 1))
+
+    assert response.status_code == 200
+    plan = response.get_json()["data"]["plan"]
+    assert plan["routeStopId"] is None
+    assert plan["sourceSnapshot"] is None
+
+
+def test_get_plan_detail_projects_completed_task_progress(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10)
+        create_task(1000, 100, order=1)
+        create_task(1001, 100, order=2, title="拍一扇宫门")
+        create_task(1002, 100, order=3, title="讲一个故事")
+        create_submission(5001, 1000, status="completed")
+        create_submission(5002, 1001, status="completed")
+
+    response = client.get("/api/v1/plans/100", headers=auth_headers(app, 1))
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["plan"]["progress"] == {
+        "total": 3,
+        "completed": 2,
+    }
+
+
+def test_get_plans_projection_has_no_task_or_record_side_effects(client, app, plans_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10)
+        create_task(1000, 100, order=1)
+        create_submission(5001, 1000, status="in-progress")
+        db.session.add(
+            GuideCard(
+                id=700,
+                plan_id=100,
+                child_intro=["一起探索"],
+                questions=["你看到了什么？"],
+                focus_items=["宫门"],
+            )
+        )
+        db.session.add(JourneyRecord(id=800, plan_id=100, status="draft"))
+        db.session.commit()
+        before = {
+            "tasks": Task.query.count(),
+            "submissions": TaskSubmission.query.count(),
+            "guides": GuideCard.query.count(),
+            "records": JourneyRecord.query.count(),
+        }
+
+    response = client.get("/api/v1/plans", headers=auth_headers(app, 1))
+
+    assert response.status_code == 200
+    with app.app_context():
+        after = {
+            "tasks": Task.query.count(),
+            "submissions": TaskSubmission.query.count(),
+            "guides": GuideCard.query.count(),
+            "records": JourneyRecord.query.count(),
+        }
+    assert after == before
+
+
+def test_get_plans_does_not_expose_other_users_route_plan_source(client, app, plans_db):
+    with app.app_context():
+        user_a = create_user(1, "13800138000")
+        user_b = create_user(2, "13800138001")
+        user_a_id = user_a.id
+        child_a = create_child(10, user_a.id)
+        child_b = create_child(20, user_b.id)
+        create_plan(100, user_a.id, child_a.id)
+        create_route_generated_plan(
+            user_b,
+            child_b,
+            attraction_id=301,
+            route_id=401,
+            day_id=501,
+            stop_id=601,
+        )
+
+    response = client.get("/api/v1/plans", headers=auth_headers(app, user_a_id))
+
+    assert response.status_code == 200
+    plans = response.get_json()["data"]["plans"]
+    assert [plan["id"] for plan in plans] == [100]
+    assert plans[0]["routeStopId"] is None
+    assert plans[0]["sourceSnapshot"] is None
 
 
 def test_get_plan_detail_not_found_for_missing_or_other_user(client, app, plans_db):
