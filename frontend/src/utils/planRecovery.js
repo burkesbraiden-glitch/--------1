@@ -2,10 +2,11 @@ import { usePlanStore } from '../stores/plan.js'
 import { useTaskStore } from '../stores/task.js'
 import { useUserStore } from '../stores/user.js'
 
-export async function ensureCurrentPlanReady({ withTasks = false, force = false } = {}) {
+export async function ensureCurrentPlanReady({ withTasks = false, force = false, planId = null } = {}) {
   const userStore = useUserStore()
   const planStore = usePlanStore()
   const taskStore = withTasks ? useTaskStore() : null
+  const hasRequestedPlan = planId !== null && planId !== undefined && String(planId).trim() !== ''
 
   if (!userStore.isAuthReady || userStore.isRestoring) {
     await userStore.restoreSession()
@@ -21,17 +22,26 @@ export async function ensureCurrentPlanReady({ withTasks = false, force = false 
       user: null,
       currentPlan: null,
       plans: [],
+      unavailable: hasRequestedPlan,
     }
   }
 
-  const result = await planStore.fetchPlans(userId, { force })
-  if (taskStore && planStore.currentPlan) {
-    await taskStore.ensureTasks(planStore.currentPlan.id, planStore.currentPlan.status)
+  const result = await planStore.fetchPlans(userId, {
+    force,
+    selectionPolicy: hasRequestedPlan ? 'none' : 'default',
+  })
+  const currentPlan = hasRequestedPlan
+    ? planStore.selectPlanById(planId, userId)
+    : planStore.currentPlan
+
+  if (taskStore && currentPlan) {
+    await taskStore.ensureTasks(currentPlan.id, currentPlan.status)
   }
 
   return {
     user: userStore.userInfo,
     plans: result.plans,
-    currentPlan: planStore.currentPlan,
+    currentPlan,
+    unavailable: hasRequestedPlan && !currentPlan,
   }
 }

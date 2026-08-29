@@ -31,7 +31,7 @@ const futureContract = Object.freeze({
   routeDeletePolicy: 'RESTRICT',
   taskAutoGeneration: false,
   guideAutoGeneration: false,
-  exploreCenterImplemented: false,
+  exploreCenterImplemented: true,
   journeyRecordV2Implemented: false,
   attractionPicker: {
     object: 'Attraction',
@@ -76,15 +76,16 @@ describe('P7E-1 Route to ExplorationPlan relationship contract', () => {
     expect(futureContract.routeDeletePolicy).toBe('RESTRICT')
   })
 
-  test('keeps deferred task, guide, record, Explore Center, and picker boundaries explicit', () => {
+  test('keeps deferred task, guide, record, and picker boundaries explicit while promoting Explore Center', () => {
     expect(taskApiSource).toContain('/<int:plan_id>/tasks/generate')
     expect(guideApiSource).toContain('/<int:plan_id>/guide/generate')
     expect(recordModelSource).not.toContain('route_snapshot')
-    expect(pagesConfigSource).not.toContain('pages/explore/index')
+    expect(pagesConfigSource).toContain('pages/plan/index')
+    expect(pagesConfigSource).toContain('pages/explore-detail/index')
     expect(routeStopModelSource).toContain('attraction_id')
     expect(futureContract.taskAutoGeneration).toBe(false)
     expect(futureContract.guideAutoGeneration).toBe(false)
-    expect(futureContract.exploreCenterImplemented).toBe(false)
+    expect(futureContract.exploreCenterImplemented).toBe(true)
     expect(futureContract.journeyRecordV2Implemented).toBe(false)
     expect(futureContract.attractionPicker).toEqual({
       object: 'Attraction',

@@ -28,6 +28,9 @@ describe('P7D-7 atomic navigation migration contracts', () => {
     const routeList = sourceOf('src', 'pages', 'route', 'index.vue')
     const routeDetail = sourceOf('src', 'pages', 'route-detail', 'index.vue')
     const plan = sourceOf('src', 'pages', 'plan', 'index.vue')
+    const exploreDetail = existsSync(frontendPath('src', 'pages', 'explore-detail', 'index.vue'))
+      ? sourceOf('src', 'pages', 'explore-detail', 'index.vue')
+      : ''
     const guide = sourceOf('src', 'pages', 'guide', 'index.vue')
     const tasks = sourceOf('src', 'pages', 'tasks', 'index.vue')
     const taskDetail = sourceOf('src', 'pages', 'task-detail', 'index.vue')
@@ -38,25 +41,30 @@ describe('P7D-7 atomic navigation migration contracts', () => {
       expect(source).toContain('var(--tl-tabbar-height)')
       expect(source).toContain('var(--tl-safe-bottom)')
     }
-    for (const source of [plan, guide, tasks, taskDetail]) {
+    for (const source of [plan, exploreDetail, guide, tasks, taskDetail]) {
       expect(source).toContain('<AppTabbar active="explore" />')
     }
     expect(plan).toContain('usePlanStore')
+    expect(plan).not.toContain('useTaskStore')
+    expect(existsSync(frontendPath('src', 'pages', 'explore-detail', 'index.vue'))).toBe(true)
+    expect(exploreDetail).toContain('useTaskStore')
     expect(tasks).toContain('useTaskStore')
     expect(routeList).not.toContain('usePlanStore')
     expect(routeDetail).not.toContain('usePlanStore')
   })
 
-  test('leaves Home Record Profile and registered compatibility pages intact without an Explore Center', () => {
+  test('leaves Home Record Profile and registered compatibility pages intact with Explore Center and Detail', () => {
     expect(sourceOf('src', 'pages', 'home', 'index.vue')).toContain('<AppTabbar active="home" />')
     expect(sourceOf('src', 'pages', 'record', 'index.vue')).toContain('<AppTabbar active="record" />')
     expect(sourceOf('src', 'pages', 'profile', 'index.vue')).toContain('<AppTabbar active="profile" />')
 
     const pagesJson = sourceOf('src', 'pages.json')
     expect(pagesJson).toContain('pages/plan/index')
+    expect(pagesJson).toContain('pages/explore-detail/index')
     expect(pagesJson).toContain('pages/guide/index')
     expect(pagesJson).toContain('pages/tasks/index')
     expect(pagesJson).toContain('pages/task-detail/index')
     expect(existsSync(frontendPath('src', 'pages', 'explore', 'index.vue'))).toBe(false)
+    expect(existsSync(frontendPath('src', 'pages', 'explore-detail', 'index.vue'))).toBe(true)
   })
 })

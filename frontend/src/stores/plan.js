@@ -7,6 +7,7 @@ export const CURRENT_PLAN_SELECTION_KEY = 'tonglvji_current_plan_selection'
 let fetchPromise = null
 let fetchPromiseUserId = null
 let fetchPromiseEpoch = null
+let fetchPromiseSelectionPolicy = null
 let completionPromise = null
 let completionPlanId = null
 let completionUserId = null
@@ -19,6 +20,13 @@ function getUniStorage() {
   return uni
 }
 
+function normalizeProgress(progress) {
+  return {
+    total: Math.max(0, Number(progress?.total) || 0),
+    completed: Math.max(0, Number(progress?.completed) || 0),
+  }
+}
+
 function normalizePlan(plan) {
   if (!plan) {
     return null
@@ -28,6 +36,26 @@ function normalizePlan(plan) {
     ...plan,
     interests: Array.isArray(plan.interests) ? plan.interests : [],
     taskCount: Number(plan.taskCount) || 0,
+    routeStopId: plan.routeStopId ?? null,
+    sourceSnapshot: plan.sourceSnapshot ?? null,
+    progress: normalizeProgress(plan.progress),
+  }
+}
+
+function hasProjectionField(plan, field) {
+  return Object.prototype.hasOwnProperty.call(plan || {}, field) && plan[field] !== undefined
+}
+
+function mergePlanProjection(existingPlan, returnedPlan) {
+  if (!existingPlan) {
+    return returnedPlan
+  }
+
+  return {
+    ...returnedPlan,
+    ...(!hasProjectionField(returnedPlan, 'routeStopId') ? { routeStopId: existingPlan.routeStopId } : {}),
+    ...(!hasProjectionField(returnedPlan, 'sourceSnapshot') ? { sourceSnapshot: existingPlan.sourceSnapshot } : {}),
+    ...(!hasProjectionField(returnedPlan, 'progress') ? { progress: existingPlan.progress } : {}),
   }
 }
 
@@ -101,6 +129,7 @@ export const usePlanStore = defineStore('plan', {
       fetchPromise = null
       fetchPromiseUserId = null
       fetchPromiseEpoch = null
+      fetchPromiseSelectionPolicy = null
       completionPromise = null
       completionPlanId = null
       completionUserId = null
@@ -120,7 +149,7 @@ export const usePlanStore = defineStore('plan', {
       }
       return saved
     },
-    applyPlanList(plans, userId) {
+    applyPlanList(plans, userId, { selectionPolicy = 'default' } = {}) {
       const normalizedPlans = Array.isArray(plans) ? plans.map(normalizePlan).filter(Boolean) : []
       this.plans = normalizedPlans
       this.loadedForUserId = userId
@@ -130,7 +159,15 @@ export const usePlanStore = defineStore('plan', {
       if (!normalizedPlans.length) {
         this.currentPlan = null
         this.syncStatus()
-        clearStoredSelection()
+        if (selectionPolicy !== 'none') {
+          clearStoredSelection()
+        }
+        return null
+      }
+
+      if (selectionPolicy === 'none') {
+        this.currentPlan = null
+        this.syncStatus()
         return null
       }
 
@@ -145,12 +182,12 @@ export const usePlanStore = defineStore('plan', {
       return selectedPlan
     },
     upsertPlan(plan) {
-      const normalizedPlan = normalizePlan(plan)
+      const index = this.plans.findIndex((item) => samePlanId(item.id, plan?.id))
+      const normalizedPlan = normalizePlan(mergePlanProjection(this.plans[index], plan))
       if (!normalizedPlan) {
         return null
       }
 
-      const index = this.plans.findIndex((item) => samePlanId(item.id, normalizedPlan.id))
       if (index >= 0) {
         this.plans.splice(index, 1, normalizedPlan)
       } else {
@@ -213,8 +250,9 @@ export const usePlanStore = defineStore('plan', {
       fetchPromise = null
       fetchPromiseUserId = null
       fetchPromiseEpoch = null
+      fetchPromiseSelectionPolicy = null
     },
-    async fetchPlans(userId, { force = false } = {}) {
+    async fetchPlans(userId, { force = false, selectionPolicy = 'default' } = {}) {
       if (!userId) {
         this.clearInMemoryState()
         return { plans: [], currentPlan: null }
@@ -230,6 +268,10 @@ export const usePlanStore = defineStore('plan', {
       }
 
       if (!force && this.isLoaded && sameUserId(this.loadedForUserId, userId)) {
+        if (selectionPolicy === 'none') {
+          this.currentPlan = null
+          this.syncStatus()
+        }
         return { plans: this.plans, currentPlan: this.currentPlan }
       }
 
@@ -237,6 +279,7 @@ export const usePlanStore = defineStore('plan', {
         fetchPromise
         && sameUserId(fetchPromiseUserId, userId)
         && fetchPromiseEpoch === requestSession.epoch
+        && fetchPromiseSelectionPolicy === selectionPolicy
       ) {
         return fetchPromise
       }
@@ -245,12 +288,13 @@ export const usePlanStore = defineStore('plan', {
       this.error = null
       fetchPromiseUserId = userId
       fetchPromiseEpoch = requestSession.epoch
+      fetchPromiseSelectionPolicy = selectionPolicy
       const promise = plansApi.getPlans()
         .then((data) => {
           if (!isCurrentSession(requestSession)) {
             return { plans: this.plans, currentPlan: this.currentPlan }
           }
-          const selectedPlan = this.applyPlanList(data.plans, userId)
+          const selectedPlan = this.applyPlanList(data.plans, userId, { selectionPolicy })
           return { plans: this.plans, currentPlan: selectedPlan }
         })
         .catch((error) => {
@@ -266,6 +310,7 @@ export const usePlanStore = defineStore('plan', {
             fetchPromise = null
             fetchPromiseUserId = null
             fetchPromiseEpoch = null
+            fetchPromiseSelectionPolicy = null
           }
         })
 
@@ -344,13 +389,13 @@ export const usePlanStore = defineStore('plan', {
 
       const promise = plansApi.completePlan(id)
         .then((data) => {
-          const returnedPlan = normalizePlan(data?.plan)
+          const returnedPlan = data?.plan
           if (!returnedPlan || !samePlanId(returnedPlan.id, id)) {
             throw { code: 'INVALID_RESPONSE', message: '探索计划完成结果异常' }
           }
 
           if (!isCurrentSession(requestSession)) {
-            return returnedPlan
+            return normalizePlan(returnedPlan)
           }
 
           const plan = this.upsertPlan(returnedPlan)

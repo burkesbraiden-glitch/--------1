@@ -15,6 +15,13 @@
       }
     },
     {
+      "path": "pages/explore-detail/index",
+      "style": {
+        "navigationBarTitleText": "探索详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/guide/index",
       "style": {
         "navigationBarTitleText": "讲解卡",

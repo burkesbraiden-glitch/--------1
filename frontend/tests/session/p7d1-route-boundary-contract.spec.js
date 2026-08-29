@@ -7,6 +7,10 @@ const frontendFile = (path) => resolve(root, 'frontend', path)
 const readFrontendFile = (path) => readFileSync(frontendFile(path), 'utf8')
 
 const planPageSource = readFrontendFile('src/pages/plan/index.vue')
+const exploreDetailPath = 'src/pages/explore-detail/index.vue'
+const exploreDetailSource = existsSync(frontendFile(exploreDetailPath))
+  ? readFrontendFile(exploreDetailPath)
+  : ''
 const planStoreSource = readFrontendFile('src/stores/plan.js')
 const taskStoreSource = readFrontendFile('src/stores/task.js')
 const guideStoreSource = readFrontendFile('src/stores/guide.js')
@@ -21,13 +25,17 @@ function expectNoRouteDomainCoupling(source) {
 }
 
 describe('P7D-1 Route and navigation boundary contract', () => {
-  test('keeps the Plan page in the ExplorationPlan domain', () => {
+  test('keeps Explore Center list-only and moves single-Plan task preparation to Explore Detail', () => {
     expect(planPageSource).toMatch(/import\s*\{\s*usePlanStore\s*\}\s*from\s*['"][^'"]*stores\/plan['"]/)
-    expect(planPageSource).toMatch(/import\s*\{\s*useTaskStore\s*\}\s*from\s*['"][^'"]*stores\/task['"]/)
     expect(planPageSource).toContain('ensureCurrentPlanReady')
-    expect(planPageSource).toContain('startExploration')
-    expect(planPageSource).toContain('/pages/tasks/index')
     expectNoRouteDomainCoupling(planPageSource)
+    expect(planPageSource).not.toContain('useTaskStore')
+    expect(existsSync(frontendFile(exploreDetailPath))).toBe(true)
+    expect(exploreDetailSource).toMatch(/import\s*\{\s*usePlanStore\s*\}\s*from\s*['"][^'"]*stores\/plan['"]/)
+    expect(exploreDetailSource).toMatch(/import\s*\{\s*useTaskStore\s*\}\s*from\s*['"][^'"]*stores\/task['"]/)
+    expect(exploreDetailSource).toContain('startExploration')
+    expect(exploreDetailSource).toContain('/pages/tasks/index')
+    expectNoRouteDomainCoupling(exploreDetailSource)
   })
 
   test('keeps the Plan Store responsible for ExplorationPlan state only', () => {
@@ -58,9 +66,10 @@ describe('P7D-1 Route and navigation boundary contract', () => {
     }
   })
 
-  test('keeps legacy ExplorationPlan flow pages registered', () => {
+  test('keeps Explore Center, Explore Detail, and legacy ExplorationPlan flow pages registered', () => {
     for (const path of [
       'pages/plan/index',
+      'pages/explore-detail/index',
       'pages/guide/index',
       'pages/tasks/index',
       'pages/task-detail/index',
@@ -78,9 +87,10 @@ describe('P7D-1 Route and navigation boundary contract', () => {
     expect(tabbarSource).toContain('uni.reLaunch({')
   })
 
-  test('keeps current ExplorationPlan domain pages present with their existing responsibilities', () => {
+  test('keeps current ExplorationPlan domain pages present with their migrated responsibilities', () => {
     const pageContracts = [
       ['src/pages/plan/index.vue', planPageSource, 'usePlanStore'],
+      [exploreDetailPath, exploreDetailSource, 'useTaskStore'],
       ['src/pages/guide/index.vue', readFrontendFile('src/pages/guide/index.vue'), 'useGuideStore'],
       ['src/pages/tasks/index.vue', readFrontendFile('src/pages/tasks/index.vue'), 'useTaskStore'],
       ['src/pages/task-detail/index.vue', readFrontendFile('src/pages/task-detail/index.vue'), 'useTaskStore'],
