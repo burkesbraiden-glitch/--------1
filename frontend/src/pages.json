@@ -82,6 +82,13 @@
         "navigationBarTitleText": "路线详情",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/attraction-detail/index",
+      "style": {
+        "navigationBarTitleText": "景点详情",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

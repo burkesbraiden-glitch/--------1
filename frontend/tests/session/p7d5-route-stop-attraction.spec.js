@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { beforeEach, describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { getRequestCalls, resetUniRuntime, setRequestHandler } from './setup/uniRuntime.js'
 import { useUserStore } from '../../src/stores/user.js'
@@ -8,6 +8,28 @@ import { useUserStore } from '../../src/stores/user.js'
 const workspaceRoot = resolve(process.cwd(), '..')
 const attractionsApiPath = resolve(workspaceRoot, 'frontend', 'src', 'api', 'attractions.js')
 const routeDetailPath = resolve(workspaceRoot, 'frontend', 'src', 'pages', 'route-detail', 'index.vue')
+
+function loadRouteDetailOptions() {
+  const source = readFileSync(routeDetailPath, 'utf8')
+  const script = source.match(/<script>([\s\S]*?)<\/script>/)?.[1]
+  expect(script).toBeTruthy()
+  if (!script) return null
+
+  const executable = script
+    .replace(/^import[^\n]*\n/gm, '')
+    .replace('export default {', 'return {')
+
+  return new Function(
+    'AppTabbar',
+    'getAttractions',
+    'useRouteStore',
+    'useChildStore',
+    'useUserStore',
+    'isAuthenticationError',
+    'endUserSession',
+    executable,
+  )({}, async () => ({}), () => ({}), () => ({}), () => ({}), () => false, async () => {})
+}
 
 function respond(options, data) {
   options.success({ statusCode: 200, data: { success: true, data } })
@@ -89,5 +111,37 @@ describe('P7D-5 Attraction search and RouteStop contracts', () => {
     expect(source).not.toContain('useTaskStore')
     expect(source).not.toContain('useGuideStore')
     expect(source).not.toContain('useRecordStore')
+  })
+
+  test('opens a RouteStop Attraction Detail with its exact Attraction id and no domain mutation', () => {
+    const options = loadRouteDetailOptions()
+    if (!options) return
+    const openAttractionDetail = options.methods?.openAttractionDetail
+
+    expect(typeof openAttractionDetail).toBe('function')
+    if (typeof openAttractionDetail !== 'function') return
+
+    const navigateTo = vi.fn()
+    const originalNavigateTo = uni.navigateTo
+    uni.navigateTo = navigateTo
+    try {
+      const routeStore = {
+        generateExplorationPlans: vi.fn(),
+        createStop: vi.fn(),
+        updateStop: vi.fn(),
+      }
+      openAttractionDetail.call({ routeStore }, { id: 77, name: '故宫博物院' })
+
+      expect(navigateTo).toHaveBeenCalledTimes(1)
+      expect(navigateTo).toHaveBeenCalledWith({
+        url: '/pages/attraction-detail/index?attractionId=77',
+      })
+      expect(routeStore.generateExplorationPlans).not.toHaveBeenCalled()
+      expect(routeStore.createStop).not.toHaveBeenCalled()
+      expect(routeStore.updateStop).not.toHaveBeenCalled()
+    } finally {
+      if (originalNavigateTo === undefined) delete uni.navigateTo
+      else uni.navigateTo = originalNavigateTo
+    }
   })
 })

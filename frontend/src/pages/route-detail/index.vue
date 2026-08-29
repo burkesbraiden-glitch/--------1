@@ -52,7 +52,7 @@
                 <view class="stop-section__heading"><text>当天景点</text><view class="stop-section__actions"><text v-if="day.stops.length > 1" @click="toggleStopOrderEditing(day.id)">{{ stopOrderDayId === day.id ? '完成排序' : '调整景点顺序' }}</text><text @click="openAttractionSheet(day)">+ 添加景点</text></view></view>
                 <view v-if="day.stops.length" class="stop-section__list">
                   <view v-for="stop in day.stops" :key="stop.id" class="stop-card">
-                    <view class="stop-card__topline"><text class="stop-card__name">{{ stop.attraction.name }}</text><view><text @click="openStopNoteSheet(day, stop)">{{ stop.note ? '编辑备注' : '添加备注' }}</text><text class="day-card__delete" @click="confirmDeleteStop(day, stop)">删除</text></view></view>
+                    <view class="stop-card__topline"><text class="stop-card__name" @click="openAttractionDetail(stop.attraction)">{{ stop.attraction.name }}</text><view><text @click="openStopNoteSheet(day, stop)">{{ stop.note ? '编辑备注' : '添加备注' }}</text><text class="day-card__delete" @click="confirmDeleteStop(day, stop)">删除</text></view></view>
                     <view v-if="stopOrderDayId === day.id" class="order-controls order-controls--stop"><button :disabled="reorderingStopsDayId === day.id || day.stops.indexOf(stop) === 0" @click="moveStop(day, stop.id, -1)">↑</button><button :disabled="reorderingStopsDayId === day.id || day.stops.indexOf(stop) === day.stops.length - 1" @click="moveStop(day, stop.id, 1)">↓</button></view>
                     <text v-if="stop.attraction.district" class="stop-card__meta">{{ stop.attraction.district }}</text>
                     <text v-if="stop.attraction.summary" class="stop-card__summary">{{ stop.attraction.summary }}</text>
@@ -405,6 +405,10 @@ export default {
       } finally {
         this.addingAttractionId = null
       }
+    },
+    openAttractionDetail(attraction) {
+      if (!attraction?.id) return
+      uni.navigateTo({ url: `/pages/attraction-detail/index?attractionId=${encodeURIComponent(String(attraction.id))}` })
     },
     openStopNoteSheet(day, stop) {
       this.editingStopDayId = day.id

@@ -18,3 +18,19 @@ export function getAttractions(params = {}) {
     auth: true,
   })
 }
+
+export function getAttractionDetail(id) {
+  return request({
+    path: `/attractions/${encodeURIComponent(String(id))}`,
+    method: 'GET',
+    auth: true,
+  })
+}
+
+export function getAttractionGuide(id) {
+  return request({
+    path: `/attractions/${encodeURIComponent(String(id))}/guide`,
+    method: 'GET',
+    auth: true,
+  })
+}
