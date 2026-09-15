@@ -8,7 +8,11 @@
       @click="go(item)"
     >
       <view class="app-tabbar__icon" :class="`app-tabbar__icon--${item.icon}`" aria-hidden="true">
-        <view class="app-tabbar__icon-stroke"></view>
+        <image
+          class="app-tabbar__icon-image"
+          :src="getIconSource(item.key)"
+          mode="aspectFit"
+        />
       </view>
       <text class="app-tabbar__label">{{ item.label }}</text>
     </button>
@@ -17,6 +21,24 @@
 
 <script>
 import { useUserStore } from '../stores/user'
+import tabHomeIdle from '../assets/navigation/tab-home-idle.svg'
+import tabHomeActive from '../assets/navigation/tab-home-active.svg'
+import tabRouteIdle from '../assets/navigation/tab-route-idle.svg'
+import tabRouteActive from '../assets/navigation/tab-route-active.svg'
+import tabExploreIdle from '../assets/navigation/tab-explore-idle.svg'
+import tabExploreActive from '../assets/navigation/tab-explore-active.svg'
+import tabRecordIdle from '../assets/navigation/tab-record-idle.svg'
+import tabRecordActive from '../assets/navigation/tab-record-active.svg'
+import tabProfileIdle from '../assets/navigation/tab-profile-idle.svg'
+import tabProfileActive from '../assets/navigation/tab-profile-active.svg'
+
+const TAB_ICON_SOURCES = {
+  home: { idle: tabHomeIdle, active: tabHomeActive },
+  route: { idle: tabRouteIdle, active: tabRouteActive },
+  explore: { idle: tabExploreIdle, active: tabExploreActive },
+  record: { idle: tabRecordIdle, active: tabRecordActive },
+  profile: { idle: tabProfileIdle, active: tabProfileActive },
+}
 
 export default {
   name: 'AppTabbar',
@@ -38,6 +60,9 @@ export default {
     }
   },
   methods: {
+    getIconSource(key) {
+      return TAB_ICON_SOURCES[key][this.active === key ? 'active' : 'idle']
+    },
     async go(item) {
       if (this.active === item.key) {
         return
@@ -95,6 +120,12 @@ export default {
   width: 48rpx;
   height: 48rpx;
   color: inherit;
+}
+
+.app-tabbar__icon-image {
+  display: block;
+  width: 54rpx;
+  height: 54rpx;
 }
 
 .app-tabbar__icon::before,
@@ -236,6 +267,13 @@ export default {
   .app-tabbar__label {
     font-size: 22rpx;
   }
+}
+
+/* Legacy classes remain for the shared tabbar contract; the SVG assets are the only visible icons. */
+.app-tabbar__icon::before,
+.app-tabbar__icon::after,
+.app-tabbar__icon-stroke {
+  display: none !important;
 }
 </style>
 

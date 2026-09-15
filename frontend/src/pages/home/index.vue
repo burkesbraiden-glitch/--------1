@@ -42,20 +42,9 @@
 
       <view class="home-hero">
         <view class="home-hero__book">
-          <view class="home-hero__illustration" aria-hidden="true">
-            <image
-              class="home-hero__image"
-              src="../../assets/home/home-hero-watercolor.webp"
-              mode="aspectFill"
-            />
-          </view>
-
           <view class="home-hero__content">
             <text class="home-hero__eyebrow">故宫文化探索</text>
-            <text class="home-hero__title">
-              <text class="home-hero__title-line">故宫亲子</text>
-              <text class="home-hero__title-line">探索</text>
-            </text>
+            <text class="home-hero__title">故宫亲子探索</text>
             <view class="home-hero__underline"></view>
             <text class="home-hero__desc">认识古代皇宫，边看边学</text>
 
@@ -75,6 +64,14 @@
               <view class="home-hero__cta-arrow" aria-hidden="true"></view>
             </view>
           </view>
+
+          <view class="home-hero__illustration" aria-hidden="true">
+            <image
+              class="home-hero__image"
+              src="../../assets/home/home-hero-watercolor.webp"
+              mode="aspectFill"
+            />
+          </view>
         </view>
       </view>
 
@@ -88,11 +85,13 @@
         >
           <text class="home-entry__title">{{ entry.title }}</text>
           <text class="home-entry__desc">{{ entry.desc }}</text>
-          <view class="home-entry__art" :class="`home-entry__art--${entry.theme}`" aria-hidden="true">
-            <view class="home-entry__art-paper"></view>
-            <view class="home-entry__art-mark"></view>
-          </view>
-          <view class="home-entry__arrow" aria-hidden="true"></view>
+          <image
+            class="home-entry__art"
+            :class="`home-entry__art--${entry.theme}`"
+            :src="entry.art"
+            mode="aspectFit"
+            aria-hidden="true"
+          />
         </view>
       </view>
 
@@ -111,11 +110,13 @@
           >
             <text class="home-learn-card__title">{{ item.title }}</text>
             <text class="home-learn-card__desc">{{ item.desc }}</text>
-            <view class="home-learn-card__visual">
-              <view class="home-learn-card__shape" :class="`home-learn-card__shape--${item.theme}`"></view>
-              <view class="home-learn-card__tape"></view>
-              <view class="home-learn-card__badge"></view>
-            </view>
+            <image
+              class="home-learn-card__art"
+              :class="`home-learn-card__art--${item.theme}`"
+              :src="item.art"
+              mode="aspectFit"
+              aria-hidden="true"
+            />
           </view>
         </view>
       </view>
@@ -192,6 +193,12 @@ import { useChildStore } from '../../stores/child'
 import { usePlanStore } from '../../stores/plan'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
+import entryPlanMap from '../../assets/home/home-entry-plan-map.webp'
+import entryGuideCards from '../../assets/home/home-entry-guide-cards.webp'
+import entryObservationNotebook from '../../assets/home/home-entry-observation-notebook.webp'
+import learningAncientLife from '../../assets/home/home-learning-ancient-life.webp'
+import learningArchitectureRitual from '../../assets/home/home-learning-architecture-ritual.webp'
+import learningObservationExpression from '../../assets/home/home-learning-observation-expression.webp'
 
 export default {
   components: {
@@ -219,13 +226,15 @@ export default {
           title: '探索计划',
           desc: '规划行程与学习',
           theme: 'green',
+          art: entryPlanMap,
           path: '/pages/plan/index',
           method: 'reLaunch',
         },
         {
-          title: '讲解卡',
+          title: '景点讲解',
           desc: '家长轻松讲',
           theme: 'yellow',
+          art: entryGuideCards,
           path: '/pages/guide/index',
           method: 'navigateTo',
         },
@@ -233,6 +242,7 @@ export default {
           title: '观察任务',
           desc: '边看边完成',
           theme: 'blue',
+          art: entryObservationNotebook,
           path: '/pages/tasks/index',
           method: 'reLaunch',
         },
@@ -242,16 +252,19 @@ export default {
           title: '古代生活',
           desc: '了解皇宫里的衣食住行',
           theme: 'orange',
+          art: learningAncientLife,
         },
         {
           title: '建筑礼仪',
           desc: '发现古建筑的智慧与礼仪',
           theme: 'yellow',
+          art: learningArchitectureRitual,
         },
         {
           title: '观察表达',
           desc: '学会观察，勇敢表达',
           theme: 'blue',
+          art: learningObservationExpression,
         },
       ],
     }
@@ -696,37 +709,6 @@ export default {
   font-size: 21rpx;
   line-height: 1.4;
   color: #5f4937;
-}
-
-.home-learn-card__visual {
-  position: absolute;
-  right: 8rpx;
-  bottom: 8rpx;
-  width: 86rpx;
-  height: 66rpx;
-  opacity: 0.86;
-}
-
-.home-learn-card__shape {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 70rpx;
-  height: 52rpx;
-  background: rgba(255, 250, 240, 0.72);
-  border: 2rpx solid rgba(126, 82, 35, 0.16);
-  border-radius: 20rpx 20rpx 12rpx 12rpx;
-}
-
-.home-learn-card__tape {
-  position: absolute;
-  top: 0;
-  left: 4rpx;
-  width: 44rpx;
-  height: 18rpx;
-  background: rgba(242, 106, 33, 0.35);
-  border-radius: 8rpx;
-  transform: rotate(-14deg);
 }
 
 .plan-sheet {
@@ -1451,66 +1433,6 @@ export default {
   pointer-events: none;
 }
 
-.home-entry__art-paper {
-  position: absolute;
-  right: 4rpx;
-  bottom: 0;
-  width: 66rpx;
-  height: 48rpx;
-  background: rgba(255, 250, 240, 0.75);
-  border: 2rpx solid rgba(126, 82, 35, 0.25);
-  border-radius: 9rpx;
-  transform: rotate(-8deg);
-}
-
-.home-entry__art-paper::after {
-  position: absolute;
-  top: 14rpx;
-  left: 12rpx;
-  width: 36rpx;
-  content: '';
-  border-top: 3rpx solid rgba(126, 82, 35, 0.28);
-  box-shadow: 0 10rpx 0 rgba(126, 82, 35, 0.2);
-}
-
-.home-entry__art-mark {
-  position: absolute;
-  right: 0;
-  bottom: 23rpx;
-  width: 30rpx;
-  height: 30rpx;
-  border: 5rpx solid var(--tl-primary);
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-}
-
-.home-entry__art--yellow .home-entry__art-mark {
-  width: 34rpx;
-  height: 25rpx;
-  border: 4rpx solid #d89b2f;
-  border-radius: 8rpx 18rpx 8rpx 18rpx;
-  transform: rotate(-13deg);
-}
-
-.home-entry__art--blue .home-entry__art-mark {
-  width: 32rpx;
-  height: 17rpx;
-  border: 0;
-  border-right: 5rpx solid #2f6f94;
-  border-bottom: 5rpx solid #2f6f94;
-  border-radius: 0;
-  transform: rotate(42deg);
-}
-
-.home-entry__arrow {
-  position: absolute;
-  right: 20rpx;
-  bottom: 20rpx;
-  z-index: 3;
-  color: var(--tl-text-main);
-  pointer-events: none;
-}
-
 .home-section-title {
   gap: 14rpx;
   color: var(--tl-text-main);
@@ -1539,37 +1461,6 @@ export default {
 
 .home-learn-card__title { color: var(--tl-text-main); }
 .home-learn-card__desc { color: var(--tl-text-secondary); }
-
-.home-learn-card__visual {
-  pointer-events: none;
-}
-
-.home-learn-card__shape {
-  background: rgba(255, 250, 240, 0.72);
-  border-color: rgba(126, 82, 35, 0.2);
-}
-
-.home-learn-card__badge {
-  position: absolute;
-  right: 12rpx;
-  bottom: 12rpx;
-  width: 30rpx;
-  height: 30rpx;
-  border: 4rpx solid var(--tl-primary);
-  border-radius: 50%;
-}
-
-.home-learn-card__badge::after {
-  position: absolute;
-  top: 9rpx;
-  left: 8rpx;
-  width: 12rpx;
-  height: 6rpx;
-  content: '';
-  border-bottom: 3rpx solid var(--tl-primary);
-  border-left: 3rpx solid var(--tl-primary);
-  transform: rotate(-45deg);
-}
 
 .plan-sheet__panel {
   max-width: var(--tl-content-max-width);
@@ -1629,5 +1520,305 @@ export default {
   .home-entry__desc { font-size: 13px; }
   .home-entry__art { transform: scale(0.75); transform-origin: right bottom; }
   .home-learn-card { min-height: 126px; padding: 13px 9px; }
+}
+
+/* Home Visual Implementation: real watercolor illustrations and restrained paper texture. */
+.home-page {
+  position: relative;
+  isolation: isolate;
+  background: #f8efd9;
+}
+
+.home-page::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: '';
+  background-image: url('../../assets/home/home-paper-fiber.webp');
+  background-repeat: repeat;
+  background-size: 512rpx 512rpx;
+  opacity: 0.13;
+}
+
+.home-page__paper {
+  position: relative;
+  z-index: 1;
+}
+
+.home-hero__book {
+  min-height: 500rpx;
+  border-color: rgba(126, 82, 35, 0.58);
+  border-radius: 38rpx 44rpx 36rpx 42rpx;
+}
+
+.home-hero__book::after {
+  position: absolute;
+  top: 18rpx;
+  bottom: 18rpx;
+  left: 55%;
+  z-index: 3;
+  width: 2rpx;
+  pointer-events: none;
+  content: '';
+  background: rgba(126, 82, 35, 0.24);
+  box-shadow: 8rpx 0 14rpx rgba(97, 63, 28, 0.08);
+}
+
+.home-hero__content {
+  order: 1;
+  width: 55%;
+  padding: 28rpx 20rpx 24rpx 28rpx;
+  background: var(--tl-paper);
+  box-shadow: inset -10rpx 0 22rpx rgba(97, 63, 28, 0.035);
+}
+
+.home-hero__illustration {
+  order: 2;
+  width: 45%;
+  min-height: 0;
+  margin: 0;
+  background: #d9edf5;
+  border-radius: 0 38rpx 32rpx 0;
+}
+
+.home-hero__title {
+  font-size: 46rpx;
+  line-height: 1.12;
+  white-space: normal;
+  word-break: normal;
+}
+
+.home-hero__desc {
+  min-height: 0;
+  margin-bottom: 14rpx;
+}
+
+.home-entry-grid,
+.home-learn__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.home-entry {
+  min-height: 306rpx;
+  padding: 24rpx 18rpx 18rpx;
+}
+
+.home-entry__title,
+.home-entry__desc,
+.home-learn-card__title,
+.home-learn-card__desc {
+  position: relative;
+  z-index: 2;
+}
+
+.home-entry__desc {
+  max-width: 88%;
+}
+
+.home-entry__art {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}
+
+.home-entry__art--green {
+  right: -18rpx;
+  bottom: -12rpx;
+  width: 182rpx;
+  height: 162rpx;
+}
+
+.home-entry__art--yellow {
+  right: -30rpx;
+  bottom: -24rpx;
+  width: 188rpx;
+  height: 190rpx;
+}
+
+.home-entry__art--blue {
+  right: -22rpx;
+  bottom: -20rpx;
+  width: 188rpx;
+  height: 184rpx;
+}
+
+.home-learn-card {
+  min-height: 278rpx;
+  padding: 18rpx 16rpx;
+}
+
+.home-learn-card__title {
+  margin-bottom: 7rpx;
+  font-size: 26rpx;
+}
+
+.home-learn-card__desc {
+  font-size: 19rpx;
+  line-height: 1.38;
+}
+
+.home-learn-card__art {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  pointer-events: none;
+}
+
+.home-learn-card__art--orange {
+  right: -18rpx;
+  bottom: -14rpx;
+  width: 140rpx;
+  height: 138rpx;
+}
+
+.home-learn-card__art--yellow {
+  bottom: -18rpx;
+  left: -20rpx;
+  width: 182rpx;
+  height: 126rpx;
+}
+
+.home-learn-card__art--blue {
+  right: -15rpx;
+  bottom: -17rpx;
+  width: 146rpx;
+  height: 134rpx;
+}
+
+@media (max-width: 360px) {
+  .home-hero__book {
+    min-height: 460rpx;
+  }
+
+  .home-hero__content {
+    padding: 24rpx 16rpx 20rpx 22rpx;
+  }
+
+  .home-hero__title {
+    font-size: 42rpx;
+  }
+
+  .home-entry-grid,
+  .home-learn__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18rpx;
+  }
+
+  .home-entry {
+    min-height: 310rpx;
+  }
+
+  .home-entry:last-child,
+  .home-learn-card:last-child {
+    grid-column: span 2;
+  }
+
+  .home-learn-card {
+    min-height: 286rpx;
+  }
+
+  .home-entry__art--green,
+  .home-entry__art--yellow,
+  .home-entry__art--blue {
+    width: 210rpx;
+    height: 194rpx;
+  }
+
+  .home-learn-card__art--orange,
+  .home-learn-card__art--blue {
+    width: 176rpx;
+    height: 160rpx;
+  }
+
+  .home-learn-card__art--yellow {
+    width: 208rpx;
+    height: 150rpx;
+  }
+}
+
+@media (min-width: 431px) {
+  .home-page::before {
+    background-size: 320px 320px;
+  }
+
+  .home-hero__book {
+    min-height: 278px;
+  }
+
+  .home-hero__book::after {
+    top: 10px;
+    bottom: 10px;
+    left: 55%;
+    width: 1px;
+  }
+
+  .home-hero__content {
+    padding: 18px 12px 14px 17px;
+  }
+
+  .home-hero__title {
+    font-size: 26px;
+  }
+
+  .home-entry-grid,
+  .home-learn__grid {
+    gap: 11px;
+  }
+
+  .home-entry {
+    min-height: 164px;
+    padding: 14px 11px 10px;
+  }
+
+  .home-entry__title {
+    font-size: 18px;
+  }
+
+  .home-entry__desc {
+    font-size: 13px;
+  }
+
+  .home-entry__art--green {
+    right: -10px;
+    bottom: -7px;
+    width: 98px;
+    height: 88px;
+  }
+
+  .home-entry__art--yellow,
+  .home-entry__art--blue {
+    right: -16px;
+    bottom: -12px;
+    width: 102px;
+    height: 102px;
+  }
+
+  .home-learn-card {
+    min-height: 148px;
+    padding: 11px 9px;
+  }
+
+  .home-learn-card__title {
+    font-size: 15px;
+  }
+
+  .home-learn-card__desc {
+    font-size: 11px;
+  }
+
+  .home-learn-card__art--orange,
+  .home-learn-card__art--blue {
+    width: 76px;
+    height: 74px;
+  }
+
+  .home-learn-card__art--yellow {
+    width: 96px;
+    height: 66px;
+  }
 }
 </style>
