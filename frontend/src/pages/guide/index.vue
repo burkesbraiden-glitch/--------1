@@ -2,7 +2,7 @@
   <view class="guide-page">
     <view class="guide-page__paper">
       <view class="guide-header">
-        <view class="guide-header__seal">童旅记</view>
+        <button class="guide-header__back" @click="goBack" aria-label="返回探索详情">‹</button>
         <view class="guide-header__title-wrap">
           <text class="guide-header__eyebrow">MUSEUM NOTEBOOK</text>
           <text class="guide-header__title">讲解卡</text>
@@ -10,7 +10,26 @@
         <view class="guide-header__star" aria-hidden="true"></view>
       </view>
 
-      <view v-if="!displayPlan" class="guide-state-card">
+      <view v-if="isPlanRecoveryBusy" class="guide-state-card">
+        <text class="guide-state-card__stamp">正在打开</text>
+        <text class="guide-state-card__title">正在准备这份讲解卡...</text>
+        <text class="guide-state-card__text">请稍等，正在确认本次探索计划。</text>
+      </view>
+
+      <view v-else-if="isPlanUnavailable" class="guide-state-card">
+        <text class="guide-state-card__stamp">这页走丢了</text>
+        <text class="guide-state-card__title">这份探索计划暂时不可用。</text>
+        <text class="guide-state-card__text">返回上一页，重新选择一份探索计划吧。</text>
+      </view>
+
+      <view v-else-if="recoveryError" class="guide-state-card">
+        <text class="guide-state-card__stamp">小小提醒</text>
+        <text class="guide-state-card__title">探索计划加载失败</text>
+        <text class="guide-state-card__text">暂时无法确认这份讲解卡，请稍后重试。</text>
+        <button class="guide-retry" @click="reloadGuide">重新加载</button>
+      </view>
+
+      <view v-else-if="!displayPlan" class="guide-state-card">
         <text class="guide-state-card__stamp">空白讲解卡</text>
         <text class="guide-state-card__title">还没有探索计划</text>
         <text class="guide-state-card__text">先创建计划，再准备专属讲解卡。</text>
@@ -140,6 +159,9 @@ export default {
   data() {
     return {
       audioState: 'idle',
+      planId: '',
+      isPlanUnavailable: false,
+      recoveryError: null,
     }
   },
   computed: {
@@ -153,7 +175,13 @@ export default {
       return useUserStore()
     },
     displayPlan() {
+      if (this.isPlanUnavailable || this.recoveryError) {
+        return null
+      }
       return this.planStore.currentPlan
+    },
+    isPlanRecoveryBusy() {
+      return Boolean(this.planId) && this.planStore.isLoading && !this.recoveryError
     },
     currentGuide() {
       return this.guideStore.currentGuide || {}
@@ -206,18 +234,54 @@ export default {
       return '点击播放语音'
     },
   },
+  onLoad(options) {
+    this.planId = String(options?.planId || '').trim()
+  },
   async onShow() {
     await this.restoreCurrentPlan()
   },
   methods: {
     async restoreCurrentPlan() {
+      const explicitPlanId = this.planId
+      const hasExplicitPlanId = Boolean(explicitPlanId)
+
+      if (hasExplicitPlanId) {
+        this.isPlanUnavailable = false
+        this.recoveryError = null
+        this.guideStore.clearGuideForPlanChange(explicitPlanId)
+      }
+
+      let result
       try {
-        const result = await ensureCurrentPlanReady()
-        const planId = result.currentPlan?.id
-        if (!planId) {
-          this.guideStore.resetSessionState()
+        result = await ensureCurrentPlanReady(
+          hasExplicitPlanId
+            ? { planId: explicitPlanId, withTasks: false, force: true }
+            : undefined,
+        )
+      } catch (error) {
+        if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
+          await endUserSession()
           return
         }
+        if (hasExplicitPlanId) {
+          this.recoveryError = error
+          this.guideStore.clearGuideForPlanChange()
+        }
+        return
+      }
+
+      const planId = result.currentPlan?.id
+      if (hasExplicitPlanId && (result.unavailable || !planId)) {
+        this.isPlanUnavailable = true
+        this.guideStore.clearGuideForPlanChange()
+        return
+      }
+      if (!planId) {
+        this.guideStore.resetSessionState()
+        return
+      }
+
+      try {
         await this.guideStore.ensureGuide(planId)
       } catch (error) {
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
@@ -227,6 +291,9 @@ export default {
     },
     async reloadGuide() {
       await this.restoreCurrentPlan()
+    },
+    goBack() {
+      uni.navigateBack({ delta: 1 })
     },
     showToast(title) {
       uni.showToast({
@@ -276,19 +343,18 @@ export default {
   margin-bottom: 30rpx;
 }
 
-.guide-header__seal {
+.guide-header__back {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 64rpx;
   height: 64rpx;
-  font-size: 17rpx;
+  padding: 0 0 8rpx;
+  font-size: 62rpx;
   font-weight: 900;
   color: var(--tl-primary-deep);
-  background: var(--tl-yellow);
-  border: 2rpx solid var(--tl-primary);
-  border-radius: 50%;
-  transform: rotate(-9deg);
+  line-height: 1;
+  background: transparent;
 }
 
 .guide-header__title-wrap {
@@ -874,14 +940,14 @@ export default {
     margin-bottom: 16px;
   }
 
-  .guide-header__seal {
+  .guide-header__back {
     width: 32px;
     height: 32px;
   }
 
   .guide-header__star { width: 13px; height: 13px; }
 
-  .guide-header__seal { font-size: 10px; }
+  .guide-header__back { padding-bottom: 4px; font-size: 34px; }
   .guide-header__eyebrow { margin-bottom: 3px; font-size: 10px; }
   .guide-header__title { font-size: 28px; }
   .guide-header__star { font-size: 0; }

@@ -79,6 +79,7 @@
           </view>
         </view>
 
+        <button class="detail-guide-action" @click="openGuide">查看景点讲解</button>
         <button class="detail-action" :disabled="isStarting" @click="startExploration">
           {{ isStarting ? '正在打开探索清单' : startActionText }}
         </button>
@@ -188,6 +189,14 @@ export default {
     goTasks() {
       uni.reLaunch({ url: '/pages/tasks/index' })
     },
+    openGuide() {
+      const planId = this.displayPlan?.id
+      if (planId === null || planId === undefined || String(planId).trim() === '') return
+
+      uni.navigateTo({
+        url: `/pages/guide/index?planId=${encodeURIComponent(String(planId))}`,
+      })
+    },
     async startExploration() {
       if (this.isStarting || !this.displayPlan) return
 
@@ -246,5 +255,6 @@ export default {
 .interest-strip { display: flex; gap: 12rpx; margin: 20rpx 4rpx 30rpx; }.interest-strip__label { flex: 0 0 auto; padding-top: 7rpx; font-size: 21rpx; font-weight: 800; color: var(--tl-text-secondary); }.interest-strip__items { display: flex; flex: 1; flex-wrap: wrap; gap: 8rpx; }.interest-strip__item { padding: 7rpx 13rpx; font-size: 20rpx; font-weight: 800; color: var(--tl-blue-deep); background: rgba(210, 232, 242, .72); border-radius: 999rpx; }
 .section-heading { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16rpx; padding: 0 6rpx; }.section-heading__title { font-size: 34rpx; font-weight: 900; }.section-heading__note { font-size: 20rpx; color: var(--tl-text-secondary); }
 .explore-sections { display: flex; flex-direction: column; gap: 16rpx; }.explore-section-card { position: relative; padding: 22rpx 28rpx 22rpx 78rpx; }.explore-section-card__number { position: absolute; top: 22rpx; left: 24rpx; font-size: 24rpx; font-weight: 900; color: var(--tl-primary); }.explore-section-card__title,.explore-section-card__summary,.explore-section-card__item { display: block; }.explore-section-card__title { font-size: 30rpx; font-weight: 900; }.explore-section-card__summary { margin-top: 6rpx; font-size: 24rpx; color: var(--tl-text-secondary); }.explore-section-card__item { margin-top: 10rpx; font-size: 20rpx; color: var(--tl-primary-deep); }
-.detail-action { width: 100%; min-height: 100rpx; margin-top: 30rpx; font-size: 32rpx; font-weight: 900; color: var(--tl-paper); background: var(--tl-primary); border: 3rpx solid var(--tl-primary-deep); border-radius: var(--tl-radius-md); box-shadow: 0 12rpx 0 var(--tl-primary-deep); }.detail-action[disabled] { opacity: .7; }
+.detail-guide-action { width: 100%; min-height: 88rpx; margin-top: 30rpx; font-size: 28rpx; font-weight: 900; color: var(--tl-primary-deep); background: #fff3d9; border: 3rpx solid var(--tl-primary); border-radius: var(--tl-radius-md); }
+.detail-action { width: 100%; min-height: 100rpx; margin-top: 24rpx; font-size: 32rpx; font-weight: 900; color: var(--tl-paper); background: var(--tl-primary); border: 3rpx solid var(--tl-primary-deep); border-radius: var(--tl-radius-md); box-shadow: 0 12rpx 0 var(--tl-primary-deep); }.detail-action[disabled] { opacity: .7; }
 </style>

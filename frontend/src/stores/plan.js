@@ -267,6 +267,11 @@ export const usePlanStore = defineStore('plan', {
         this.clearRemoteStateForUser(userId)
       }
 
+      if (selectionPolicy === 'none') {
+        this.currentPlan = null
+        this.syncStatus()
+      }
+
       if (!force && this.isLoaded && sameUserId(this.loadedForUserId, userId)) {
         if (selectionPolicy === 'none') {
           this.currentPlan = null
