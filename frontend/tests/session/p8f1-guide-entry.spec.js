@@ -76,6 +76,7 @@ function loadPageOptions(source) {
 
   return new Function(
     'AppTabbar',
+    'AudioGuideSheet',
     'useGuideStore',
     'usePlanStore',
     'useUserStore',
@@ -83,6 +84,7 @@ function loadPageOptions(source) {
     'endUserSession',
     executable,
   )(
+    {},
     {},
     useGuideStore,
     usePlanStore,
@@ -140,32 +142,32 @@ afterEach(() => {
 })
 
 describe('P8.1 Explore Detail → Guide entry', () => {
-  test('navigates from the current Detail Plan to its exact encoded Guide URL without starting other work', async () => {
+  test('opens the in-page Sheet for the exact Detail Plan without starting other work', async () => {
     authenticate()
     const routePlan = { ...planA, id: 'A /?&' }
-    usePlanStore().applyPlanList([routePlan], user.id)
+    persistPlan(planB.id)
+    usePlanStore().applyPlanList([planB, routePlan], user.id)
+    usePlanStore().selectPlanById(routePlan.id, user.id)
     const detailPage = loadPageOptions(exploreDetailSource)
     const vm = createPageVm(detailPage)
-    const navigationCalls = []
-    uni.navigateTo = (options) => {
-      navigationCalls.push(options)
-      return Promise.resolve()
-    }
     setRequestHandler(() => {
       throw new Error('Viewing a Detail Guide entry must not request data')
     })
 
-    const guideEntry = pageMethodContaining(detailPage, '/pages/guide/index')
-    expect(guideEntry).not.toBeNull()
-    if (!guideEntry) return
+    const guideEntry = detailPage.methods?.openGuide
+    expect(typeof guideEntry).toBe('function')
+    if (typeof guideEntry !== 'function') return
 
-    await guideEntry[1].call(vm)
+    await guideEntry.call(vm)
 
-    expect(navigationCalls).toEqual([
-      { url: `/pages/guide/index?planId=${encodeURIComponent(String(routePlan.id))}` },
-    ])
+    expect(vm.audioGuidePlanId).toBe(routePlan.id)
+    expect(vm.audioGuideOpen).toBe(true)
     expect(getRequestCalls()).toEqual([])
     expect(usePlanStore().currentPlan?.id).toBe(routePlan.id)
+    expect(guideEntry.toString()).not.toContain('ensureTasks')
+    expect(guideEntry.toString()).not.toContain('startExploration')
+    expect(exploreDetailSource).toContain('<AudioGuideSheet')
+    expect(exploreDetailSource).toMatch(/:plan-id="audioGuidePlanId"/)
   })
 
   test('keeps Detail browsing independent of the Guide Store, Guide API, and Task preparation', () => {

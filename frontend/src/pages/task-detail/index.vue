@@ -53,6 +53,8 @@
         </view>
       </view>
 
+      <button v-if="isTaskPlanVerified" class="detail-guide-action" @click="openAudioGuide">查看景点讲解</button>
+
       <view class="detail-record">
         <view class="detail-record__head">
           <view>
@@ -125,11 +127,13 @@
       </view>
     </view>
 
+    <AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />
     <AppTabbar active="explore" />
   </view>
 </template>
 
 <script>
+import AudioGuideSheet from '../../components/AudioGuideSheet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import { usePlanStore } from '../../stores/plan'
 import { useRecordStore } from '../../stores/record'
@@ -148,13 +152,22 @@ function isAuthenticationError(error) {
   return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
 }
 
+function samePlanId(left, right) {
+  return String(left) === String(right)
+}
+
 export default {
   components: {
+    AudioGuideSheet,
     AppTabbar,
   },
   data() {
     return {
       routeTaskId: '',
+      routePlanId: '',
+      audioGuideOpen: false,
+      audioGuidePlanId: null,
+      isTaskPlanVerified: false,
       pendingPreviewPath: '',
       noteDraft: '',
       noteSaveTimer: null,
@@ -178,7 +191,7 @@ export default {
       return useUserStore()
     },
     currentTask() {
-      return this.task.currentTask || {}
+      return this.isTaskPlanVerified ? this.task.currentTask || {} : {}
     },
     formattedOrder() {
       return String(this.currentTask.order || 1).padStart(2, '0')
@@ -187,23 +200,26 @@ export default {
       return statusMap[this.currentTask.status] || '未完成'
     },
     isPlanReady() {
-      return this.plan.currentPlan?.status === 'ready'
+      return this.isTaskPlanVerified && this.plan.currentPlan?.status === 'ready'
     },
     isTaskNotStarted() {
-      return this.currentTask.status === 'not-started'
+      return this.isTaskPlanVerified && this.currentTask.status === 'not-started'
     },
     correctionRecordStatus() {
+      if (!this.isTaskPlanVerified) {
+        return null
+      }
       const planId = this.plan.currentPlan?.id
       return planId ? this.recordStore.correctionRecordStatusForPlan(planId) : null
     },
     isCorrectionFinalized() {
-      return this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.state === 'finalized'
+      return this.isTaskPlanVerified && this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.state === 'finalized'
     },
     isCorrectionStatusLoading() {
-      return this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.loading === true
+      return this.isTaskPlanVerified && this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.loading === true
     },
     hasCorrectionStatusError() {
-      return this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.error != null
+      return this.isTaskPlanVerified && this.plan.currentPlan?.status === 'completed' && this.correctionRecordStatus?.error != null
     },
     completedPlanCorrectionAllowed() {
       const correctionRecordStatus = this.correctionRecordStatus
@@ -216,6 +232,9 @@ export default {
       )
     },
     canEditNote() {
+      if (!this.isTaskPlanVerified) {
+        return false
+      }
       const canEditInProgressPlan = this.plan.currentPlan?.status === 'in-progress' && !this.isTaskNotStarted
       const correctionRecordStatus = this.correctionRecordStatus
       return !this.submissionState.isCompleting && (
@@ -224,6 +243,9 @@ export default {
       )
     },
     canChooseImage() {
+      if (!this.isTaskPlanVerified) {
+        return false
+      }
       const canChooseInProgressPlan = this.plan.currentPlan?.status === 'in-progress' && !this.isTaskNotStarted
       const correctionRecordStatus = this.correctionRecordStatus
       return canChooseInProgressPlan || (this.completedPlanCorrectionAllowed && correctionRecordStatus?.state !== 'finalized')
@@ -294,12 +316,15 @@ export default {
   },
   onLoad(options) {
     this.routeTaskId = options?.id || ''
-    this.task.setCurrentTask(this.routeTaskId)
-    this.restoreRecord()
+    this.routePlanId = String(options?.planId || '')
+    this.isTaskPlanVerified = false
   },
-    async onShow() {
-      await this.restorePlanAndTasks()
-      await this.recoverCurrentTask()
+  async onShow() {
+      const restoredPlan = await this.restorePlanAndTasks()
+      const recoveredTask = restoredPlan ? await this.recoverCurrentTask() : null
+      if (!recoveredTask) {
+        return
+      }
       this.restoreRecord()
       await this.restoreCompletedPlanCorrectionStatus()
       await this.restoreTaskImage()
@@ -315,17 +340,35 @@ export default {
       return Array.isArray(value) ? value.join('；') : value
     },
     async restorePlanAndTasks() {
+      this.isTaskPlanVerified = false
+      if (!this.routePlanId) {
+        return null
+      }
       try {
-        await ensureCurrentPlanReady({ withTasks: true })
+        const result = await ensureCurrentPlanReady({
+          withTasks: true,
+          force: true,
+          planId: this.routePlanId,
+        })
+        if (result.unavailable || !result.currentPlan || !samePlanId(result.currentPlan.id, this.routePlanId)) {
+          return null
+        }
+        return result.currentPlan
       } catch (error) {
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
           await endUserSession()
         }
+        return null
       }
     },
     async recoverCurrentTask() {
+      this.isTaskPlanVerified = false
+      if (!this.routePlanId || !this.routeTaskId || !samePlanId(this.plan.currentPlan?.id, this.routePlanId)) {
+        return null
+      }
+
       let task = await this.task.ensureCurrentTask(this.routeTaskId)
-      if (!task && this.plan.currentPlan?.id && this.routeTaskId) {
+      if ((!task || String(task.id) !== String(this.routeTaskId)) && this.plan.currentPlan?.id) {
         try {
           task = await this.task.fetchTaskDetail(this.plan.currentPlan.id, this.routeTaskId)
         } catch (error) {
@@ -333,10 +376,26 @@ export default {
             await endUserSession()
             return null
           }
-          throw error
+          return null
         }
       }
+      this.isTaskPlanVerified = Boolean(
+        task
+        && String(task.id) === String(this.routeTaskId)
+        && samePlanId(task.planId, this.routePlanId)
+      )
+      if (!this.isTaskPlanVerified) {
+        return null
+      }
+      this.task.setCurrentTask(task.id)
       return task
+    },
+    openAudioGuide() {
+      if (!this.isTaskPlanVerified || !this.currentTask.planId) {
+        return
+      }
+      this.audioGuidePlanId = this.currentTask.planId
+      this.audioGuideOpen = true
     },
     restoreRecord() {
       if (!this.noteHasLocalEdits) {
@@ -411,7 +470,7 @@ export default {
       return messages[error?.code] || fallback
     },
     async startExploration() {
-      if (this.isStartingPlan || !this.plan.currentPlan) {
+      if (!this.isTaskPlanVerified || this.isStartingPlan || !this.plan.currentPlan) {
         return
       }
       this.isStartingPlan = true
@@ -907,6 +966,21 @@ export default {
   flex-direction: column;
   gap: 16rpx;
   margin-bottom: 20rpx;
+}
+
+.detail-guide-action {
+  width: 100%;
+  min-height: 84rpx;
+  padding: 0 28rpx;
+  margin-bottom: 22rpx;
+  font-size: 29rpx;
+  font-weight: 900;
+  line-height: 84rpx;
+  color: #9b4e1e;
+  background: #fff1d8;
+  border: 3rpx solid rgba(218, 121, 39, 0.72);
+  border-radius: 26rpx;
+  box-shadow: 0 8rpx 0 rgba(195, 101, 27, 0.13);
 }
 
 .detail-section {

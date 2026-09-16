@@ -357,7 +357,7 @@ export default {
     goDetail(item) {
       this.task.setCurrentTask(item.id)
       uni.navigateTo({
-        url: `/pages/task-detail/index?id=${item.id}`,
+        url: `/pages/task-detail/index?id=${item.id}&planId=${encodeURIComponent(String(item.planId))}`,
       })
     },
   },

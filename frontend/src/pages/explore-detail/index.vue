@@ -86,11 +86,13 @@
       </template>
     </view>
 
+    <AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />
     <AppTabbar active="explore" />
   </view>
 </template>
 
 <script>
+import AudioGuideSheet from '../../components/AudioGuideSheet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import { usePlanStore } from '../../stores/plan'
 import { useTaskStore } from '../../stores/task'
@@ -99,10 +101,12 @@ import { ensureCurrentPlanReady } from '../../utils/planRecovery'
 import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
-  components: { AppTabbar },
+  components: { AudioGuideSheet, AppTabbar },
   data() {
     return {
       planId: '',
+      audioGuideOpen: false,
+      audioGuidePlanId: null,
       isPlanUnavailable: false,
       isStarting: false,
       sections: [
@@ -172,12 +176,19 @@ export default {
           planId: this.planId,
         })
         if (!result.user) {
+          this.audioGuidePlanId = null
           uni.reLaunch({ url: '/pages/login/index' })
           return
         }
         const selectedPlan = this.planStore.selectPlanById(this.planId)
         this.isPlanUnavailable = result.unavailable || !selectedPlan
+        if (this.isPlanUnavailable) {
+          this.audioGuidePlanId = null
+          this.audioGuideOpen = false
+        }
       } catch (error) {
+        this.audioGuidePlanId = null
+        this.audioGuideOpen = false
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
           await this.handleAuthExpired()
         }
@@ -190,12 +201,9 @@ export default {
       uni.reLaunch({ url: '/pages/tasks/index' })
     },
     openGuide() {
-      const planId = this.displayPlan?.id
-      if (planId === null || planId === undefined || String(planId).trim() === '') return
-
-      uni.navigateTo({
-        url: `/pages/guide/index?planId=${encodeURIComponent(String(planId))}`,
-      })
+      this.audioGuidePlanId = this.displayPlan?.id
+      if (this.audioGuidePlanId === null || this.audioGuidePlanId === undefined || String(this.audioGuidePlanId).trim() === '') return
+      this.audioGuideOpen = true
     },
     async startExploration() {
       if (this.isStarting || !this.displayPlan) return

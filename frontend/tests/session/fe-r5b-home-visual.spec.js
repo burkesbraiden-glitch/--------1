@@ -46,10 +46,13 @@ describe('FE-R5B home visual and business contract', () => {
     expect(plansApiSource).toContain("method: 'POST'")
   })
 
-  test('preserves exactly the three primary entry routes and the shared tabbar', () => {
+  test('preserves the formal Home routes, upgrades Guide entry to the shared Sheet, and keeps the shared tabbar', () => {
     expect(scriptSource).toContain("path: '/pages/plan/index'")
-    expect(scriptSource).toContain("path: '/pages/guide/index'")
     expect(scriptSource).toContain("path: '/pages/tasks/index'")
+    expect(scriptSource).toContain("action: 'audio-guide'")
+    expect(scriptSource).toContain("import AudioGuideSheet from '../../components/AudioGuideSheet.vue'")
+    expect(templateSource).toContain('<AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />')
+    expect(scriptSource).not.toContain("path: '/pages/guide/index'")
     expect(templateSource).toContain('<AppTabbar active="home" />')
     expect(templateSource).toContain("child.ageGroup === option.value")
     expect(templateSource).toContain('@click="selectAge(option.value)"')

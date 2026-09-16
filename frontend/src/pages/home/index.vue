@@ -183,15 +183,18 @@
       </view>
     </view>
 
+    <AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />
     <AppTabbar active="home" />
   </view>
 </template>
 
 <script>
+import AudioGuideSheet from '../../components/AudioGuideSheet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
 import { useChildStore } from '../../stores/child'
 import { usePlanStore } from '../../stores/plan'
 import { useUserStore } from '../../stores/user'
+import { ensureCurrentPlanReady } from '../../utils/planRecovery'
 import { endUserSession } from '../../utils/sessionBoundary'
 import entryPlanMap from '../../assets/home/home-entry-plan-map.webp'
 import entryGuideCards from '../../assets/home/home-entry-guide-cards.webp'
@@ -202,12 +205,16 @@ import learningObservationExpression from '../../assets/home/home-learning-obser
 
 export default {
   components: {
+    AudioGuideSheet,
     AppTabbar,
   },
   data() {
     return {
       searchKeyword: '',
       planSheetOpen: false,
+      audioGuideOpen: false,
+      audioGuidePlanId: null,
+      isOpeningAudioGuide: false,
       isCreatingPlan: false,
       ageOptions: [
         { value: '3-6', label: '3-6岁' },
@@ -235,8 +242,7 @@ export default {
           desc: '家长轻松讲',
           theme: 'yellow',
           art: entryGuideCards,
-          path: '/pages/guide/index',
-          method: 'navigateTo',
+          action: 'audio-guide',
         },
         {
           title: '观察任务',
@@ -402,7 +408,36 @@ export default {
         this.isCreatingPlan = false
       }
     },
+    async openAudioGuide() {
+      if (this.isOpeningAudioGuide) {
+        return
+      }
+
+      this.isOpeningAudioGuide = true
+      try {
+        const result = await ensureCurrentPlanReady({ withTasks: false })
+        if (result.currentPlan?.id !== null && result.currentPlan?.id !== undefined) {
+          this.audioGuidePlanId = result.currentPlan.id
+        } else {
+          this.audioGuidePlanId = null
+        }
+        this.audioGuideOpen = true
+      } catch (error) {
+        if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
+          await this.handleAuthExpired()
+          return
+        }
+        this.audioGuidePlanId = null
+        this.audioGuideOpen = true
+      } finally {
+        this.isOpeningAudioGuide = false
+      }
+    },
     goEntry(entry) {
+      if (entry.action === 'audio-guide') {
+        this.openAudioGuide()
+        return
+      }
       uni[entry.method]({
         url: entry.path,
       })
