@@ -2,6 +2,7 @@ from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services.auth import AuthError, get_user_by_identity
+from app.services.guide_audio import GuideAudioError, GuideAudioService
 from app.services.guides import GuideError, generate_guide, get_guide
 from app.services.plans import PlanError
 from app.utils.responses import error_response, success_response
@@ -23,7 +24,7 @@ def handle_error(error):
 def detail(plan_id):
     try:
         return success_response(data={"guide": get_guide(current_user(), plan_id)}, message="ok")
-    except (AuthError, GuideError, PlanError) as error:
+    except (AuthError, GuideError, GuideAudioError, PlanError) as error:
         return handle_error(error)
 
 
@@ -34,5 +35,15 @@ def generate(plan_id):
         guide, created = generate_guide(current_user(), plan_id)
         status_code = 201 if created else 200
         return success_response(data={"guide": guide}, message="Guide generated", status_code=status_code)
-    except (AuthError, GuideError, PlanError) as error:
+    except (AuthError, GuideError, GuideAudioError, PlanError) as error:
+        return handle_error(error)
+
+
+@guides_bp.post("/<int:plan_id>/guide/audio/retry")
+@jwt_required()
+def retry_audio(plan_id):
+    try:
+        GuideAudioService().retry_audio_generation(user=current_user(), plan_id=plan_id)
+        return success_response(data={"guide": get_guide(current_user(), plan_id)}, message="Audio generation retried")
+    except (AuthError, GuideError, GuideAudioError, PlanError) as error:
         return handle_error(error)

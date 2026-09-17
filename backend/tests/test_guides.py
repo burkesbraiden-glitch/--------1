@@ -145,10 +145,14 @@ def test_get_guide_returns_existing_guide_structure(client, app, guides_db):
     assert guide["destination"] == "故宫博物院"
     assert guide["childIntro"][0] == "故宫以前是皇帝和家人生活、工作的地方。"
     assert guide["focusItems"] == ["屋顶", "宫门", "颜色"]
+    assert guide["narrationText"]
+    assert guide["audioStatus"] == "none"
+    assert guide["audioDurationSec"] is None
     assert guide["audioUrl"] is None
     assert "child_intro" not in guide
     assert "focus_items" not in guide
-    assert "audioStatus" not in guide
+    assert "audioObjectKey" not in guide
+    assert "audioGenerationToken" not in guide
 
 
 def test_post_generate_requires_token(client):
@@ -202,8 +206,12 @@ def test_post_generate_creates_guide_and_returns_plan_destination(client, app, g
         "为什么这里很多地方都是红色和黄色？",
     ]
     assert guide["focusItems"] == ["屋顶", "宫门", "颜色"]
+    assert guide["narrationText"]
+    assert guide["audioStatus"] == "none"
+    assert guide["audioDurationSec"] is None
     assert guide["audioUrl"] is None
-    assert "audioStatus" not in guide
+    assert "audioObjectKey" not in guide
+    assert "audioGenerationToken" not in guide
     with app.app_context():
         assert GuideCard.query.count() == 1
 

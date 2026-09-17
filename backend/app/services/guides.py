@@ -2,11 +2,18 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import db
 from app.models import GuideCard
+from app.services.audio_storage import UnconfiguredAudioStorage
+from app.services.guide_audio import serialize_audio_fields
 from app.services.guide_generator import generate_guide_content
+from app.services.guide_narration import NarrationError, build_narration_text
 from app.services.plans import PlanError, format_datetime, get_plan_model_for_user
 
 
 ALLOWED_GENERATE_STATUSES = {"ready", "in-progress", "completed"}
+
+
+def get_audio_storage():
+    return UnconfiguredAudioStorage()
 
 
 class GuideError(Exception):
@@ -18,17 +25,26 @@ class GuideError(Exception):
 
 
 def serialize_guide(guide):
-    return {
+    narration_text = guide.narration_text
+    if not narration_text:
+        try:
+            narration_text = build_narration_text(plan=guide.plan, guide=guide)
+        except NarrationError:
+            narration_text = None
+
+    payload = {
         "id": guide.id,
         "planId": guide.plan_id,
         "destination": guide.plan.destination,
         "childIntro": guide.child_intro or [],
         "questions": guide.questions or [],
         "focusItems": guide.focus_items or [],
-        "audioUrl": guide.audio_url,
+        "narrationText": narration_text,
         "createdAt": format_datetime(guide.created_at),
         "updatedAt": format_datetime(guide.updated_at),
     }
+    payload.update(serialize_audio_fields(guide, storage=get_audio_storage()))
+    return payload
 
 
 def get_guide_model(plan):
@@ -68,6 +84,12 @@ def generate_guide(user, plan_id):
         focus_items=content["focus_items"],
         audio_url=content["audio_url"],
     )
+    try:
+        guide.narration_text = build_narration_text(plan=plan, guide=guide)
+    except NarrationError:
+        # GuideCard text is the primary product contract. A narration failure must
+        # not prevent the existing Guide generation flow from succeeding.
+        guide.narration_text = None
 
     try:
         db.session.add(guide)

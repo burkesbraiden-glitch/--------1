@@ -106,12 +106,21 @@ def test_guide_card_columns_and_constraints():
         "child_intro",
         "questions",
         "focus_items",
+        "narration_text",
+        "guide_version",
+        "audio_status",
         "audio_url",
+        "audio_object_key",
+        "audio_source_hash",
+        "audio_generation_token",
+        "audio_duration_sec",
+        "audio_generated_at",
+        "audio_error_code",
         "created_at",
         "updated_at",
     }
     assert "destination" not in table.c
-    for playback_field in ("audio_status", "is_playing", "is_paused", "play_state"):
+    for playback_field in ("is_playing", "is_paused", "play_state"):
         assert playback_field not in table.c
 
     assert table.c.id.primary_key is True
@@ -129,8 +138,22 @@ def test_guide_card_columns_and_constraints():
     _assert_list_default(table.c.focus_items)
     assert table.c.audio_url.nullable is True
     assert table.c.audio_url.type.length == 500
+    assert table.c.narration_text.nullable is True
+    assert table.c.guide_version.nullable is False
+    assert table.c.guide_version.default.arg == 1
+    assert table.c.audio_status.nullable is False
+    assert table.c.audio_status.default.arg == "none"
+    assert table.c.audio_object_key.nullable is True
+    assert table.c.audio_source_hash.nullable is True
+    assert table.c.audio_generation_token.nullable is True
+    assert table.c.audio_duration_sec.nullable is True
+    assert table.c.audio_generated_at.nullable is True
+    assert table.c.audio_error_code.nullable is True
     assert table.c.created_at.nullable is False
     assert table.c.updated_at.nullable is False
+
+    check_sql = _check_sql(table)
+    assert "audio_status IN ('none', 'pending', 'generating', 'ready', 'failed')" in check_sql
 
 
 def test_guide_card_plan_foreign_key():
