@@ -1,3 +1,5 @@
+import importlib
+
 import pytest
 from flask_jwt_extended import create_access_token
 
@@ -80,6 +82,13 @@ def create_guide(guide_id, plan_id):
     db.session.add(guide)
     db.session.commit()
     return guide
+
+
+def require_audio_job_model():
+    try:
+        return importlib.import_module("app.models.guide_audio_job").GuideAudioJob
+    except ModuleNotFoundError as error:
+        pytest.fail(f"P8.2B2 AudioJob contract is missing: {error}")
 
 
 def test_get_guide_requires_token(client):
@@ -264,3 +273,20 @@ def test_fallback_generator_template_has_required_structure(app):
     assert len(content["focus_items"]) >= 3
     assert content["audio_url"] is None
     assert "国家博物馆" in content["child_intro"][0]
+
+
+def test_get_guide_remains_read_only_and_never_creates_audio_job(client, app, guides_db):
+    with app.app_context():
+        create_user(1, "13800138000")
+        create_child(10, 1)
+        create_plan(100, 1, 10)
+        create_guide(500, 100)
+        audio_job_model = require_audio_job_model()
+        audio_job_model.__table__.create(bind=db.engine, checkfirst=True)
+        assert audio_job_model.query.count() == 0
+
+    response = client.get("/api/v1/plans/100/guide", headers=auth_headers(app, 1))
+
+    assert response.status_code == 200
+    with app.app_context():
+        assert audio_job_model.query.count() == 0

@@ -2,7 +2,11 @@ from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.services.auth import AuthError, get_user_by_identity
-from app.services.guide_audio import GuideAudioError, GuideAudioService
+from app.services.guide_audio import (
+    GuideAudioError,
+    GuideAudioService,
+    request_audio_generation_with_job,
+)
 from app.services.guides import GuideError, generate_guide, get_guide
 from app.services.plans import PlanError
 from app.utils.responses import error_response, success_response
@@ -43,7 +47,28 @@ def generate(plan_id):
 @jwt_required()
 def retry_audio(plan_id):
     try:
-        GuideAudioService().retry_audio_generation(user=current_user(), plan_id=plan_id)
+        request_audio_generation_with_job(user=current_user(), plan_id=plan_id, retry=True)
         return success_response(data={"guide": get_guide(current_user(), plan_id)}, message="Audio generation retried")
+    except (AuthError, GuideError, GuideAudioError, PlanError) as error:
+        return handle_error(error)
+
+
+@guides_bp.post("/<int:plan_id>/guide/audio/request")
+@jwt_required()
+def request_audio(plan_id):
+    try:
+        _intent, job, job_created = request_audio_generation_with_job(
+            user=current_user(),
+            plan_id=plan_id,
+        )
+        return success_response(
+            data={
+                "audioStatus": "pending",
+                "created": job_created,
+                "jobStatus": job.status,
+            },
+            message="Audio generation requested",
+            status_code=202,
+        )
     except (AuthError, GuideError, GuideAudioError, PlanError) as error:
         return handle_error(error)

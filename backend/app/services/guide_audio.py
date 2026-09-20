@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from uuid import uuid4
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.extensions import db
 from app.models import GuideCard
 from app.services.audio_storage import AudioStorageError, UnconfiguredAudioStorage
@@ -121,11 +123,19 @@ class GuideAudioService:
             raise GuideAudioError("AUDIO_STATE_INVALID", "Ready audio is incomplete", 409)
         return status
 
-    def request_audio_generation(self, *, user, plan_id, retry=False):
+    def _persist_request(self, *, guide, created, commit):
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+        return self._intent_from_guide(guide, created=created)
+
+    def request_audio_generation(self, *, user, plan_id, retry=False, commit=True):
         plan, guide = self._get_owned_guide(user=user, plan_id=plan_id)
         current_status = self.validate_audio_state(guide)
         if retry and current_status != "failed":
-            db.session.rollback()
+            if commit:
+                db.session.rollback()
             raise GuideAudioError(
                 "AUDIO_RETRY_NOT_ALLOWED",
                 "Audio retry is only allowed after an audio failure",
@@ -159,12 +169,10 @@ class GuideAudioService:
             guide.audio_duration_sec = None
             guide.audio_generated_at = None
             guide.audio_error_code = None
-            db.session.commit()
-            return self._intent_from_guide(guide, created=True)
+            return self._persist_request(guide=guide, created=True, commit=commit)
 
         if same_source and status in {"pending", "generating", "ready", "failed"} and guide.audio_generation_token:
-            db.session.commit()
-            return self._intent_from_guide(guide, created=False)
+            return self._persist_request(guide=guide, created=False, commit=commit)
 
         guide.narration_text = narration_text
         guide.audio_status = "pending"
@@ -174,8 +182,7 @@ class GuideAudioService:
         guide.audio_duration_sec = None
         guide.audio_generated_at = None
         guide.audio_error_code = None
-        db.session.commit()
-        return self._intent_from_guide(guide, created=True)
+        return self._persist_request(guide=guide, created=True, commit=commit)
 
     def retry_audio_generation(self, *, user, plan_id):
         return self.request_audio_generation(user=user, plan_id=plan_id, retry=True)
@@ -260,6 +267,29 @@ class GuideAudioService:
         guide.audio_error_code = None
         db.session.commit()
         return AudioGenerationResult(status="ready")
+
+
+def request_audio_generation_with_job(*, user, plan_id, retry=False):
+    """Atomically persist the current Guide audio intent and one durable worker job."""
+    from app.services.guide_audio_jobs import AudioJobService
+
+    service = GuideAudioService()
+    try:
+        intent = service.request_audio_generation(
+            user=user,
+            plan_id=plan_id,
+            retry=retry,
+            commit=False,
+        )
+        job, job_created = AudioJobService().create_or_reuse(intent)
+        db.session.commit()
+        return intent, job, job_created
+    except GuideAudioError:
+        db.session.rollback()
+        raise
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        raise GuideAudioError("DATABASE_ERROR", "Database error", 500) from error
 
 
 def serialize_audio_fields(guide, *, storage):

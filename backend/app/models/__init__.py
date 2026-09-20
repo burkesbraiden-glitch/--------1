@@ -3,6 +3,7 @@ from app.models.attraction_guide import AttractionGuide
 from app.models.child import Child
 from app.models.exploration_plan import ExplorationPlan
 from app.models.guide_card import GuideCard
+from app.models.guide_audio_job import GuideAudioJob
 from app.models.journey_record import JourneyRecord
 from app.models.route import Route
 from app.models.route_day import RouteDay
@@ -18,6 +19,7 @@ __all__ = [
     "Child",
     "ExplorationPlan",
     "GuideCard",
+    "GuideAudioJob",
     "JourneyRecord",
     "Route",
     "RouteDay",

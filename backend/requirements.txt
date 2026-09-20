@@ -6,3 +6,4 @@ PyMySQL==1.2.0
 python-dotenv==1.2.2
 flask-cors==6.0.5
 pytest==9.1.1
+mutagen==1.47.0

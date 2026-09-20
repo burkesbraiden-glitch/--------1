@@ -2,6 +2,7 @@ import importlib
 
 import pytest
 from flask_jwt_extended import create_access_token
+from sqlalchemy import text
 
 from app.extensions import db
 from app.models import Child, ExplorationPlan, GuideCard, User
@@ -163,6 +164,19 @@ def job_field(job, name):
     if isinstance(job, dict):
         return job[name]
     return getattr(job, name)
+
+
+def require_audio_job_model():
+    try:
+        return importlib.import_module("app.models.guide_audio_job").GuideAudioJob
+    except ModuleNotFoundError as error:
+        pytest.fail(f"P8.2B2 AudioJob contract is missing: {error}")
+
+
+def ensure_audio_job_table():
+    model = require_audio_job_model()
+    model.__table__.create(bind=db.engine, checkfirst=True)
+    return model
 
 
 def test_new_guide_card_has_versioned_audio_domain_fields():
@@ -524,3 +538,121 @@ def test_owner_audio_retry_endpoint_only_accepts_failed_audio(audio_db, app, cli
 
     assert response.status_code == 409
     assert response.get_json()["error"]["code"] == "AUDIO_RETRY_NOT_ALLOWED"
+
+
+def test_explicit_audio_request_creates_exactly_one_current_audio_job_and_hides_job_details(audio_db, app, client):
+    _user, plan, guide = create_audio_fixture()
+    audio_job_model = ensure_audio_job_table()
+
+    first = client.post(f"/api/v1/plans/{plan.id}/guide/audio/request", headers=auth_headers(app, 1))
+    second = client.post(f"/api/v1/plans/{plan.id}/guide/audio/request", headers=auth_headers(app, 1))
+
+    assert first.status_code == 202
+    assert second.status_code == 202
+    first_payload = first.get_json()["data"]
+    second_payload = second.get_json()["data"]
+    assert first_payload["audioStatus"] == "pending"
+    assert first_payload["created"] is True
+    assert second_payload["audioStatus"] == "pending"
+    assert second_payload["created"] is False
+    assert "jobStatus" in first_payload
+    for forbidden in ("id", "providerJobId", "generationToken", "objectKey", "sourceHash", "guideId"):
+        assert forbidden not in first_payload
+
+    jobs = audio_job_model.query.all()
+    db.session.refresh(guide)
+    assert len(jobs) == 1
+    assert jobs[0].guide_id == guide.id
+    assert jobs[0].guide_version == guide.guide_version
+    assert jobs[0].source_hash == guide.audio_source_hash
+    assert jobs[0].generation_token == guide.audio_generation_token
+    assert guide.audio_status == "pending"
+
+
+def test_audio_request_rolls_back_generation_intent_when_audio_job_insert_fails(audio_db, app, client):
+    _user, plan, guide = create_audio_fixture()
+    audio_job_model = ensure_audio_job_table()
+    db.session.execute(
+        text(
+            "CREATE TRIGGER fail_guide_audio_job_insert "
+            "BEFORE INSERT ON guide_audio_jobs "
+            "BEGIN SELECT RAISE(ABORT, 'forced audio job failure'); END"
+        )
+    )
+    db.session.commit()
+
+    response = client.post(f"/api/v1/plans/{plan.id}/guide/audio/request", headers=auth_headers(app, 1))
+
+    assert response.status_code == 500
+    assert response.get_json()["error"]["code"] == "DATABASE_ERROR"
+    db.session.refresh(guide)
+    assert guide.audio_status == "none"
+    assert guide.audio_source_hash is None
+    assert guide.audio_generation_token is None
+    assert audio_job_model.query.count() == 0
+
+
+def test_explicit_audio_request_does_not_generate_missing_guide_or_job(audio_db, app, client):
+    user = User(id=1, phone="13800000001", nickname="童旅用户")
+    child = Child(
+        id=10,
+        user_id=1,
+        name="小小探索家",
+        age=7,
+        age_group="7-12",
+        interests=[],
+        is_default=True,
+    )
+    plan = ExplorationPlan(
+        id=100,
+        user_id=1,
+        child_id=10,
+        title="故宫亲子探索",
+        destination="故宫博物院",
+        age_group="7-12",
+        duration="3小时",
+        interests=[],
+        status="ready",
+    )
+    db.session.add_all([user, child, plan])
+    db.session.commit()
+    audio_job_model = ensure_audio_job_table()
+
+    response = client.post("/api/v1/plans/100/guide/audio/request", headers=auth_headers(app, 1))
+
+    assert response.status_code == 404
+    assert response.get_json()["error"]["code"] == "GUIDE_NOT_FOUND"
+    assert GuideCard.query.count() == 0
+    assert audio_job_model.query.count() == 0
+
+
+def test_explicit_audio_request_rejects_missing_narration_without_creating_job(audio_db, app, client):
+    _user, plan, guide = create_audio_fixture()
+    guide.child_intro = []
+    guide.questions = []
+    guide.focus_items = []
+    guide.narration_text = None
+    db.session.commit()
+    audio_job_model = ensure_audio_job_table()
+
+    response = client.post(f"/api/v1/plans/{plan.id}/guide/audio/request", headers=auth_headers(app, 1))
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]["code"] == "NARRATION_CONTENT_INSUFFICIENT"
+    db.session.refresh(guide)
+    assert guide.audio_status == "none"
+    assert audio_job_model.query.count() == 0
+
+
+def test_other_user_cannot_request_audio_or_observe_audio_job(audio_db, app, client):
+    create_audio_fixture()
+    other_user = User(id=2, phone="13800000002", nickname="其他用户")
+    db.session.add(other_user)
+    db.session.commit()
+    audio_job_model = ensure_audio_job_table()
+
+    response = client.post("/api/v1/plans/100/guide/audio/request", headers=auth_headers(app, 2))
+
+    assert response.status_code == 404
+    assert response.get_json()["error"]["code"] == "PLAN_NOT_FOUND"
+    assert audio_job_model.query.count() == 0

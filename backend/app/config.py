@@ -59,6 +59,9 @@ class BaseConfig:
         "RECORD_IMAGE_UPLOAD_DIR",
         str(BACKEND_DIR / "var" / "uploads" / "record-images"),
     )
+    GUIDE_AUDIO_WORKER_POLL_SECONDS = int(os.getenv("GUIDE_AUDIO_WORKER_POLL_SECONDS", "1"))
+    GUIDE_AUDIO_MAX_ATTEMPTS = int(os.getenv("GUIDE_AUDIO_MAX_ATTEMPTS", "3"))
+    GUIDE_AUDIO_LEASE_SECONDS = int(os.getenv("GUIDE_AUDIO_LEASE_SECONDS", "60"))
 
 
 class DevelopmentConfig(BaseConfig):
