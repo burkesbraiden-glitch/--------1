@@ -35,3 +35,10 @@ class UnconfiguredAudioStorage:
 
     def create_signed_url(self, *, object_key, expires_in_seconds):
         self._raise()
+
+
+def create_audio_storage(config):
+    """Build the configured private audio storage without exposing a vendor API."""
+    from app.services.storage.factory import create_audio_storage as create
+
+    return create(config)

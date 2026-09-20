@@ -384,7 +384,7 @@ def test_get_guide_returns_signed_url_only_for_current_ready_audio(audio_db, app
         narration_text=guide.narration_text,
         language="zh-CN",
         voice_profile_id="warm-guide-v1",
-        tts_config_version="p8-2b1-v1",
+        tts_config_version="p8-2b2-edge-v1",
         output_format="mp3",
     )
     guide.audio_duration_sec = 97
@@ -424,7 +424,7 @@ def test_get_guide_degrades_signer_failure_without_mutating_ready_audio(audio_db
         narration_text=guide.narration_text,
         language="zh-CN",
         voice_profile_id="warm-guide-v1",
-        tts_config_version="p8-2b1-v1",
+        tts_config_version="p8-2b2-edge-v1",
         output_format="mp3",
     )
     guide.audio_duration_sec = 97
@@ -487,7 +487,7 @@ def test_get_guide_degrades_ready_audio_when_storage_is_not_configured(audio_db,
         narration_text=guide.narration_text,
         language="zh-CN",
         voice_profile_id="warm-guide-v1",
-        tts_config_version="p8-2b1-v1",
+        tts_config_version="p8-2b2-edge-v1",
         output_format="mp3",
     )
     guide.audio_duration_sec = 97

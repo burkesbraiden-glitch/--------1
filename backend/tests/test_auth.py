@@ -141,8 +141,25 @@ def test_expired_token_returns_json(client, app, auth_db):
     assert payload["error"]["code"] == "TOKEN_EXPIRED"
 
 
-def test_mock_wechat_login_disabled_in_production():
+def test_mock_wechat_login_disabled_in_production(monkeypatch):
     from app import create_app
+    from app.config import ProductionConfig
+
+    for name, value in {
+        "TTS_PROVIDER": "edge",
+        "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
+        "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",
+        "EDGE_TTS_SPEED": 1.0,
+        "EDGE_TTS_PITCH": "0",
+        "EDGE_TTS_STYLE": "general",
+        "EDGE_TTS_TIMEOUT_SECONDS": 30,
+        "AUDIO_STORAGE_PROVIDER": "r2",
+        "R2_ACCOUNT_ID": "account-id-123",
+        "R2_ACCESS_KEY_ID": "access-key",
+        "R2_SECRET_ACCESS_KEY": "secret-key",
+        "R2_BUCKET": "test-private-audio-bucket",
+    }.items():
+        monkeypatch.setattr(ProductionConfig, name, value, raising=False)
 
     app = create_app("production")
     response = app.test_client().post("/api/v1/auth/mock-wechat-login", json={})

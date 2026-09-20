@@ -68,3 +68,10 @@ class UnconfiguredTTSProvider:
 
     def synthesize(self, *, text, language, voice, format):
         self._raise()
+
+
+def create_tts_provider(config):
+    """Build the configured provider without coupling callers to a vendor module."""
+    from app.services.tts.factory import create_tts_provider as create
+
+    return create(config)

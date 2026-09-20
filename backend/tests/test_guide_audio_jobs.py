@@ -175,3 +175,74 @@ def test_expired_lease_is_reclaimed_with_a_new_attempt(jobs_db):
     assert job.attempt_count == 2
     assert job.claimed_at > now
     assert job.lease_expires_at > job.claimed_at
+
+
+def test_production_audio_configuration_rejects_fake_unconfigured_and_missing_values():
+    config_module = require_module("app.config")
+    validate = config_module.validate_production_audio_config
+    valid = {
+        "APP_ENV": "production",
+        "TTS_PROVIDER": "edge",
+        "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
+        "AUDIO_STORAGE_PROVIDER": "r2",
+        "R2_ACCOUNT_ID": "account-id-123",
+        "R2_ACCESS_KEY_ID": "access-key",
+        "R2_SECRET_ACCESS_KEY": "secret-key",
+        "R2_BUCKET": "test-private-bucket",
+    }
+
+    validate(valid)
+    for key, value in (
+        ("TTS_PROVIDER", "fake"),
+        ("TTS_PROVIDER", "unconfigured"),
+        ("AUDIO_STORAGE_PROVIDER", "fake"),
+        ("AUDIO_STORAGE_PROVIDER", "unconfigured"),
+        ("EDGE_TTS_BASE_URL", ""),
+        ("R2_ACCOUNT_ID", ""),
+        ("R2_ACCESS_KEY_ID", ""),
+        ("R2_SECRET_ACCESS_KEY", ""),
+        ("R2_BUCKET", ""),
+    ):
+        invalid = {**valid, key: value}
+        with pytest.raises(RuntimeError, match="audio|Audio|TTS|storage"):
+            validate(invalid)
+
+
+def test_development_and_testing_may_explicitly_use_fake_audio_configuration():
+    config_module = require_module("app.config")
+    validate = config_module.validate_production_audio_config
+
+    validate({"APP_ENV": "development", "TTS_PROVIDER": "fake", "AUDIO_STORAGE_PROVIDER": "fake"})
+    validate({"APP_ENV": "testing", "TTS_PROVIDER": "fake", "AUDIO_STORAGE_PROVIDER": "fake"})
+
+
+def test_audio_environment_example_documents_names_without_credentials():
+    source = (importlib.import_module("pathlib").Path(__file__).resolve().parents[1] / ".env.example").read_text(
+        encoding="utf-8"
+    )
+
+    for name in (
+        "TTS_PROVIDER",
+        "EDGE_TTS_BASE_URL",
+        "EDGE_TTS_VOICE",
+        "EDGE_TTS_SPEED",
+        "EDGE_TTS_PITCH",
+        "EDGE_TTS_STYLE",
+        "EDGE_TTS_TIMEOUT_SECONDS",
+        "AUDIO_STORAGE_PROVIDER",
+        "R2_ACCOUNT_ID",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET",
+        "AUDIO_SIGNED_URL_TTL_SECONDS",
+        "GUIDE_AUDIO_WORKER_POLL_SECONDS",
+    ):
+        assert f"{name}=" in source
+    assert "AKID" not in source
+    assert "Authorization: Bearer" not in source
+
+
+def test_edge_renderer_uses_a_new_tts_config_version_without_rewriting_source_hash_fields():
+    guide_audio = require_module("app.services.guide_audio")
+
+    assert guide_audio.TTS_CONFIG_VERSION == "p8-2b2-edge-v1"

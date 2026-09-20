@@ -5,7 +5,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models import GuideCard
-from app.services.audio_storage import AudioStorageError, UnconfiguredAudioStorage
+from flask import current_app
+
+from app.services.audio_storage import AudioStorageError, UnconfiguredAudioStorage, create_audio_storage
 from app.services.guide_narration import NarrationError, build_audio_source_hash, build_narration_text
 from app.services.plans import get_plan_model_for_user
 from app.services.tts_provider import UnconfiguredTTSProvider
@@ -15,7 +17,7 @@ from app.utils.time import utc_now
 AUDIO_STATUSES = {"none", "pending", "generating", "ready", "failed"}
 AUDIO_LANGUAGE = "zh-CN"
 AUDIO_VOICE_PROFILE_ID = "warm-guide-v1"
-TTS_CONFIG_VERSION = "p8-2b1-v1"
+TTS_CONFIG_VERSION = "p8-2b2-edge-v1"
 AUDIO_OUTPUT_FORMAT = "mp3"
 SIGNED_URL_TTL_SECONDS = 300
 
@@ -67,7 +69,13 @@ def _controlled_error_code(error, fallback):
 class GuideAudioService:
     def __init__(self, *, tts_provider=None, storage=None):
         self.tts_provider = tts_provider or UnconfiguredTTSProvider()
-        self.storage = storage or UnconfiguredAudioStorage()
+        if storage is not None:
+            self.storage = storage
+        else:
+            try:
+                self.storage = create_audio_storage(current_app.config)
+            except RuntimeError:
+                self.storage = UnconfiguredAudioStorage()
 
     def _get_owned_guide(self, *, user, plan_id):
         plan = get_plan_model_for_user(user, plan_id)
@@ -298,6 +306,10 @@ def serialize_audio_fields(guide, *, storage):
         status = "failed"
 
     audio_url = None
+    try:
+        signed_url_ttl_seconds = current_app.config.get("AUDIO_SIGNED_URL_TTL_SECONDS", SIGNED_URL_TTL_SECONDS)
+    except RuntimeError:
+        signed_url_ttl_seconds = SIGNED_URL_TTL_SECONDS
     if status == "ready" and guide.audio_object_key and guide.audio_source_hash:
         expected_hash = None
         if guide.narration_text:
@@ -312,7 +324,7 @@ def serialize_audio_fields(guide, *, storage):
             try:
                 audio_url = storage.create_signed_url(
                     object_key=guide.audio_object_key,
-                    expires_in_seconds=SIGNED_URL_TTL_SECONDS,
+                expires_in_seconds=signed_url_ttl_seconds,
                 )
             except AudioStorageError:
                 # Signing is a response-time convenience. A temporary storage

@@ -33,6 +33,34 @@ def validate_production_config(config):
         ):
             raise RuntimeError(f"Invalid production configuration: {field_name}")
 
+    validate_production_audio_config(config)
+
+
+def validate_production_audio_config(config):
+    if config.get("APP_ENV") != "production":
+        return
+
+    def normalized(field_name):
+        value = config.get(field_name)
+        return value.strip() if isinstance(value, str) else ""
+
+    tts_provider = normalized("TTS_PROVIDER").casefold()
+    storage_provider = normalized("AUDIO_STORAGE_PROVIDER").casefold()
+    if tts_provider != "edge":
+        raise RuntimeError("Invalid production audio configuration: TTS_PROVIDER")
+    if storage_provider != "r2":
+        raise RuntimeError("Invalid production audio storage configuration: AUDIO_STORAGE_PROVIDER")
+
+    for field_name in (
+        "EDGE_TTS_BASE_URL",
+        "R2_ACCOUNT_ID",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET",
+    ):
+        if not normalized(field_name):
+            raise RuntimeError(f"Invalid production audio configuration: {field_name}")
+
 
 class BaseConfig:
     APP_ENV = os.getenv("APP_ENV", "development")
@@ -62,6 +90,19 @@ class BaseConfig:
     GUIDE_AUDIO_WORKER_POLL_SECONDS = int(os.getenv("GUIDE_AUDIO_WORKER_POLL_SECONDS", "1"))
     GUIDE_AUDIO_MAX_ATTEMPTS = int(os.getenv("GUIDE_AUDIO_MAX_ATTEMPTS", "3"))
     GUIDE_AUDIO_LEASE_SECONDS = int(os.getenv("GUIDE_AUDIO_LEASE_SECONDS", "60"))
+    TTS_PROVIDER = os.getenv("TTS_PROVIDER", "unconfigured")
+    EDGE_TTS_BASE_URL = os.getenv("EDGE_TTS_BASE_URL", "")
+    EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "zh-CN-XiaoxiaoNeural")
+    EDGE_TTS_SPEED = float(os.getenv("EDGE_TTS_SPEED", "1.0"))
+    EDGE_TTS_PITCH = os.getenv("EDGE_TTS_PITCH", "0")
+    EDGE_TTS_STYLE = os.getenv("EDGE_TTS_STYLE", "general")
+    EDGE_TTS_TIMEOUT_SECONDS = int(os.getenv("EDGE_TTS_TIMEOUT_SECONDS", "30"))
+    AUDIO_STORAGE_PROVIDER = os.getenv("AUDIO_STORAGE_PROVIDER", "unconfigured")
+    R2_ACCOUNT_ID = os.getenv("R2_ACCOUNT_ID", "")
+    R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
+    R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+    R2_BUCKET = os.getenv("R2_BUCKET", "")
+    AUDIO_SIGNED_URL_TTL_SECONDS = int(os.getenv("AUDIO_SIGNED_URL_TTL_SECONDS", "300"))
 
 
 class DevelopmentConfig(BaseConfig):

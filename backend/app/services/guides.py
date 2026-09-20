@@ -2,7 +2,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import db
 from app.models import GuideCard
-from app.services.audio_storage import UnconfiguredAudioStorage
+from flask import current_app
+
+from app.services.audio_storage import AudioStorageError, UnconfiguredAudioStorage, create_audio_storage
 from app.services.guide_audio import serialize_audio_fields
 from app.services.guide_generator import generate_guide_content
 from app.services.guide_narration import NarrationError, build_narration_text
@@ -13,7 +15,10 @@ ALLOWED_GENERATE_STATUSES = {"ready", "in-progress", "completed"}
 
 
 def get_audio_storage():
-    return UnconfiguredAudioStorage()
+    try:
+        return create_audio_storage(current_app.config)
+    except (AudioStorageError, RuntimeError):
+        return UnconfiguredAudioStorage()
 
 
 class GuideError(Exception):

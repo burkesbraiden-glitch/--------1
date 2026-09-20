@@ -5,7 +5,7 @@ import time
 from app import create_app
 from app.extensions import db
 from app.models import GuideAudioJob, GuideCard
-from app.services.audio_storage import AudioStorageError, UnconfiguredAudioStorage
+from app.services.audio_storage import AudioStorageError, UnconfiguredAudioStorage, create_audio_storage
 from app.services.audio_validation import AudioValidationError, validate_generated_audio
 from app.services.guide_audio import (
     AUDIO_LANGUAGE,
@@ -19,7 +19,7 @@ from app.services.guide_audio_jobs import (
     audio_object_key,
     generation_is_current,
 )
-from app.services.tts_provider import TTSJobResult, TTSProviderError, TTSRequest, UnconfiguredTTSProvider
+from app.services.tts_provider import TTSJobResult, TTSProviderError, TTSRequest, UnconfiguredTTSProvider, create_tts_provider
 from app.utils.time import utc_now
 
 
@@ -173,8 +173,20 @@ def _cleanup_stale_object(storage, *, object_key):
 def run_once(*, tts_provider=None, storage=None, now=None):
     """Claim and process at most one durable Guide audio job."""
     now = now or utc_now()
-    tts_provider = tts_provider or UnconfiguredTTSProvider()
-    storage = storage or UnconfiguredAudioStorage()
+    if tts_provider is None:
+        try:
+            from flask import current_app
+
+            tts_provider = create_tts_provider(current_app.config)
+        except RuntimeError:
+            tts_provider = UnconfiguredTTSProvider()
+    if storage is None:
+        try:
+            from flask import current_app
+
+            storage = create_audio_storage(current_app.config)
+        except RuntimeError:
+            storage = UnconfiguredAudioStorage()
     job_service = AudioJobService()
     job = job_service.claim_next_audio_job(now=now)
     if job is None:
@@ -260,7 +272,11 @@ def main():
     app = create_app()
     poll_seconds = app.config.get("GUIDE_AUDIO_WORKER_POLL_SECONDS", 1)
     with app.app_context():
-        run_forever(poll_seconds=poll_seconds)
+        run_forever(
+            tts_provider=create_tts_provider(app.config),
+            storage=create_audio_storage(app.config),
+            poll_seconds=poll_seconds,
+        )
 
 
 if __name__ == "__main__":
