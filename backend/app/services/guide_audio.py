@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import re
 from uuid import uuid4
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,6 +21,9 @@ AUDIO_VOICE_PROFILE_ID = "warm-guide-v1"
 TTS_CONFIG_VERSION = "p8-2b2-edge-v1"
 AUDIO_OUTPUT_FORMAT = "mp3"
 SIGNED_URL_TTL_SECONDS = 300
+_SHA256_VALUE_PATTERN = re.compile(r"\b[0-9a-fA-F]{64}\b")
+_GENERATION_TOKEN_PATTERN = re.compile(r"\b[0-9a-fA-F]{32}\b")
+_DATABASE_MESSAGE_MAX_LENGTH = 512
 
 
 class GuideAudioError(Exception):
@@ -64,6 +68,51 @@ def _controlled_error_code(error, fallback):
     if isinstance(code, str) and code and code.isupper() and len(code) <= 64:
         return code
     return fallback
+
+
+def _set_diagnostic_phase(phase_callback, phase):
+    if phase_callback is not None:
+        phase_callback(phase)
+
+
+def _redact_database_message(value, sensitive_values=()):
+    if value is None:
+        return None
+
+    message = str(value)
+    for sensitive_value in sensitive_values:
+        if isinstance(sensitive_value, str) and sensitive_value:
+            message = message.replace(sensitive_value, "<redacted>")
+    message = _SHA256_VALUE_PATTERN.sub("<redacted-sha256>", message)
+    message = _GENERATION_TOKEN_PATTERN.sub("<redacted-token>", message)
+    return message[:_DATABASE_MESSAGE_MAX_LENGTH]
+
+
+def _log_audio_database_error(error, *, phase, plan_id, guide_id, sensitive_values=()):
+    dbapi_error = getattr(error, "orig", None)
+    dbapi_args = getattr(dbapi_error, "args", ()) if dbapi_error is not None else ()
+    if not isinstance(dbapi_args, (tuple, list)):
+        dbapi_args = (dbapi_args,)
+
+    mysql_error_code = dbapi_args[0] if dbapi_args and isinstance(dbapi_args[0], int) else None
+    if len(dbapi_args) > 1:
+        mysql_error_message = dbapi_args[1]
+    elif dbapi_args and not isinstance(dbapi_args[0], int):
+        mysql_error_message = dbapi_args[0]
+    else:
+        mysql_error_message = str(dbapi_error) if dbapi_error is not None else None
+
+    current_app.logger.error(
+        "guide_audio_database_error phase=%s plan_id=%s guide_id=%s "
+        "sqlalchemy_exception=%s dbapi_exception=%s mysql_error_code=%s mysql_error_message=%s",
+        phase,
+        plan_id,
+        guide_id,
+        type(error).__name__,
+        type(dbapi_error).__name__ if dbapi_error is not None else None,
+        mysql_error_code,
+        _redact_database_message(mysql_error_message, sensitive_values),
+    )
 
 
 class GuideAudioService:
@@ -131,15 +180,28 @@ class GuideAudioService:
             raise GuideAudioError("AUDIO_STATE_INVALID", "Ready audio is incomplete", 409)
         return status
 
-    def _persist_request(self, *, guide, created, commit):
+    def _persist_request(self, *, guide, created, commit, phase_callback=None):
+        _set_diagnostic_phase(phase_callback, "guide_commit" if commit else "guide_flush")
         if commit:
             db.session.commit()
         else:
             db.session.flush()
         return self._intent_from_guide(guide, created=created)
 
-    def request_audio_generation(self, *, user, plan_id, retry=False, commit=True):
+    def request_audio_generation(
+        self,
+        *,
+        user,
+        plan_id,
+        retry=False,
+        commit=True,
+        phase_callback=None,
+        guide_id_callback=None,
+    ):
+        _set_diagnostic_phase(phase_callback, "owned_guide_lookup")
         plan, guide = self._get_owned_guide(user=user, plan_id=plan_id)
+        if guide_id_callback is not None:
+            guide_id_callback(guide.id)
         current_status = self.validate_audio_state(guide)
         if retry and current_status != "failed":
             if commit:
@@ -150,6 +212,7 @@ class GuideAudioService:
                 409,
             )
 
+        _set_diagnostic_phase(phase_callback, "guide_preparation")
         narration_text = self._build_current_narration(plan=plan, guide=guide)
         source_hash = self._source_hash(narration_text)
         narration_changed = guide.narration_text != narration_text
@@ -177,10 +240,20 @@ class GuideAudioService:
             guide.audio_duration_sec = None
             guide.audio_generated_at = None
             guide.audio_error_code = None
-            return self._persist_request(guide=guide, created=True, commit=commit)
+            return self._persist_request(
+                guide=guide,
+                created=True,
+                commit=commit,
+                phase_callback=phase_callback,
+            )
 
         if same_source and status in {"pending", "generating", "ready", "failed"} and guide.audio_generation_token:
-            return self._persist_request(guide=guide, created=False, commit=commit)
+            return self._persist_request(
+                guide=guide,
+                created=False,
+                commit=commit,
+                phase_callback=phase_callback,
+            )
 
         guide.narration_text = narration_text
         guide.audio_status = "pending"
@@ -190,7 +263,12 @@ class GuideAudioService:
         guide.audio_duration_sec = None
         guide.audio_generated_at = None
         guide.audio_error_code = None
-        return self._persist_request(guide=guide, created=True, commit=commit)
+        return self._persist_request(
+            guide=guide,
+            created=True,
+            commit=commit,
+            phase_callback=phase_callback,
+        )
 
     def retry_audio_generation(self, *, user, plan_id):
         return self.request_audio_generation(user=user, plan_id=plan_id, retry=True)
@@ -282,20 +360,44 @@ def request_audio_generation_with_job(*, user, plan_id, retry=False):
     from app.services.guide_audio_jobs import AudioJobService
 
     service = GuideAudioService()
+    phase = "owned_guide_lookup"
+    guide_id = None
+    sensitive_values = ()
+
+    def set_phase(value):
+        nonlocal phase
+        phase = value
+
+    def set_guide_id(value):
+        nonlocal guide_id
+        guide_id = value
+
     try:
         intent = service.request_audio_generation(
             user=user,
             plan_id=plan_id,
             retry=retry,
             commit=False,
+            phase_callback=set_phase,
+            guide_id_callback=set_guide_id,
         )
-        job, job_created = AudioJobService().create_or_reuse(intent)
+        guide_id = intent.guide_id
+        sensitive_values = (intent.source_hash, intent.generation_token)
+        job, job_created = AudioJobService().create_or_reuse(intent, phase_callback=set_phase)
+        phase = "commit"
         db.session.commit()
         return intent, job, job_created
     except GuideAudioError:
         db.session.rollback()
         raise
     except SQLAlchemyError as error:
+        _log_audio_database_error(
+            error,
+            phase=phase,
+            plan_id=plan_id,
+            guide_id=guide_id,
+            sensitive_values=sensitive_values,
+        )
         db.session.rollback()
         raise GuideAudioError("DATABASE_ERROR", "Database error", 500) from error
 

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import timedelta
+import logging
 import time
 
 from app import create_app
@@ -19,8 +20,18 @@ from app.services.guide_audio_jobs import (
     audio_object_key,
     generation_is_current,
 )
-from app.services.tts_provider import TTSJobResult, TTSProviderError, TTSRequest, UnconfiguredTTSProvider, create_tts_provider
+from app.services.tts_provider import (
+    TTSJobResult,
+    TTSProviderError,
+    TTSRequest,
+    UnconfiguredTTSProvider,
+    create_tts_provider,
+    sanitize_tts_diagnostic_detail,
+)
 from app.utils.time import utc_now
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -147,6 +158,21 @@ def _provider_result_for_job(*, job, guide, tts_provider):
     return result
 
 
+def _log_tts_provider_error(*, job, guide, error):
+    detail = sanitize_tts_diagnostic_detail(
+        getattr(error, "diagnostic_detail", None),
+        sensitive_values=(getattr(guide, "narration_text", None),),
+    )
+    logger.warning(
+        "guide_audio_tts_error job_id=%s guide_id=%s error_code=%s retryable=%s provider_detail=%r",
+        job.id,
+        guide.id,
+        error.code,
+        error.retryable,
+        detail,
+    )
+
+
 def _fetch_audio_if_ready(*, job, result, tts_provider):
     if result.audio_bytes is not None:
         return result.audio_bytes
@@ -203,6 +229,7 @@ def run_once(*, tts_provider=None, storage=None, now=None):
     try:
         provider_result = _provider_result_for_job(job=job, guide=guide, tts_provider=tts_provider)
     except TTSProviderError as error:
+        _log_tts_provider_error(job=job, guide=guide, error=error)
         return _schedule_retry_or_fail(job, error=error, now=now)
 
     if provider_result.status == "provider_pending":
@@ -231,6 +258,7 @@ def run_once(*, tts_provider=None, storage=None, now=None):
         audio_bytes = _fetch_audio_if_ready(job=job, result=provider_result, tts_provider=tts_provider)
         validated_audio = validate_generated_audio(audio_bytes)
     except TTSProviderError as error:
+        _log_tts_provider_error(job=job, guide=guide, error=error)
         return _schedule_retry_or_fail(job, error=error, now=now)
     except AudioValidationError as error:
         return _schedule_retry_or_fail(
@@ -264,7 +292,10 @@ def run_once(*, tts_provider=None, storage=None, now=None):
 
 def run_forever(*, tts_provider=None, storage=None, poll_seconds=1):
     while True:
-        run_once(tts_provider=tts_provider, storage=storage)
+        try:
+            run_once(tts_provider=tts_provider, storage=storage)
+        finally:
+            db.session.remove()
         time.sleep(poll_seconds)
 
 

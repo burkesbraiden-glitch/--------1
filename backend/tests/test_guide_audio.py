@@ -199,6 +199,21 @@ def test_new_guide_card_has_versioned_audio_domain_fields():
     assert table.c.audio_status.default.arg == "none"
 
 
+def test_audio_database_diagnostic_message_redacts_generation_identifiers():
+    guide_audio = importlib.import_module("app.services.guide_audio")
+    source_hash = "a" * 64
+    generation_token = "b" * 32
+
+    message = guide_audio._redact_database_message(
+        f"Duplicate entry '{source_hash}-{generation_token}'",
+        sensitive_values=(source_hash, generation_token),
+    )
+
+    assert source_hash not in message
+    assert generation_token not in message
+    assert "<redacted>" in message
+
+
 def test_narration_builder_creates_child_friendly_script_without_field_names(audio_db):
     _user, plan, guide = create_audio_fixture()
 
@@ -478,7 +493,8 @@ def test_get_guide_degrades_signer_failure_without_mutating_ready_audio(audio_db
     assert recovered_guide["audioUrl"].startswith("https://signed.example.test/")
 
 
-def test_get_guide_degrades_ready_audio_when_storage_is_not_configured(audio_db, app, client):
+def test_get_guide_degrades_ready_audio_when_storage_is_not_configured(audio_db, app, client, monkeypatch):
+    monkeypatch.setitem(app.config, "AUDIO_STORAGE_PROVIDER", "unconfigured")
     _user, plan, guide = create_audio_fixture()
     guide.audio_status = "ready"
     guide.audio_object_key = "guide-audio/500/current.mp3"
@@ -569,7 +585,7 @@ def test_explicit_audio_request_creates_exactly_one_current_audio_job_and_hides_
     assert guide.audio_status == "pending"
 
 
-def test_audio_request_rolls_back_generation_intent_when_audio_job_insert_fails(audio_db, app, client):
+def test_audio_request_rolls_back_generation_intent_when_audio_job_insert_fails(audio_db, app, client, caplog):
     _user, plan, guide = create_audio_fixture()
     audio_job_model = ensure_audio_job_table()
     db.session.execute(
@@ -581,10 +597,18 @@ def test_audio_request_rolls_back_generation_intent_when_audio_job_insert_fails(
     )
     db.session.commit()
 
-    response = client.post(f"/api/v1/plans/{plan.id}/guide/audio/request", headers=auth_headers(app, 1))
+    with caplog.at_level("ERROR"):
+        response = client.post(f"/api/v1/plans/{plan.id}/guide/audio/request", headers=auth_headers(app, 1))
 
     assert response.status_code == 500
     assert response.get_json()["error"]["code"] == "DATABASE_ERROR"
+    log_messages = [record.getMessage() for record in caplog.records]
+    assert any("guide_audio_database_error" in message for message in log_messages)
+    assert any("phase=job_insert_flush" in message for message in log_messages)
+    assert any(f"guide_id={guide.id}" in message for message in log_messages)
+    assert any("sqlalchemy_exception=IntegrityError" in message for message in log_messages)
+    assert any("dbapi_exception=IntegrityError" in message for message in log_messages)
+    assert all("Authorization" not in message for message in log_messages)
     db.session.refresh(guide)
     assert guide.audio_status == "none"
     assert guide.audio_source_hash is None

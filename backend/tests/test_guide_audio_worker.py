@@ -108,6 +108,47 @@ def test_worker_run_once_is_a_bounded_cli_unit_of_work(worker_db):
     assert callable(worker_module.run_forever)
 
 
+def test_worker_idle_run_once_ends_claim_transaction(worker_db):
+    worker_module = require_module("app.workers.guide_audio_worker")
+
+    result = worker_module.run_once(tts_provider=object(), storage=object())
+
+    assert result.status == "idle"
+    assert db.session().in_transaction() is False
+
+
+def test_worker_idle_iteration_ends_claim_transaction_before_sleep(worker_db, monkeypatch):
+    worker_module = require_module("app.workers.guide_audio_worker")
+    transactions_at_sleep = []
+
+    def stop_after_first_sleep(_seconds):
+        transactions_at_sleep.append(db.session().in_transaction())
+        raise StopIteration
+
+    monkeypatch.setattr(worker_module.time, "sleep", stop_after_first_sleep)
+
+    with pytest.raises(StopIteration):
+        worker_module.run_forever(tts_provider=object(), storage=object(), poll_seconds=1)
+
+    assert transactions_at_sleep == [False]
+
+
+def test_worker_iteration_releases_session_when_run_once_raises(worker_db, monkeypatch):
+    worker_module = require_module("app.workers.guide_audio_worker")
+
+    def failed_run_once(**_kwargs):
+        GuideCard.query.first()
+        assert db.session().in_transaction() is True
+        raise RuntimeError("database failure")
+
+    monkeypatch.setattr(worker_module, "run_once", failed_run_once)
+
+    with pytest.raises(RuntimeError, match="database failure"):
+        worker_module.run_forever(tts_provider=object(), storage=object(), poll_seconds=1)
+
+    assert db.session().in_transaction() is False
+
+
 def test_worker_completes_direct_ready_provider_result_and_marks_current_guide_ready(worker_db):
     worker_module = require_module("app.workers.guide_audio_worker")
     tts_module = require_module("app.services.tts_provider")
@@ -234,6 +275,41 @@ def test_worker_retries_only_transient_errors_with_bounded_backoff(worker_db):
     assert job.status == "failed"
     assert job.last_error_code == "TTS_TIMEOUT"
     assert guide.audio_status == "failed"
+
+
+def test_worker_logs_provider_diagnostic_without_persisting_it(worker_db, caplog):
+    worker_module = require_module("app.workers.guide_audio_worker")
+    tts_module = require_module("app.services.tts_provider")
+    jobs_module = require_module("app.services.guide_audio_jobs")
+    guide, job = create_pending_generation()
+
+    class BadRequestProvider:
+        def submit(self, request):
+            raise tts_module.TTSProviderError(
+                "TTS_BAD_REQUEST",
+                "Edge TTS rejected the request",
+                retryable=False,
+                diagnostic_detail="Invalid voice parameter",
+            )
+
+    with caplog.at_level("WARNING", logger=worker_module.__name__):
+        result = worker_module.run_once(
+            tts_provider=BadRequestProvider(),
+            storage=RecordingStorage(),
+            now=jobs_module.utc_now(),
+        )
+    db.session.refresh(guide)
+    db.session.refresh(job)
+
+    assert result.status == "failed"
+    assert job.last_error_code == "TTS_BAD_REQUEST"
+    assert guide.audio_error_code == "TTS_BAD_REQUEST"
+    assert "guide_audio_tts_error" in caplog.text
+    assert f"job_id={job.id}" in caplog.text
+    assert f"guide_id={guide.id}" in caplog.text
+    assert "error_code=TTS_BAD_REQUEST" in caplog.text
+    assert "retryable=False" in caplog.text
+    assert "provider_detail='Invalid voice parameter'" in caplog.text
 
 
 def test_worker_marks_stale_and_cleans_uploaded_v1_object_without_touching_v2_guide(worker_db):

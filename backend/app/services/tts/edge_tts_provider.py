@@ -4,7 +4,17 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
-from app.services.tts_provider import SynthesisResult, TTSJobResult, TTSProviderError, TTSRequest
+from app.services.tts_provider import (
+    SynthesisResult,
+    TTSJobResult,
+    TTSProviderError,
+    TTSRequest,
+    sanitize_tts_diagnostic_detail,
+)
+
+
+_HTTP_ERROR_BODY_READ_LIMIT = 4096
+EDGE_TTS_USER_AGENT = "Tonglvji-GuideAudio/1.0"
 
 
 def _required_value(value):
@@ -21,15 +31,31 @@ class EdgeTTSConfig:
     timeout_seconds: int = 30
 
 
-def _map_transport_error(error):
+def _map_transport_error(error, *, sensitive_values=()):
     if isinstance(error, TTSProviderError):
         return error
     if isinstance(error, HTTPError):
+        diagnostic_detail = _http_error_diagnostic_detail(error, sensitive_values=sensitive_values)
         if error.code == 429:
-            return TTSProviderError("TTS_RATE_LIMITED", "Edge TTS rate limit reached", retryable=True)
+            return TTSProviderError(
+                "TTS_RATE_LIMITED",
+                "Edge TTS rate limit reached",
+                retryable=True,
+                diagnostic_detail=diagnostic_detail,
+            )
         if 500 <= error.code <= 599:
-            return TTSProviderError("TTS_PROVIDER_UNAVAILABLE", "Edge TTS is temporarily unavailable", retryable=True)
-        return TTSProviderError("TTS_BAD_REQUEST", "Edge TTS rejected the request", retryable=False)
+            return TTSProviderError(
+                "TTS_PROVIDER_UNAVAILABLE",
+                "Edge TTS is temporarily unavailable",
+                retryable=True,
+                diagnostic_detail=diagnostic_detail,
+            )
+        return TTSProviderError(
+            "TTS_BAD_REQUEST",
+            "Edge TTS rejected the request",
+            retryable=False,
+            diagnostic_detail=diagnostic_detail,
+        )
     if isinstance(error, TimeoutError):
         return TTSProviderError("TTS_TIMEOUT", "Edge TTS request timed out", retryable=True)
     if isinstance(error, (ConnectionError, URLError)):
@@ -106,7 +132,11 @@ class EdgeTTSProvider:
         http_request = Request(
             self._endpoint_url,
             data=body,
-            headers={"Content-Type": "application/json", "Accept": "audio/mpeg"},
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+                "User-Agent": EDGE_TTS_USER_AGENT,
+            },
             method="POST",
         )
         try:
@@ -114,7 +144,7 @@ class EdgeTTSProvider:
                 content_type = _response_content_type(response)
                 audio_bytes = response.read()
         except Exception as error:
-            raise _map_transport_error(error) from error
+            raise _map_transport_error(error, sensitive_values=(request.text,)) from error
 
         if content_type != "audio/mpeg":
             raise TTSProviderError(
@@ -145,3 +175,52 @@ def _response_content_type(response):
     else:
         value = ""
     return str(value).split(";", 1)[0].strip().casefold()
+
+
+def _http_error_diagnostic_detail(error, *, sensitive_values):
+    try:
+        body = error.read(_HTTP_ERROR_BODY_READ_LIMIT)
+    except Exception:
+        return None
+    if not isinstance(body, bytes) or not body:
+        return None
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+    candidate = _diagnostic_text_from_response_body(text)
+    return sanitize_tts_diagnostic_detail(candidate, sensitive_values=sensitive_values)
+
+
+def _diagnostic_text_from_response_body(text):
+    candidate = text.strip()
+    if not candidate or _looks_like_html(candidate):
+        return None
+    if candidate.startswith(("{", "[")):
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            return None
+        return _json_diagnostic_text(payload)
+    return candidate
+
+
+def _json_diagnostic_text(payload):
+    if isinstance(payload, str):
+        return payload
+    if not isinstance(payload, dict):
+        return None
+    for key in ("message", "error_description", "error", "detail"):
+        value = payload.get(key)
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            nested = _json_diagnostic_text(value)
+            if nested:
+                return nested
+    return None
+
+
+def _looks_like_html(value):
+    return value.startswith("<")

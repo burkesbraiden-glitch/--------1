@@ -31,7 +31,7 @@ class AudioJobService:
     def __init__(self, *, lease_seconds=DEFAULT_LEASE_SECONDS):
         self.lease_seconds = lease_seconds
 
-    def create_or_reuse(self, intent, *, now=None):
+    def create_or_reuse(self, intent, *, now=None, phase_callback=None):
         now = now or utc_now()
         criteria = {
             "guide_id": intent.guide_id,
@@ -39,6 +39,8 @@ class AudioJobService:
             "source_hash": intent.source_hash,
             "generation_token": intent.generation_token,
         }
+        if phase_callback is not None:
+            phase_callback("existing_job_lookup")
         existing = GuideAudioJob.query.filter_by(**criteria).with_for_update().first()
         if existing is not None:
             return existing, False
@@ -50,6 +52,8 @@ class AudioJobService:
             available_at=now,
         )
         db.session.add(job)
+        if phase_callback is not None:
+            phase_callback("job_insert_flush")
         db.session.flush()
         return job, True
 
@@ -69,6 +73,7 @@ class AudioJobService:
             .first()
         )
         if job is None:
+            db.session.rollback()
             return None
 
         prior_status = job.status
