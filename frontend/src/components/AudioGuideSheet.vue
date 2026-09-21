@@ -26,7 +26,13 @@
           <text class="audio-guide-sheet__state-copy">请稍等一下，旅行故事马上就来。</text>
         </view>
 
-        <view v-else-if="sheetState === 'guide-error'" class="audio-guide-sheet__state audio-guide-sheet__state--error">
+          <view v-else-if="sheetState === 'guide-unavailable'" class="audio-guide-sheet__state audio-guide-sheet__state--empty">
+            <text class="audio-guide-sheet__state-sticker">✦</text>
+            <text class="audio-guide-sheet__state-title">暂无可查看的讲解内容</text>
+            <text class="audio-guide-sheet__state-copy">先去创建探索计划，就可以听到专属讲解。</text>
+          </view>
+
+          <view v-else-if="sheetState === 'guide-error'" class="audio-guide-sheet__state audio-guide-sheet__state--error">
           <text class="audio-guide-sheet__state-sticker">!</text>
           <text class="audio-guide-sheet__state-title">讲解暂时打不开</text>
           <text class="audio-guide-sheet__state-copy">{{ errorMessage }}</text>
@@ -49,13 +55,27 @@
             <text class="audio-guide-sheet__destination">{{ displayGuide.destination || currentPlan?.destination || '景点讲解' }}</text>
           </view>
 
-          <view v-if="!displayGuide.audioUrl" class="audio-guide-sheet__audio-state audio-guide-sheet__audio-state--no-audio">
-            <text class="audio-guide-sheet__audio-title">语音讲解暂未准备好</text>
-            <text class="audio-guide-sheet__audio-copy">先看看下面的文字讲解吧。</text>
+          <view v-if="canPlayAudio" class="audio-guide-sheet__audio-state">
+            <view class="audio-guide-sheet__audio-heading">
+              <view>
+                <text class="audio-guide-sheet__audio-title">语音内容已准备</text>
+                <text v-if="displayGuide.audioDurationSec" class="audio-guide-sheet__audio-copy">约 {{ formatAudioTime(displayGuide.audioDurationSec) }}</text>
+              </view>
+              <button class="audio-guide-sheet__play" :disabled="isRefreshingAudioUrl" @click="playAudio">
+                {{ isRefreshingAudioUrl ? '正在更新…' : isPlaying ? '暂停' : audioContext ? '继续播放' : '播放讲解' }}
+              </button>
+            </view>
+            <view class="audio-guide-sheet__progress-track" aria-hidden="true">
+              <view class="audio-guide-sheet__progress-value" :style="{ width: `${audioProgressPercent}%` }"></view>
+            </view>
+            <text class="audio-guide-sheet__audio-time">
+              {{ formatAudioTime(currentTime) }} / {{ duration > 0 ? formatAudioTime(duration) : '--:--' }}
+            </text>
+            <text v-if="audioError" class="audio-guide-sheet__audio-notice">{{ audioError }}</text>
           </view>
-          <view v-else class="audio-guide-sheet__audio-state">
-            <text class="audio-guide-sheet__audio-title">语音内容已准备</text>
-            <text class="audio-guide-sheet__audio-copy">播放功能将在后续版本开放。</text>
+          <view v-else class="audio-guide-sheet__audio-state audio-guide-sheet__audio-state--no-audio">
+            <text class="audio-guide-sheet__audio-title">{{ audioUnavailableTitle }}</text>
+            <text class="audio-guide-sheet__audio-copy">{{ audioUnavailableCopy }}</text>
           </view>
 
           <view class="audio-guide-sheet__tabs" role="tablist">
@@ -117,6 +137,7 @@
 </template>
 
 <script>
+import { shallowRef } from 'vue'
 import { useGuideStore } from '../stores/guide'
 import { usePlanStore } from '../stores/plan'
 
@@ -142,6 +163,15 @@ export default {
       activeTab: 'content',
       displayGuide: null,
       error: null,
+      audioContext: shallowRef(null),
+      audioEventHandlers: null,
+      isPlaying: false,
+      currentTime: 0,
+      duration: 0,
+      audioSessionSequence: 0,
+      audioError: '',
+      isRefreshingAudioUrl: false,
+      audioUrlRefreshAttempted: false,
       requestSequence: 0,
       requestedPlanId: null,
       sheetState: 'closed',
@@ -167,6 +197,36 @@ export default {
     errorMessage() {
       return this.error?.message || '请检查网络后再试一次。'
     },
+    canPlayAudio() {
+      return this.displayGuide?.audioStatus === 'ready'
+        && typeof this.displayGuide?.audioUrl === 'string'
+        && this.displayGuide.audioUrl.trim() !== ''
+    },
+    audioProgressPercent() {
+      if (!Number.isFinite(this.duration) || this.duration <= 0) {
+        return 0
+      }
+      const currentTime = Number.isFinite(this.currentTime) ? this.currentTime : 0
+      return Math.min(100, Math.max(0, (currentTime / this.duration) * 100))
+    },
+    audioUnavailableTitle() {
+      if (this.displayGuide?.audioStatus === 'pending') {
+        return '语音讲解正在准备'
+      }
+      if (this.displayGuide?.audioStatus === 'failed') {
+        return '语音讲解暂时不可用'
+      }
+      return '语音讲解暂未准备好'
+    },
+    audioUnavailableCopy() {
+      if (this.displayGuide?.audioStatus === 'pending') {
+        return '先看看下面的文字讲解吧。'
+      }
+      if (this.displayGuide?.audioStatus === 'failed') {
+        return '先看看下面的文字讲解吧，稍后再试。'
+      }
+      return '先看看下面的文字讲解吧。'
+    },
   },
   watch: {
     open(value) {
@@ -183,6 +243,7 @@ export default {
     },
   },
   beforeUnmount() {
+    this.disposeAudioContext()
     this.invalidateRequest()
   },
   methods: {
@@ -191,17 +252,24 @@ export default {
       this.requestedPlanId = null
     },
     resetAfterClose() {
+      this.disposeAudioContext()
       this.invalidateRequest()
       this.displayGuide = null
       this.error = null
+      this.audioError = ''
+      this.isRefreshingAudioUrl = false
+      this.audioUrlRefreshAttempted = false
       this.activeTab = 'content'
       this.sheetState = 'closed'
     },
     closeSheet() {
-      this.requestSequence += 1
-      this.requestedPlanId = null
+      this.disposeAudioContext()
+      this.invalidateRequest()
       this.displayGuide = null
       this.error = null
+      this.audioError = ''
+      this.isRefreshingAudioUrl = false
+      this.audioUrlRefreshAttempted = false
       this.activeTab = 'content'
       this.sheetState = 'closed'
       this.$emit('update:open', false)
@@ -219,12 +287,16 @@ export default {
         && samePlanId(returnedPlanId, this.planId)
     },
     async openForPlan() {
+      this.disposeAudioContext()
       const requestedPlanId = this.planId
       this.requestSequence += 1
       const requestToken = this.requestSequence
       this.requestedPlanId = requestedPlanId
       this.displayGuide = null
       this.error = null
+      this.audioError = ''
+      this.isRefreshingAudioUrl = false
+      this.audioUrlRefreshAttempted = false
       this.activeTab = 'content'
 
       if (requestedPlanId === null || requestedPlanId === undefined || String(requestedPlanId).trim() === '') {
@@ -233,12 +305,7 @@ export default {
       }
 
       this.sheetState = 'loading'
-      const guidePromise = this.guideStore.ensureGuide(requestedPlanId)
-
-      await Promise.resolve()
-      if (this.canApplyRequest(requestToken, requestedPlanId) && this.guideStore.isGenerating) {
-        this.sheetState = 'generating'
-      }
+      const guidePromise = this.guideStore.fetchGuide(requestedPlanId)
 
       try {
         const guide = await guidePromise
@@ -246,14 +313,200 @@ export default {
           return
         }
         this.displayGuide = guide
-        this.sheetState = guide.audioUrl ? 'ready-text-only' : 'no-audio'
+        this.sheetState = this.canPlayAudio ? 'ready' : 'no-audio'
       } catch (error) {
         if (!this.canApplyRequest(requestToken, requestedPlanId)) {
+          return
+        }
+        if (error?.code === 'GUIDE_NOT_FOUND') {
+          this.sheetState = 'guide-unavailable'
           return
         }
         this.error = error
         this.sheetState = 'guide-error'
       }
+    },
+    playAudio() {
+      if (!this.canPlayAudio || this.isRefreshingAudioUrl) {
+        return
+      }
+      if (this.audioContext) {
+        if (this.isPlaying) {
+          this.audioContext.pause()
+          return
+        }
+        this.audioContext.play()
+        return
+      }
+
+      this.audioError = ''
+      this.audioSessionSequence += 1
+      const sessionToken = this.audioSessionSequence
+      const planId = this.planId
+      const context = uni.createInnerAudioContext()
+      this.audioContext = context
+      context.autoplay = false
+      const handlers = {
+        onPlay: () => {
+          if (this.isCurrentAudioSession(sessionToken, planId, context)) {
+            this.isPlaying = true
+          }
+        },
+        onPause: () => {
+          if (this.isCurrentAudioSession(sessionToken, planId, context)) {
+            this.isPlaying = false
+          }
+        },
+        onCanplay: () => {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+            return
+          }
+          const duration = context.duration
+          if (Number.isFinite(duration) && duration > 0) {
+            this.duration = duration
+          }
+        },
+        onTimeUpdate: () => {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+            return
+          }
+          const currentTime = context.currentTime
+          if (Number.isFinite(currentTime) && currentTime >= 0) {
+            this.currentTime = currentTime
+          }
+        },
+        onEnded: () => {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+            return
+          }
+          this.disposeAudioContext()
+        },
+        onError: () => {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+            return null
+          }
+          return this.handleAudioError(planId)
+        },
+      }
+      this.audioEventHandlers = handlers
+      context.onPlay(handlers.onPlay)
+      context.onPause(handlers.onPause)
+      context.onCanplay(handlers.onCanplay)
+      context.onTimeUpdate(handlers.onTimeUpdate)
+      context.onEnded(handlers.onEnded)
+      context.onError(handlers.onError)
+      context.src = this.displayGuide.audioUrl
+      context.play()
+    },
+    isCurrentAudioSession(sessionToken, planId, context) {
+      return this.open
+        && sessionToken === this.audioSessionSequence
+        && context === this.audioContext
+        && samePlanId(planId, this.planId)
+        && samePlanId(planId, this.displayGuide?.planId)
+    },
+    disposeAudioContext() {
+      this.audioSessionSequence += 1
+      const context = this.audioContext
+      const handlers = this.audioEventHandlers
+      this.audioContext = null
+      this.audioEventHandlers = null
+      this.isPlaying = false
+      this.currentTime = 0
+      this.duration = 0
+
+      if (!context) {
+        return
+      }
+
+      try {
+        context.stop()
+      } catch (_error) {
+        // Cleanup must continue even when a platform context has already stopped.
+      }
+      for (const [offMethod, handlerName] of [
+        ['offPlay', 'onPlay'],
+        ['offPause', 'onPause'],
+        ['offCanplay', 'onCanplay'],
+        ['offTimeUpdate', 'onTimeUpdate'],
+        ['offEnded', 'onEnded'],
+        ['offError', 'onError'],
+      ]) {
+        try {
+          if (typeof context[offMethod] === 'function') {
+            context[offMethod](handlers?.[handlerName])
+          }
+        } catch (_error) {
+          // Continue the remaining cleanup calls for cross-platform safety.
+        }
+      }
+      try {
+        context.destroy()
+      } catch (_error) {
+        // A second disposal is intentionally harmless.
+      }
+    },
+    markAudioUnavailable() {
+      if (!this.displayGuide || !samePlanId(this.displayGuide.planId, this.planId)) {
+        return
+      }
+      this.displayGuide = {
+        ...this.displayGuide,
+        audioStatus: 'failed',
+        audioUrl: null,
+        audioDurationSec: null,
+      }
+      this.sheetState = 'no-audio'
+    },
+    async handleAudioError(planId) {
+      this.isPlaying = false
+      if (this.audioUrlRefreshAttempted || !this.canPlayAudio) {
+        this.disposeAudioContext()
+        this.markAudioUnavailable()
+        return
+      }
+
+      this.audioUrlRefreshAttempted = true
+      this.isRefreshingAudioUrl = true
+      this.audioError = '正在更新音频地址…'
+      this.disposeAudioContext()
+
+      this.requestSequence += 1
+      const requestToken = this.requestSequence
+      this.requestedPlanId = planId
+      try {
+        const refreshedGuide = await this.guideStore.fetchGuide(planId)
+        if (!this.canApplyGuide(requestToken, planId, refreshedGuide)) {
+          return
+        }
+        const hasFreshAudio = refreshedGuide?.audioStatus === 'ready'
+          && typeof refreshedGuide?.audioUrl === 'string'
+          && refreshedGuide.audioUrl.trim() !== ''
+        if (!hasFreshAudio) {
+          this.markAudioUnavailable()
+          return
+        }
+        this.displayGuide = refreshedGuide
+        this.sheetState = 'ready'
+        this.audioError = '音频地址已刷新，请重新播放'
+      } catch (_error) {
+        if (!this.canApplyRequest(requestToken, planId)) {
+          return
+        }
+        this.markAudioUnavailable()
+      } finally {
+        if (this.canApplyRequest(requestToken, planId)) {
+          this.isRefreshingAudioUrl = false
+        }
+      }
+    },
+    formatAudioTime(value) {
+      if (!Number.isFinite(value) || value < 0) {
+        return '--:--'
+      }
+      const seconds = Math.floor(value)
+      const minutes = Math.floor(seconds / 60)
+      return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
     },
     retryGuide() {
       this.openForPlan()
@@ -525,6 +778,13 @@ export default {
   border-color: rgba(214, 125, 43, 0.48);
 }
 
+.audio-guide-sheet__audio-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
 .audio-guide-sheet__audio-title {
   display: block;
   margin-bottom: 6rpx;
@@ -536,6 +796,56 @@ export default {
   display: block;
   font-size: 24rpx;
   color: #7b5a3c;
+}
+
+.audio-guide-sheet__play {
+  flex: 0 0 auto;
+  min-width: 148rpx;
+  height: 66rpx;
+  padding: 0 22rpx;
+  font-size: 25rpx;
+  font-weight: 900;
+  line-height: 66rpx;
+  color: #fffdf7;
+  background: linear-gradient(180deg, #ff8c2a, #e96019);
+  border-radius: 999rpx;
+  box-shadow: 0 6rpx 0 rgba(174, 74, 22, 0.16);
+}
+
+.audio-guide-sheet__play[disabled] {
+  opacity: 0.72;
+}
+
+.audio-guide-sheet__progress-track {
+  height: 8rpx;
+  margin-top: 18rpx;
+  overflow: hidden;
+  background: rgba(130, 99, 65, 0.16);
+  border-radius: 999rpx;
+}
+
+.audio-guide-sheet__progress-value {
+  width: 0;
+  height: 100%;
+  background: #ed6d20;
+  border-radius: inherit;
+  transition: width 120ms linear;
+}
+
+.audio-guide-sheet__audio-time {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #8a6d54;
+  text-align: right;
+}
+
+.audio-guide-sheet__audio-notice {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.45;
+  color: #a45520;
 }
 
 .audio-guide-sheet__tabs {
