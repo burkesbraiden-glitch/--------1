@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import * as guidesApi from '../api/guides.js'
-import { getCurrentSession, isCurrentSession } from '../utils/sessionBoundary.js'
+import { isAuthenticationError } from '../utils/request.js'
+import { endUserSession, getCurrentSession, isCurrentSession } from '../utils/sessionBoundary.js'
 
 let ensurePromise = null
 let ensurePromisePlanId = null
@@ -115,6 +116,10 @@ export const useGuideStore = defineStore('guide', {
         }
         return this.applyGuide(data.guide, planId)
       } catch (error) {
+        if (isAuthenticationError(error) && isCurrentSession(requestSession)) {
+          await endUserSession()
+          return null
+        }
         if (this.isCurrentGuideRequest(guideRequest)) {
           this.currentGuide = null
           if (error?.code !== 'GUIDE_NOT_FOUND') {
@@ -154,6 +159,10 @@ export const useGuideStore = defineStore('guide', {
         }
         return this.applyGuide(data.guide, planId)
       } catch (error) {
+        if (isAuthenticationError(error) && isCurrentSession(requestSession)) {
+          await endUserSession()
+          return null
+        }
         if (this.isCurrentGuideRequest(guideRequest)) {
           this.currentGuide = null
           this.error = error

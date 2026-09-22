@@ -140,9 +140,19 @@
 import { shallowRef } from 'vue'
 import { useGuideStore } from '../stores/guide'
 import { usePlanStore } from '../stores/plan'
+import { getCurrentSession, isCurrentSession } from '../utils/sessionBoundary'
 
 function samePlanId(left, right) {
   return String(left) === String(right)
+}
+
+function sameSession(left, right) {
+  return Boolean(
+    left
+    && right
+    && left.epoch === right.epoch
+    && String(left.userId) === String(right.userId),
+  )
 }
 
 export default {
@@ -174,6 +184,7 @@ export default {
       audioUrlRefreshAttempted: false,
       requestSequence: 0,
       requestedPlanId: null,
+      requestedSession: null,
       sheetState: 'closed',
     }
   },
@@ -250,6 +261,7 @@ export default {
     invalidateRequest() {
       this.requestSequence += 1
       this.requestedPlanId = null
+      this.requestedSession = null
     },
     resetAfterClose() {
       this.disposeAudioContext()
@@ -274,24 +286,41 @@ export default {
       this.sheetState = 'closed'
       this.$emit('update:open', false)
     },
-    canApplyRequest(requestToken, requestedPlanId) {
-      if (!this.open || requestToken !== this.requestSequence) {
+    canApplyRequest(requestToken, requestedPlanId, requestSession) {
+      if (
+        !this.open
+        || requestToken !== this.requestSequence
+        || !sameSession(this.requestedSession, requestSession)
+        || !isCurrentSession(requestSession)
+      ) {
         return false
       }
       return samePlanId(requestedPlanId, this.requestedPlanId)
         && samePlanId(requestedPlanId, this.planId)
     },
-    canApplyGuide(requestToken, requestedPlanId, guide) {
+    canApplyGuide(requestToken, requestedPlanId, requestSession, guide) {
       const returnedPlanId = guide ? guide.planId : null
-      return this.canApplyRequest(requestToken, requestedPlanId)
+      return this.canApplyRequest(requestToken, requestedPlanId, requestSession)
         && samePlanId(returnedPlanId, this.planId)
+    },
+    shouldResetEndedRequest(requestToken, requestedPlanId, requestSession) {
+      return Boolean(
+        requestSession
+        && !isCurrentSession(requestSession)
+        && requestToken === this.requestSequence
+        && sameSession(this.requestedSession, requestSession)
+        && samePlanId(requestedPlanId, this.requestedPlanId)
+        && samePlanId(requestedPlanId, this.planId),
+      )
     },
     async openForPlan() {
       this.disposeAudioContext()
       const requestedPlanId = this.planId
+      const requestSession = getCurrentSession()
       this.requestSequence += 1
       const requestToken = this.requestSequence
       this.requestedPlanId = requestedPlanId
+      this.requestedSession = requestSession
       this.displayGuide = null
       this.error = null
       this.audioError = ''
@@ -305,17 +334,25 @@ export default {
       }
 
       this.sheetState = 'loading'
-      const guidePromise = this.guideStore.fetchGuide(requestedPlanId)
+      const guidePromise = this.guideStore.fetchGuide(requestedPlanId, requestSession)
 
       try {
         const guide = await guidePromise
-        if (!this.canApplyGuide(requestToken, requestedPlanId, guide)) {
+        if (this.shouldResetEndedRequest(requestToken, requestedPlanId, requestSession)) {
+          this.resetAfterClose()
+          return
+        }
+        if (!this.canApplyGuide(requestToken, requestedPlanId, requestSession, guide)) {
           return
         }
         this.displayGuide = guide
         this.sheetState = this.canPlayAudio ? 'ready' : 'no-audio'
       } catch (error) {
-        if (!this.canApplyRequest(requestToken, requestedPlanId)) {
+        if (this.shouldResetEndedRequest(requestToken, requestedPlanId, requestSession)) {
+          this.resetAfterClose()
+          return
+        }
+        if (!this.canApplyRequest(requestToken, requestedPlanId, requestSession)) {
           return
         }
         if (error?.code === 'GUIDE_NOT_FOUND') {
@@ -327,7 +364,8 @@ export default {
       }
     },
     playAudio() {
-      if (!this.canPlayAudio || this.isRefreshingAudioUrl) {
+      const requestSession = this.requestedSession
+      if (!this.canPlayAudio || this.isRefreshingAudioUrl || !isCurrentSession(requestSession)) {
         return
       }
       if (this.audioContext) {
@@ -348,17 +386,17 @@ export default {
       context.autoplay = false
       const handlers = {
         onPlay: () => {
-          if (this.isCurrentAudioSession(sessionToken, planId, context)) {
+          if (this.isCurrentAudioSession(sessionToken, planId, context, requestSession)) {
             this.isPlaying = true
           }
         },
         onPause: () => {
-          if (this.isCurrentAudioSession(sessionToken, planId, context)) {
+          if (this.isCurrentAudioSession(sessionToken, planId, context, requestSession)) {
             this.isPlaying = false
           }
         },
         onCanplay: () => {
-          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context, requestSession)) {
             return
           }
           const duration = context.duration
@@ -367,7 +405,7 @@ export default {
           }
         },
         onTimeUpdate: () => {
-          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context, requestSession)) {
             return
           }
           const currentTime = context.currentTime
@@ -376,16 +414,16 @@ export default {
           }
         },
         onEnded: () => {
-          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context, requestSession)) {
             return
           }
           this.disposeAudioContext()
         },
         onError: () => {
-          if (!this.isCurrentAudioSession(sessionToken, planId, context)) {
+          if (!this.isCurrentAudioSession(sessionToken, planId, context, requestSession)) {
             return null
           }
-          return this.handleAudioError(planId)
+          return this.handleAudioError(planId, requestSession)
         },
       }
       this.audioEventHandlers = handlers
@@ -398,10 +436,12 @@ export default {
       context.src = this.displayGuide.audioUrl
       context.play()
     },
-    isCurrentAudioSession(sessionToken, planId, context) {
+    isCurrentAudioSession(sessionToken, planId, context, requestSession) {
       return this.open
         && sessionToken === this.audioSessionSequence
         && context === this.audioContext
+        && sameSession(this.requestedSession, requestSession)
+        && isCurrentSession(requestSession)
         && samePlanId(planId, this.planId)
         && samePlanId(planId, this.displayGuide?.planId)
     },
@@ -458,7 +498,10 @@ export default {
       }
       this.sheetState = 'no-audio'
     },
-    async handleAudioError(planId) {
+    async handleAudioError(planId, requestSession) {
+      if (!isCurrentSession(requestSession)) {
+        return
+      }
       this.isPlaying = false
       if (this.audioUrlRefreshAttempted || !this.canPlayAudio) {
         this.disposeAudioContext()
@@ -474,9 +517,14 @@ export default {
       this.requestSequence += 1
       const requestToken = this.requestSequence
       this.requestedPlanId = planId
+      this.requestedSession = requestSession
       try {
-        const refreshedGuide = await this.guideStore.fetchGuide(planId)
-        if (!this.canApplyGuide(requestToken, planId, refreshedGuide)) {
+        const refreshedGuide = await this.guideStore.fetchGuide(planId, requestSession)
+        if (this.shouldResetEndedRequest(requestToken, planId, requestSession)) {
+          this.resetAfterClose()
+          return
+        }
+        if (!this.canApplyGuide(requestToken, planId, requestSession, refreshedGuide)) {
           return
         }
         const hasFreshAudio = refreshedGuide?.audioStatus === 'ready'
@@ -490,12 +538,16 @@ export default {
         this.sheetState = 'ready'
         this.audioError = '音频地址已刷新，请重新播放'
       } catch (_error) {
-        if (!this.canApplyRequest(requestToken, planId)) {
+        if (this.shouldResetEndedRequest(requestToken, planId, requestSession)) {
+          this.resetAfterClose()
+          return
+        }
+        if (!this.canApplyRequest(requestToken, planId, requestSession)) {
           return
         }
         this.markAudioUnavailable()
       } finally {
-        if (this.canApplyRequest(requestToken, planId)) {
+        if (this.canApplyRequest(requestToken, planId, requestSession)) {
           this.isRefreshingAudioUrl = false
         }
       }

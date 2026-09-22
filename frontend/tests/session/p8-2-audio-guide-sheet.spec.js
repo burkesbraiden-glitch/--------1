@@ -6,6 +6,7 @@ import { isProxy, proxyRefs, reactive, shallowRef } from 'vue'
 import { useGuideStore } from '../../src/stores/guide.js'
 import { usePlanStore } from '../../src/stores/plan.js'
 import { useUserStore } from '../../src/stores/user.js'
+import { getCurrentSession, isCurrentSession } from '../../src/utils/sessionBoundary.js'
 import {
   createDeferred,
   flushRuntimePromises,
@@ -67,10 +68,12 @@ function loadAudioGuideSheetOptions() {
     .replace(/^import .+$/gm, '')
     .replace(/export default\s+/, 'return ')
 
-  return new Function('useGuideStore', 'usePlanStore', 'shallowRef', executable)(
+  return new Function('useGuideStore', 'usePlanStore', 'shallowRef', 'getCurrentSession', 'isCurrentSession', executable)(
     useGuideStore,
     usePlanStore,
     shallowRef,
+    getCurrentSession,
+    isCurrentSession,
   )
 }
 
