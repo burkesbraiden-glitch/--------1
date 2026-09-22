@@ -71,7 +71,7 @@
 
       <view v-if="taskStateMessage" class="tasks-state">
         <text class="tasks-state__text">{{ taskStateMessage }}</text>
-        <button v-if="task.error" class="tasks-state__retry" @click="restorePlanAndTasks(true)">重试</button>
+        <button v-if="task.error && planStore.currentPlan" class="tasks-state__retry" @click="restorePlanAndTasks(true)">重试</button>
       </view>
 
       <view v-else class="tasks-page__list">
@@ -200,6 +200,9 @@ export default {
         && !this.recordStore.ensureError
     },
     taskStateMessage() {
+      if (!this.planStore.currentPlan) {
+        return '当前孩子还没有探索计划'
+      }
       if (this.task.isGenerating) {
         return '正在准备这次探索任务……'
       }

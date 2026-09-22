@@ -1,9 +1,11 @@
 import { usePlanStore } from '../stores/plan.js'
 import { useTaskStore } from '../stores/task.js'
 import { useUserStore } from '../stores/user.js'
+import { useChildStore } from '../stores/child.js'
 
 export async function ensureCurrentPlanReady({ withTasks = false, force = false, planId = null } = {}) {
   const userStore = useUserStore()
+  const childStore = useChildStore()
   const planStore = usePlanStore()
   const taskStore = withTasks ? useTaskStore() : null
   const hasRequestedPlan = planId !== null && planId !== undefined && String(planId).trim() !== ''
@@ -26,13 +28,17 @@ export async function ensureCurrentPlanReady({ withTasks = false, force = false,
     }
   }
 
+  const activeChildIdAtRequest = childStore.activeChild?.id ?? null
   const result = await planStore.fetchPlans(userId, {
     force,
-    selectionPolicy: hasRequestedPlan ? 'none' : 'default',
+    selectionPolicy: hasRequestedPlan || activeChildIdAtRequest !== null ? 'none' : 'default',
   })
+  const activeChildId = childStore.activeChild?.id ?? null
   const currentPlan = hasRequestedPlan
     ? planStore.selectPlanById(planId, userId)
-    : planStore.currentPlan
+    : activeChildId !== null
+      ? planStore.selectPlanForContext({ activeChildId, userId })
+      : planStore.currentPlan
 
   if (taskStore && currentPlan) {
     await taskStore.ensureTasks(currentPlan.id, currentPlan.status)

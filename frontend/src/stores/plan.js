@@ -67,6 +67,14 @@ function sameUserId(left, right) {
   return String(left) === String(right)
 }
 
+function hasPlanId(value) {
+  return value !== null && value !== undefined && String(value).trim() !== ''
+}
+
+function sameChildId(left, right) {
+  return hasPlanId(left) && hasPlanId(right) && String(left) === String(right)
+}
+
 function readStoredSelection() {
   const storage = getUniStorage()
   if (!storage?.getStorageSync) {
@@ -148,6 +156,28 @@ export const usePlanStore = defineStore('plan', {
         return null
       }
       return saved
+    },
+    resolvePlanForContext({ explicitPlanId = null, activeChildId = null, userId = this.loadedForUserId } = {}) {
+      if (!sameUserId(this.loadedForUserId, userId)) {
+        return null
+      }
+
+      if (hasPlanId(explicitPlanId)) {
+        return this.plans.find((plan) => samePlanId(plan.id, explicitPlanId)) || null
+      }
+
+      const scopedPlans = hasPlanId(activeChildId)
+        ? this.plans.filter((plan) => sameChildId(plan.childId, activeChildId))
+        : this.plans
+      const saved = this.storedSelectionForUser(userId)
+
+      return (saved && scopedPlans.find((plan) => samePlanId(plan.id, saved.planId))) || scopedPlans[0] || null
+    },
+    selectPlanForContext(context) {
+      const plan = this.resolvePlanForContext(context)
+      this.currentPlan = plan
+      this.syncStatus()
+      return plan
     },
     applyPlanList(plans, userId, { selectionPolicy = 'default' } = {}) {
       const normalizedPlans = Array.isArray(plans) ? plans.map(normalizePlan).filter(Boolean) : []
