@@ -18,7 +18,7 @@
           <text class="profile-page__name">{{ displayUser.nickname }}</text>
         </view>
         <text class="profile-page__meta">{{ displayUser.meta }}</text>
-        <text v-if="child.hasRemoteChild" class="profile-page__age-tag">{{ child.ageGroup }}岁</text>
+        <text v-if="activeChild" class="profile-page__age-tag">{{ activeAgeGroup }}岁</text>
       </view>
     </view>
 
@@ -57,10 +57,14 @@
         <text class="profile-page__child-empty-desc">完善孩子档案后，就能记录专属成长旅程</text>
         <button @click="openChildForm">添加孩子档案</button>
       </view>
-      <view v-else-if="child.hasRemoteChild">
-        <text class="profile-page__child-name">{{ child.currentChild.name }} · {{ child.currentChild.age }}岁 · {{ child.currentChild.city || '未填写城市' }}</text>
+      <view v-else-if="activeChild">
+        <view class="profile-page__child-context">
+          <text class="profile-page__child-current-tag">当前孩子</text>
+          <button v-if="canSwitchChild" class="profile-page__child-switch" @click="openChildSwitcher">切换孩子</button>
+        </view>
+        <text class="profile-page__child-name">{{ activeChild.name }} · {{ activeChild.age }}岁 · {{ activeChild.city || '未填写城市' }}</text>
         <view class="profile-page__interest-list">
-          <text v-for="interest in child.interests" :key="interest" class="profile-page__interest">{{ interest }}</text>
+          <text v-for="interest in activeChild.interests" :key="interest" class="profile-page__interest">{{ interest }}</text>
         </view>
         <button class="profile-page__child-edit" @click="openChildForm">编辑孩子档案</button>
       </view>
@@ -81,7 +85,7 @@
       <view class="profile-page__sheet-mask" @click="closeChildForm"></view>
       <view class="profile-page__sheet-panel profile-page__sheet-panel--child">
         <view class="profile-page__sheet-head">
-          <text>{{ child.hasRemoteChild ? '编辑孩子档案' : '完善孩子档案' }}</text>
+          <text>{{ activeChild ? '编辑孩子档案' : '完善孩子档案' }}</text>
           <button @click="closeChildForm">关闭</button>
         </view>
 
@@ -119,6 +123,31 @@
       </view>
     </view>
 
+    <view v-if="showChildSwitcher" class="profile-page__sheet">
+      <view class="profile-page__sheet-mask" @click="closeChildSwitcher"></view>
+      <view class="profile-page__sheet-panel profile-page__sheet-panel--switcher">
+        <view class="profile-page__sheet-head">
+          <text>切换孩子</text>
+          <button @click="closeChildSwitcher">关闭</button>
+        </view>
+        <view class="profile-page__child-option-list">
+          <button
+            v-for="candidate in child.children"
+            :key="candidate.id"
+            class="profile-page__child-option"
+            :class="{ 'profile-page__child-option--active': isActiveChild(candidate) }"
+            @click="selectActiveChild(candidate)"
+          >
+            <view class="profile-page__child-option-copy">
+              <text class="profile-page__child-option-name">{{ candidate.name }}</text>
+              <text class="profile-page__child-option-meta">{{ candidate.age }}岁 · {{ candidate.city || '未填写城市' }}</text>
+            </view>
+            <text v-if="isActiveChild(candidate)" class="profile-page__child-option-current">当前孩子</text>
+          </button>
+        </view>
+      </view>
+    </view>
+
     <AppTabbar active="profile" />
   </view>
 </template>
@@ -137,6 +166,7 @@ export default {
     return {
       showChildCard: true,
       showChildForm: false,
+      showChildSwitcher: false,
       isSavingChild: false,
       childForm: {
         name: '',
@@ -153,6 +183,18 @@ export default {
     },
     user() {
       return useUserStore()
+    },
+    activeChild() {
+      return this.child.activeChild
+    },
+    canSwitchChild() {
+      return Boolean(this.activeChild) && this.child.children.length > 1
+    },
+    activeAgeGroup() {
+      if (this.activeChild?.ageGroup) {
+        return this.activeChild.ageGroup
+      }
+      return this.activeChild?.age >= 3 && this.activeChild.age <= 6 ? '3-6' : '7-12'
     },
     displayUser() {
       if (this.child.isLoading) {
@@ -176,10 +218,10 @@ export default {
         }
       }
 
-      if (this.child.hasRemoteChild) {
+      if (this.activeChild) {
         return {
-          nickname: this.child.currentChild.name,
-          meta: `${this.child.currentChild.age}岁 · ${this.child.currentChild.city || '未填写城市'}`,
+          nickname: this.activeChild.name,
+          meta: `${this.activeChild.age}岁 · ${this.activeChild.city || '未填写城市'}`,
         }
       }
 
@@ -244,7 +286,7 @@ export default {
       })
     },
     openChildForm() {
-      const current = this.child.hasRemoteChild ? this.child.currentChild : null
+      const current = this.activeChild
       this.childForm = {
         name: current?.name || '',
         age: String(current?.age || 7),
@@ -252,6 +294,24 @@ export default {
         interests: current?.interests?.length ? [...current.interests] : ['历史故事', '古建筑', '观察探索'],
       }
       this.showChildForm = true
+    },
+    openChildSwitcher() {
+      if (this.canSwitchChild) {
+        this.showChildSwitcher = true
+      }
+    },
+    closeChildSwitcher() {
+      this.showChildSwitcher = false
+    },
+    isActiveChild(candidate) {
+      return String(candidate?.id) === String(this.activeChild?.id)
+    },
+    selectActiveChild(candidate) {
+      if (this.child.setActiveChild(candidate?.id)) {
+        this.showChildSwitcher = false
+        return
+      }
+      this.showToast('切换孩子失败，请稍后重试')
     },
     closeChildForm() {
       if (!this.isSavingChild) {
@@ -295,8 +355,8 @@ export default {
 
       this.isSavingChild = true
       try {
-        if (this.child.hasRemoteChild) {
-          await this.child.updateChild(this.child.currentChild.id, payload)
+        if (this.activeChild) {
+          await this.child.updateChild(this.activeChild.id, payload)
         } else {
           await this.child.createChild(payload)
         }
@@ -659,6 +719,35 @@ export default {
   font-weight: 800;
 }
 
+.profile-page__child-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.profile-page__child-current-tag,
+.profile-page__child-option-current {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rpx 14rpx;
+  font-size: 22rpx;
+  font-weight: 900;
+  color: #f26a21;
+  background: #fff0bd;
+  border: 2rpx solid rgba(242, 106, 33, 0.22);
+  border-radius: 999rpx;
+}
+
+.profile-page__child-switch {
+  padding: 8rpx 4rpx;
+  font-size: 24rpx;
+  font-weight: 900;
+  color: #55753c;
+}
+
 .profile-page__child-state {
   display: flex;
   flex-direction: column;
@@ -857,6 +946,11 @@ export default {
   overflow-y: auto;
 }
 
+.profile-page__sheet-panel--switcher {
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
 .profile-page__sheet-head {
   margin-bottom: 22rpx;
   font-size: 34rpx;
@@ -872,6 +966,51 @@ export default {
   min-height: 70rpx;
   font-size: 28rpx;
   border-top: 2rpx solid rgba(190, 142, 78, 0.16);
+}
+
+.profile-page__child-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.profile-page__child-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 104rpx;
+  padding: 20rpx 22rpx;
+  color: #4a2f1b;
+  text-align: left;
+  background: #fffaf0;
+  border: 2rpx solid rgba(190, 142, 78, 0.24);
+  border-radius: 22rpx;
+}
+
+.profile-page__child-option--active {
+  background: #fff0bd;
+  border-color: rgba(242, 106, 33, 0.52);
+}
+
+.profile-page__child-option-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-page__child-option-name,
+.profile-page__child-option-meta {
+  display: block;
+}
+
+.profile-page__child-option-name {
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.profile-page__child-option-meta {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6f5238;
 }
 
 .profile-page__form-field {

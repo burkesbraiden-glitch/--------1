@@ -61,13 +61,13 @@ describe('P8.3A Profile data-truth contract', () => {
     expect(profileSource).toContain('孩子资料加载失败，请重试')
     expect(profileSource).toContain('尚未添加孩子')
     expect(profileSource).toContain('@click="loadChildren"')
-    expect(profileSource).toContain('child.currentChild.name')
+    expect(profileSource).toContain('this.activeChild.name')
   })
 
   test('keeps the real child editor and session logout boundaries', () => {
     expect(profileSource).toContain('openChildForm()')
     expect(profileSource).toContain('this.child.createChild(payload)')
-    expect(profileSource).toContain('this.child.updateChild(this.child.currentChild.id, payload)')
+    expect(profileSource).toContain('this.child.updateChild(this.activeChild.id, payload)')
     expect(profileSource).toContain("key: 'logout'")
     expect(profileSource).toContain('endUserSession()')
   })

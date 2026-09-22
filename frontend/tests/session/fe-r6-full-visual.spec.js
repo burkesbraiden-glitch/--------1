@@ -85,7 +85,7 @@ describe('FE-R6 full application visual contract', () => {
     expect(profile).not.toContain('profile-page__avatar">\n        <text>探</text>')
     expect(profile).not.toContain("icon: '档'")
     expect(profile).toContain('displayUser.nickname')
-    expect(profile).toContain('child.currentChild.name')
+    expect(profile).toContain('activeChild.name')
 
     expect(tabbar).toContain('flex: 1;')
     expect(tabbar).toContain('min-width: 0;')
@@ -117,8 +117,8 @@ describe('FE-R6 full application visual contract', () => {
     expect(login).toContain('display: none;')
     expect(login).toContain("@click=\"agreed = !agreed\"")
 
-    expect(profile).toContain('nickname: this.child.currentChild.name')
-    expect(profile).toContain("this.child.currentChild.city || '未填写城市'")
+    expect(profile).toContain('nickname: this.activeChild.name')
+    expect(profile).toContain("this.activeChild.city || '未填写城市'")
   })
 
   test('keeps a small, content-safe scrapbook tape on the Record album heading', () => {
