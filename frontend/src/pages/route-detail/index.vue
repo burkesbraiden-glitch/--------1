@@ -37,7 +37,17 @@
           <text class="route-section__eyebrow">EXPLORE TOGETHER</text><text class="route-section__title">探索计划</text>
           <text class="plan-generation-section__copy">从路线里选几个想认真探索的地方，为孩子准备专属探索计划。</text>
           <text v-if="!isRouteReady" class="plan-generation-section__hint">请先完成路线安排，并标记为“已准备”。</text>
-          <button :disabled="!isRouteReady" @click="openPlanGenerationSheet">生成探索计划</button>
+          <view v-if="isChildLoading" class="plan-generation-section__child-state">
+            <text>正在加载孩子资料…</text>
+          </view>
+          <view v-else-if="hasChildLoadError" class="plan-generation-section__child-state plan-generation-section__child-state--error">
+            <text>孩子资料加载失败</text>
+            <button class="plan-generation-section__retry" @click="retryChildren">重试加载孩子资料</button>
+          </view>
+          <view v-else-if="hasNoChildren" class="plan-generation-section__child-state">
+            <text>尚未添加孩子，暂时无法生成探索计划。</text>
+          </view>
+          <button v-else :disabled="!canOpenPlanGenerationSheet" @click="openPlanGenerationSheet">生成探索计划</button>
         </view>
 
         <view class="day-section">
@@ -71,7 +81,16 @@
 
     <view v-if="showPlanGenerationSheet" class="route-sheet-mask" @click="closePlanGenerationSheet"><view class="route-sheet plan-generation-sheet" @click.stop>
       <view class="route-sheet__heading"><view><text class="route-section__eyebrow">EXPLORE PLAN</text><text class="route-sheet__title">探索计划</text></view><button @click="closePlanGenerationSheet">×</button></view>
-      <template v-if="!hasRealChildren">
+      <template v-if="isChildLoading">
+        <view class="plan-generation-sheet__empty">正在加载孩子资料…</view>
+      </template>
+      <template v-else-if="hasChildLoadError">
+        <view class="plan-generation-sheet__empty">
+          <text>孩子资料加载失败</text>
+          <button class="plan-generation-section__retry" @click="retryChildren">重试加载孩子资料</button>
+        </view>
+      </template>
+      <template v-else-if="!hasRealChildren">
         <view class="plan-generation-sheet__empty">请先完善孩子档案后再生成探索计划。</view>
       </template>
       <template v-else>
@@ -155,10 +174,14 @@ export default {
     isPageLoading() { return this.userStore.isRestoring || this.routeStore.isLoading },
     realChildren() { return this.childStore.children.filter((child) => child?.id !== null && child?.id !== undefined) },
     hasRealChildren() { return this.realChildren.length > 0 },
+    isChildLoading() { return this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error) },
+    hasChildLoadError() { return !this.isChildLoading && Boolean(this.childStore.error) },
+    hasNoChildren() { return !this.isChildLoading && !this.childStore.error && this.childStore.isLoaded && !this.hasRealChildren },
+    canOpenPlanGenerationSheet() { return this.isRouteReady && this.hasRealChildren && !this.isChildLoading && !this.hasChildLoadError },
     isRouteReady() { return this.currentRoute?.status === 'ready' },
     generationDays() { return (this.currentRoute?.days || []).filter((day) => Array.isArray(day.stops) && day.stops.length) },
     allRouteStopIds() { return this.generationDays.flatMap((day) => day.stops.map((stop) => stop.id)) },
-    canSubmitPlanGeneration() { return this.isRouteReady && this.hasRealChildren && Boolean(this.selectedChildId) && this.selectedRouteStopIds.length > 0 && !this.routeStore.isGeneratingPlans },
+    canSubmitPlanGeneration() { return this.canOpenPlanGenerationSheet && Boolean(this.selectedChildId) && this.selectedRouteStopIds.length > 0 && !this.routeStore.isGeneratingPlans },
     generationDisplayResults() {
       const stopsById = new Map(this.allRouteStopIds.map((stopId) => [String(stopId), this.findRouteStop(stopId)]))
       return (this.routeStore.planGenerationResult?.results || []).map((result) => ({
@@ -181,11 +204,23 @@ export default {
         if (!this.userStore.isLoggedIn) { uni.reLaunch({ url: '/pages/login/index' }); return }
         this.pageError = ''
         await this.routeStore.fetchRoute(this.routeId)
-        await this.childStore.fetchChildren(this.userStore.userInfo.id)
       } catch (error) {
         if (isAuthenticationError(error)) { await endUserSession(); return }
         this.pageError = error?.message || '路线信息不存在'
+        return
       }
+      await this.loadChildren()
+    },
+    async loadChildren() {
+      if (!this.userStore.userInfo?.id) return
+      try {
+        await this.childStore.fetchChildren(this.userStore.userInfo.id)
+      } catch (error) {
+        if (isAuthenticationError(error)) await endUserSession()
+      }
+    },
+    async retryChildren() {
+      await this.loadChildren()
     },
     async handleRequestError(error, field) {
       if (isAuthenticationError(error)) { await endUserSession(); return true }
@@ -202,7 +237,7 @@ export default {
     formatRouteStatus(status) { return { draft: '草稿', ready: '已准备' }[status] || '' },
     findRouteStop(routeStopId) { return this.generationDays.flatMap((day) => day.stops).find((stop) => String(stop.id) === String(routeStopId)) },
     openPlanGenerationSheet() {
-      if (!this.currentRoute) return
+      if (!this.currentRoute || (typeof this.canOpenPlanGenerationSheet === 'boolean' && !this.canOpenPlanGenerationSheet)) return
       const activeChildId = this.childStore.activeChild?.id
       this.selectedChildId = this.realChildren.some((child) => String(child.id) === String(activeChildId)) ? activeChildId : null
       this.selectedRouteStopIds = []
@@ -467,6 +502,7 @@ export default {
 .route-detail-card,.route-actions,.day-card{background:var(--tl-paper);border:2rpx solid var(--tl-line);border-radius:var(--tl-radius-lg);box-shadow:var(--tl-shadow-card)}.route-detail-card{position:relative;padding:58rpx 32rpx 36rpx;overflow:hidden}.route-detail-card__tape{position:absolute;top:18rpx;left:50%;width:126rpx;height:28rpx;background:rgba(243,205,114,.7);transform:translateX(-50%) rotate(-4deg)}.route-detail-card__status,.route-actions__ready{display:inline-flex;padding:8rpx 15rpx;font-size:21rpx;font-weight:900;color:var(--tl-green-deep);background:var(--tl-green);border-radius:999rpx}.route-detail-card__title{display:block;margin:19rpx 0 22rpx;font-size:44rpx;font-weight:900}.route-detail-card__item{display:flex;gap:18rpx;margin-top:16rpx;font-size:27rpx}.route-detail-card__item text:first-child{flex:0 0 116rpx;color:var(--tl-text-secondary)}.route-detail-card__days{margin-top:30rpx;padding:20rpx;font-size:26rpx;font-weight:800;color:var(--tl-primary-deep);background:rgba(255,236,187,.52);border:2rpx dashed var(--tl-primary);border-radius:var(--tl-radius-md)}
 .route-actions,.day-section{margin-top:34rpx}.route-actions{padding:28rpx}.route-actions__buttons,.day-section__heading,.day-card__topline{display:flex;align-items:center;justify-content:space-between;gap:14rpx}.route-actions__buttons,.day-section__heading-actions,.stop-section__actions{justify-content:flex-start;flex-wrap:wrap}.day-section__heading-actions,.stop-section__actions{display:flex;gap:12rpx;align-items:center}.route-actions button,.day-section button,.order-controls button{margin:0;padding:14rpx 20rpx;font-size:24rpx;font-weight:900;color:var(--tl-primary-deep);background:#fff0d2;border:2rpx solid var(--tl-primary);border-radius:999rpx}.route-error{display:block;margin-top:16rpx;font-size:23rpx;color:#b84a2f}.route-actions__delete,.day-card__delete{color:#a9523b}.day-section__heading{margin-bottom:18rpx}.day-section__list{display:flex;flex-direction:column;gap:18rpx}.day-card{padding:24rpx 26rpx}.day-card__topline{font-size:24rpx;font-weight:900}.day-card__topline view{display:flex;gap:16rpx;color:var(--tl-primary-deep)}.order-controls{display:flex;gap:12rpx;margin-top:14rpx}.order-controls--stop{margin-top:12rpx}.order-controls button{min-width:66rpx;padding:7rpx 16rpx}.day-card__date,.day-card__stops{display:block;margin-top:14rpx;font-size:23rpx;color:var(--tl-text-secondary)}.day-card__title{display:block;margin-top:6rpx;font-size:31rpx;font-weight:900}
 .plan-generation-section{margin-top:34rpx;padding:28rpx;background:linear-gradient(135deg,rgba(255,244,211,.96),rgba(239,247,226,.9));border:2rpx solid var(--tl-line);border-radius:var(--tl-radius-lg);box-shadow:var(--tl-shadow-card)}.plan-generation-section__copy,.plan-generation-section__hint{display:block;margin-top:13rpx;font-size:24rpx;line-height:1.55;color:var(--tl-text-secondary)}.plan-generation-section__hint{padding:12rpx 14rpx;color:var(--tl-primary-deep);background:rgba(255,236,187,.62);border-radius:var(--tl-radius-sm)}.plan-generation-section button{margin:20rpx 0 0;padding:16rpx 26rpx;font-size:26rpx;font-weight:900;color:var(--tl-paper);background:var(--tl-primary);border:2rpx solid var(--tl-primary-deep);border-radius:999rpx}.plan-generation-section button[disabled],.route-sheet__submit[disabled]{opacity:.48}
+.plan-generation-section__child-state{display:flex;align-items:center;justify-content:space-between;gap:20rpx;margin-top:18rpx;padding:18rpx 20rpx;font-size:24rpx;line-height:1.5;color:#805f43;background:#fff7df;border-radius:18rpx}.plan-generation-section__child-state--error{color:#a65b3e;background:#fff0e8}.plan-generation-section__retry{flex:0 0 auto;margin:0!important;padding:8rpx 16rpx!important;font-size:22rpx!important;line-height:1.4;color:#fffdf4!important;background:#f4a640!important;border:0!important;border-radius:999rpx!important}
 .route-sheet-mask{position:fixed;inset:0;z-index:60;display:flex;align-items:flex-end;background:rgba(70,43,20,.36)}.route-sheet{width:100%;max-width:var(--tl-content-max-width);margin:0 auto;padding:26rpx var(--tl-page-padding) calc(var(--tl-safe-bottom) + 34rpx);background:var(--tl-paper);border-radius:36rpx 36rpx 0 0}.route-sheet__heading{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22rpx}.route-sheet__title{display:block;font-size:34rpx;font-weight:900}.route-sheet__heading button{width:56rpx;height:56rpx;padding:0;font-size:40rpx;line-height:1;color:var(--tl-text-secondary);background:var(--tl-paper-deep);border-radius:50%}.route-form-field{margin-bottom:18rpx}.route-form-field>text:first-child{display:block;margin-bottom:8rpx;font-size:23rpx;font-weight:800;color:var(--tl-text-secondary)}.route-form-field input,.route-form-field picker view{min-height:78rpx;padding:0 20rpx;font-size:27rpx;line-height:78rpx;background:var(--tl-paper-deep);border:2rpx solid var(--tl-line);border-radius:var(--tl-radius-md)}.route-form-field>text:last-child{display:inline-block;margin-top:8rpx;font-size:22rpx;color:var(--tl-primary-deep)}.route-sheet__submit{width:100%;min-height:92rpx;margin-top:18rpx;font-size:30rpx;font-weight:900;color:var(--tl-paper);background:var(--tl-primary);border:3rpx solid var(--tl-primary-deep);border-radius:var(--tl-radius-md)}
 .plan-generation-sheet{max-height:88vh;overflow:auto}.plan-generation-sheet__block{margin-top:22rpx}.plan-generation-sheet__label,.plan-generation-result__title{display:block;font-size:25rpx;font-weight:900}.plan-generation-child-list{display:flex;gap:12rpx;margin-top:12rpx;overflow:auto}.plan-generation-child{flex:0 0 auto;min-width:156rpx;padding:16rpx 18rpx;background:var(--tl-paper-deep);border:2rpx solid var(--tl-line);border-radius:var(--tl-radius-md)}.plan-generation-child text{display:block;font-size:24rpx;font-weight:800}.plan-generation-child text+text{margin-top:5rpx;font-size:21rpx;font-weight:600;color:var(--tl-text-secondary)}.plan-generation-child--selected,.plan-generation-stop--selected{background:#fff0d2;border-color:var(--tl-primary)}.plan-generation-sheet__row{display:flex;justify-content:space-between;gap:16rpx}.plan-generation-sheet__row view{display:flex;gap:16rpx;font-size:22rpx;font-weight:900;color:var(--tl-primary-deep)}.plan-generation-day{margin-top:16rpx;padding:16rpx;background:rgba(239,247,226,.75);border-radius:var(--tl-radius-md)}.plan-generation-day__title{display:block;font-size:23rpx;font-weight:900;color:var(--tl-primary-deep)}.plan-generation-stop{display:flex;gap:13rpx;align-items:flex-start;margin-top:10rpx;padding:14rpx;background:var(--tl-paper);border:2rpx solid var(--tl-line);border-radius:var(--tl-radius-sm)}.plan-generation-stop__mark{font-size:25rpx;color:var(--tl-primary)}.plan-generation-stop__name,.plan-generation-stop__meta{display:block;font-size:24rpx;font-weight:800}.plan-generation-stop__meta{margin-top:4rpx;font-size:21rpx;font-weight:600;color:var(--tl-text-secondary)}.plan-generation-sheet__count{display:block;margin-top:18rpx;font-size:24rpx;font-weight:900;color:var(--tl-primary-deep)}.plan-generation-sheet__empty{padding:34rpx 16rpx;text-align:center;font-size:25rpx;color:var(--tl-text-secondary);background:var(--tl-paper-deep);border:2rpx dashed var(--tl-line);border-radius:var(--tl-radius-md)}.plan-generation-result{margin-top:20rpx;padding:18rpx;background:rgba(239,247,226,.9);border:2rpx solid var(--tl-green-deep);border-radius:var(--tl-radius-md)}.plan-generation-result__item{display:flex;justify-content:space-between;gap:14rpx;margin-top:12rpx;font-size:24rpx;font-weight:800}.plan-generation-result__item text:last-child{color:var(--tl-green-deep)}
 .stop-section{margin-top:22rpx;padding-top:18rpx;border-top:2rpx dashed var(--tl-line)}.stop-section__heading,.stop-card__topline{display:flex;align-items:center;justify-content:space-between;gap:14rpx;font-size:23rpx;font-weight:800}.stop-section__heading text,.stop-section__actions text{color:var(--tl-primary-deep)}.stop-section__list{display:flex;flex-direction:column;gap:12rpx;margin-top:16rpx}.stop-card{padding:18rpx;background:var(--tl-paper-deep);border-radius:var(--tl-radius-md)}.stop-card__topline view{display:flex;gap:14rpx;font-size:20rpx;color:var(--tl-primary-deep)}.stop-card__name{font-size:27rpx;font-weight:900}.stop-card__meta,.stop-card__summary,.stop-card__note{display:block;margin-top:9rpx;font-size:22rpx;line-height:1.5;color:var(--tl-text-secondary)}.stop-card__note{padding:10rpx 12rpx;color:var(--tl-primary-deep);background:rgba(255,236,187,.55);border-radius:var(--tl-radius-sm)}
