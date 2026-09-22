@@ -8,6 +8,8 @@ let fetchPromise = null
 let fetchPromiseUserId = null
 let fetchPromiseEpoch = null
 let fetchPromiseSelectionPolicy = null
+let fetchRequestSequence = 0
+let activeFetchRequest = null
 let completionPromise = null
 let completionPlanId = null
 let completionUserId = null
@@ -102,6 +104,15 @@ function clearStoredSelection() {
   }
 }
 
+function isCurrentFetchRequest(request) {
+  return Boolean(
+    request
+    && activeFetchRequest?.id === request.id
+    && activeFetchRequest.session === request.session
+    && isCurrentSession(request.session),
+  )
+}
+
 export const usePlanStore = defineStore('plan', {
   state: () => ({
     plans: [],
@@ -138,6 +149,7 @@ export const usePlanStore = defineStore('plan', {
       fetchPromiseUserId = null
       fetchPromiseEpoch = null
       fetchPromiseSelectionPolicy = null
+      activeFetchRequest = null
       completionPromise = null
       completionPlanId = null
       completionUserId = null
@@ -281,6 +293,7 @@ export const usePlanStore = defineStore('plan', {
       fetchPromiseUserId = null
       fetchPromiseEpoch = null
       fetchPromiseSelectionPolicy = null
+      activeFetchRequest = null
     },
     async fetchPlans(userId, { force = false, selectionPolicy = 'default' } = {}) {
       if (!userId) {
@@ -321,6 +334,11 @@ export const usePlanStore = defineStore('plan', {
 
       this.isLoading = true
       this.error = null
+      const request = {
+        id: ++fetchRequestSequence,
+        session: requestSession,
+      }
+      activeFetchRequest = request
       fetchPromiseUserId = userId
       fetchPromiseEpoch = requestSession.epoch
       fetchPromiseSelectionPolicy = selectionPolicy
@@ -329,18 +347,25 @@ export const usePlanStore = defineStore('plan', {
           if (!isCurrentSession(requestSession)) {
             return { plans: this.plans, currentPlan: this.currentPlan }
           }
+          if (!isCurrentFetchRequest(request)) {
+            return { plans: this.plans, currentPlan: this.currentPlan }
+          }
           const selectedPlan = this.applyPlanList(data.plans, userId, { selectionPolicy })
           return { plans: this.plans, currentPlan: selectedPlan }
         })
         .catch((error) => {
-          if (isCurrentSession(requestSession)) {
-            this.error = error
-            this.isLoaded = false
+          if (!isCurrentSession(requestSession)) {
+            throw error
           }
+          if (!isCurrentFetchRequest(request)) {
+            return { plans: this.plans, currentPlan: this.currentPlan }
+          }
+          this.error = error
+          this.isLoaded = false
           throw error
         })
         .finally(() => {
-          if (isCurrentSession(requestSession) && fetchPromise === promise) {
+          if (isCurrentFetchRequest(request) && fetchPromise === promise) {
             this.isLoading = false
             fetchPromise = null
             fetchPromiseUserId = null

@@ -157,13 +157,13 @@ describe('P8.2A Home entry', () => {
     expect(home).toContain('<AudioGuideSheet')
   })
 
-  test('2. no Plan opens the Sheet in no-plan state instead of creating a Plan', () => {
+  test('2. no Plan keeps the Sheet closed instead of creating a Plan', () => {
     const home = source(paths.home)
     const sheet = source(paths.sheet)
     const openAudioGuideSource = home.match(/async openAudioGuide\(\) \{[\s\S]*?\n    \},/)?.[0] || ''
 
     expect(home).toMatch(/audioGuidePlanId\s*=\s*null/)
-    expect(home).toContain('audioGuideOpen = true')
+    expect(home).toContain('audioGuideOpen = false')
     expect(openAudioGuideSource).toContain('ensureCurrentPlanReady')
     expect(openAudioGuideSource).not.toContain('createPlan')
     expect(openAudioGuideSource).not.toContain('ensureGuide')

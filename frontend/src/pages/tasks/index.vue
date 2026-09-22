@@ -71,7 +71,7 @@
 
       <view v-if="taskStateMessage" class="tasks-state">
         <text class="tasks-state__text">{{ taskStateMessage }}</text>
-        <button v-if="task.error && planStore.currentPlan" class="tasks-state__retry" @click="restorePlanAndTasks(true)">重试</button>
+        <button v-if="planStore.error || (task.error && planStore.currentPlan)" class="tasks-state__retry" @click="restorePlanAndTasks(true)">重试</button>
       </view>
 
       <view v-else class="tasks-page__list">
@@ -164,6 +164,9 @@ export default {
       return useUserStore()
     },
     displayPlan() {
+      if (this.planStore.error) {
+        return {}
+      }
       return this.planStore.currentPlan || {}
     },
     heroTitle() {
@@ -200,6 +203,12 @@ export default {
         && !this.recordStore.ensureError
     },
     taskStateMessage() {
+      if (this.planStore.isLoading) {
+        return '正在加载探索计划……'
+      }
+      if (this.planStore.error) {
+        return '探索计划加载失败，请重试'
+      }
       if (!this.planStore.currentPlan) {
         return '当前孩子还没有探索计划'
       }

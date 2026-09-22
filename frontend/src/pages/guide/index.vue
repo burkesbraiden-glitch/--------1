@@ -31,7 +31,7 @@
 
       <view v-else-if="!displayPlan" class="guide-state-card">
         <text class="guide-state-card__stamp">空白讲解卡</text>
-        <text class="guide-state-card__title">还没有探索计划</text>
+        <text class="guide-state-card__title">当前孩子暂无可用探索计划</text>
         <text class="guide-state-card__text">先创建计划，再准备专属讲解卡。</text>
       </view>
 
@@ -181,7 +181,7 @@ export default {
       return this.planStore.currentPlan
     },
     isPlanRecoveryBusy() {
-      return Boolean(this.planId) && this.planStore.isLoading && !this.recoveryError
+      return this.planStore.isLoading && !this.recoveryError
     },
     currentGuide() {
       return this.guideStore.currentGuide || {}
@@ -244,6 +244,7 @@ export default {
     async restoreCurrentPlan() {
       const explicitPlanId = this.planId
       const hasExplicitPlanId = Boolean(explicitPlanId)
+      this.recoveryError = null
 
       if (hasExplicitPlanId) {
         this.isPlanUnavailable = false
@@ -263,10 +264,8 @@ export default {
           await endUserSession()
           return
         }
-        if (hasExplicitPlanId) {
-          this.recoveryError = error
-          this.guideStore.clearGuideForPlanChange()
-        }
+        this.recoveryError = error
+        this.guideStore.clearGuideForPlanChange()
         return
       }
 

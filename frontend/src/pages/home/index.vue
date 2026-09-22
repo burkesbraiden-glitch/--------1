@@ -425,17 +425,19 @@ export default {
         const result = await ensureCurrentPlanReady({ withTasks: false })
         if (result.currentPlan?.id !== null && result.currentPlan?.id !== undefined) {
           this.audioGuidePlanId = result.currentPlan.id
+          this.audioGuideOpen = true
         } else {
           this.audioGuidePlanId = null
+          this.audioGuideOpen = false
         }
-        this.audioGuideOpen = true
       } catch (error) {
         if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
           await this.handleAuthExpired()
           return
         }
         this.audioGuidePlanId = null
-        this.audioGuideOpen = true
+        this.audioGuideOpen = false
+        this.showToast('探索计划加载失败，请重试')
       } finally {
         this.isOpeningAudioGuide = false
       }
