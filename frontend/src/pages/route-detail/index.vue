@@ -203,8 +203,8 @@ export default {
     findRouteStop(routeStopId) { return this.generationDays.flatMap((day) => day.stops).find((stop) => String(stop.id) === String(routeStopId)) },
     openPlanGenerationSheet() {
       if (!this.currentRoute) return
-      const currentChildId = this.childStore.currentChild?.id
-      this.selectedChildId = this.realChildren.some((child) => String(child.id) === String(currentChildId)) ? currentChildId : null
+      const activeChildId = this.childStore.activeChild?.id
+      this.selectedChildId = this.realChildren.some((child) => String(child.id) === String(activeChildId)) ? activeChildId : null
       this.selectedRouteStopIds = []
       this.hasSubmittedGeneration = false
       this.planGenerationError = ''

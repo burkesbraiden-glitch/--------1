@@ -276,6 +276,9 @@ export default {
     }
   },
   computed: {
+    activeChild() {
+      return this.child.activeChild
+    },
     child() {
       return useChildStore()
     },
@@ -287,7 +290,7 @@ export default {
     },
   },
   onShow() {
-    this.planForm.ageGroup = this.child.ageGroup
+    this.planForm.ageGroup = this.activeChild?.ageGroup || this.child.ageGroup
   },
   methods: {
     noop() {},
@@ -300,12 +303,15 @@ export default {
       this.planForm.ageGroup = ageGroup
     },
     openPlanSheet() {
+      const activeChild = this.activeChild
       this.planForm = {
         title: '',
         destination: this.searchKeyword.trim() || '故宫博物院',
-        ageGroup: this.child.ageGroup,
+        ageGroup: activeChild?.ageGroup || this.child.ageGroup,
         duration: '3小时',
-        interests: ['古代生活', '建筑礼仪', '观察表达'],
+        interests: activeChild?.interests?.length
+          ? [...activeChild.interests]
+          : ['古代生活', '建筑礼仪', '观察表达'],
       }
       this.planSheetOpen = true
     },
@@ -365,7 +371,8 @@ export default {
         }
 
         await this.child.fetchChildren(this.user.userInfo.id)
-        if (!this.child.hasRemoteChild) {
+        const activeChild = this.child.activeChild
+        if (!this.child.hasRemoteChild || !activeChild) {
           this.showToast('请先完善孩子档案')
           uni.reLaunch({
             url: '/pages/profile/index',
@@ -373,8 +380,8 @@ export default {
           return
         }
 
-        if (this.planForm.ageGroup !== this.child.currentChild.ageGroup) {
-          this.showToast(`当前孩子年龄组为 ${this.child.currentChild.ageGroup} 岁，请调整年龄选择或修改孩子档案`)
+        if (this.planForm.ageGroup !== activeChild.ageGroup) {
+          this.showToast(`当前孩子年龄组为 ${activeChild.ageGroup} 岁，请调整年龄选择或修改孩子档案`)
           return
         }
 
@@ -383,8 +390,8 @@ export default {
           destination: this.planForm.destination.trim() || '故宫博物院',
           duration: this.planForm.duration.trim() || '3小时',
           interests: [...this.planForm.interests],
-          childId: this.child.currentChild.id,
-          ageGroup: this.child.currentChild.ageGroup,
+          childId: activeChild.id,
+          ageGroup: activeChild.ageGroup,
         }
         if (normalizedTitle) {
           payload.title = normalizedTitle

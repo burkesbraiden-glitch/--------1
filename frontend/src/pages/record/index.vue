@@ -12,7 +12,7 @@
       <view class="record-intro">
         <view class="record-intro__tape" aria-hidden="true"></view>
         <text class="record-intro__title">探索相册</text>
-        <text v-if="hasCurrentChild" class="record-intro__context">{{ childStore.currentChild.name }}的成长记录</text>
+        <text v-if="hasActiveChild" class="record-intro__context">{{ childStore.activeChild.name }}的成长记录</text>
         <text class="record-intro__desc">每一次观察和发现，都会慢慢收藏在这里。</text>
       </view>
 
@@ -147,8 +147,8 @@ export default {
     hasLoaded() {
       return this.recordStore.hasLoaded
     },
-    hasCurrentChild() {
-      const childId = Number(this.childStore.currentChild?.id)
+    hasActiveChild() {
+      const childId = Number(this.childStore.activeChild?.id)
       return (
         this.childStore.isLoaded
         && !this.childStore.error
@@ -183,7 +183,7 @@ export default {
       return !this.isChildLoading && Boolean(this.childStore.error)
     },
     showNoChild() {
-      return !this.isChildLoading && !this.childStore.error && this.childStore.isLoaded && !this.hasCurrentChild
+      return !this.isChildLoading && !this.childStore.error && this.childStore.isLoaded && !this.hasActiveChild
     },
     userStore() {
       return useUserStore()
@@ -217,13 +217,13 @@ export default {
         return
       }
 
-      if (!this.hasCurrentChild) {
+      if (!this.hasActiveChild) {
         return
       }
 
       try {
         await this.recordStore.loadJourneyRecords({
-          childId: this.childStore.currentChild.id,
+          childId: this.childStore.activeChild.id,
           limit: 20,
           offset: 0,
         })

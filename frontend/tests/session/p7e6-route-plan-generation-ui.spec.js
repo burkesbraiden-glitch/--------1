@@ -15,10 +15,10 @@ describe('P7E-6 Route Detail exploration-plan generation UI', () => {
     expect(source.indexOf('探索计划')).toBeLessThan(source.indexOf('DAILY NOTES'))
   })
 
-  test('uses only real Child data and preselects the real current Child', () => {
+  test('uses only real Child data and preselects the session active Child', () => {
     expect(source).toContain("from '../../stores/child'")
     expect(source).toContain('childStore.children')
-    expect(source).toContain('childStore.currentChild?.id')
+    expect(source).toContain('childStore.activeChild?.id')
     expect(source).toContain('hasRealChildren')
     expect(source).toContain('selectedChildId')
     expect(source).not.toContain('FALLBACK_CHILD')

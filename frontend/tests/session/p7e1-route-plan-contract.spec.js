@@ -22,7 +22,7 @@ const futureContract = Object.freeze({
   idempotencyKey: ['route_stop_id', 'child_id'],
   manualPlanNullSource: true,
   explicitChildRequired: true,
-  currentChildPrefillOnly: true,
+  activeChildPrefillOnly: true,
   routeReadyRequired: true,
   sourceSnapshotRequired: true,
   generatedPlanRouteSync: 'snapshot-no-auto-sync',
@@ -67,7 +67,7 @@ describe('P7E-1 Route to ExplorationPlan relationship contract', () => {
     expect(futureContract.idempotencyKey).toEqual(['route_stop_id', 'child_id'])
     expect(futureContract.manualPlanNullSource).toBe(true)
     expect(futureContract.explicitChildRequired).toBe(true)
-    expect(futureContract.currentChildPrefillOnly).toBe(true)
+    expect(futureContract.activeChildPrefillOnly).toBe(true)
     expect(futureContract.routeReadyRequired).toBe(true)
     expect(futureContract.sourceSnapshotRequired).toBe(true)
     expect(futureContract.generatedPlanRouteSync).toBe('snapshot-no-auto-sync')

@@ -17,11 +17,11 @@ function pageMethod(name) {
 }
 
 function pageContext({ childStore, recordStore }) {
-  const childId = Number(childStore.currentChild?.id)
+  const childId = Number(childStore.activeChild?.id)
   return {
     childStore,
     handleAuthExpired: vi.fn(),
-    hasCurrentChild: (
+    hasActiveChild: (
       childStore.isLoaded
       && !childStore.error
       && childStore.hasRemoteChild
@@ -49,6 +49,7 @@ describe('P8.3B Records child-context contract', () => {
     let releaseChildren
     const childStore = {
       currentChild: { id: 203, name: '小宇' },
+      activeChild: { id: 203, name: '小宇' },
       fetchChildren: vi.fn(() => new Promise((resolve) => { releaseChildren = resolve })),
       hasRemoteChild: true,
       isLoaded: true,
@@ -67,6 +68,7 @@ describe('P8.3B Records child-context contract', () => {
   test('keeps a child request failure visible and never falls back to unscoped Records', async () => {
     const childStore = {
       currentChild: { name: '旧孩子' },
+      activeChild: null,
       error: { code: 'NETWORK_ERROR' },
       fetchChildren: vi.fn().mockRejectedValue({ code: 'NETWORK_ERROR' }),
       hasRemoteChild: false,
@@ -83,6 +85,7 @@ describe('P8.3B Records child-context contract', () => {
   test('does not request all Records after a successful empty child response', async () => {
     const childStore = {
       currentChild: { name: '小小探索家' },
+      activeChild: null,
       error: null,
       fetchChildren: vi.fn().mockResolvedValue({ children: [], currentChild: null }),
       hasRemoteChild: false,
@@ -96,9 +99,10 @@ describe('P8.3B Records child-context contract', () => {
     expect(recordStore.loadJourneyRecords).not.toHaveBeenCalled()
   })
 
-  test('loads only the default child Records after a successful child response', async () => {
+  test('loads only the active child Records after a successful child response', async () => {
     const childStore = {
       currentChild: { id: 203, name: '小宇' },
+      activeChild: { id: 203, name: '小宇' },
       error: null,
       fetchChildren: vi.fn().mockResolvedValue({}),
       hasRemoteChild: true,
@@ -138,8 +142,8 @@ describe('P8.3B Records child-context contract', () => {
     expect(recordPageSource).toContain('尚未添加孩子')
   })
 
-  test('shows the current child name as the Records context', () => {
-    expect(recordPageSource).toContain('childStore.currentChild.name')
+  test('shows the active child name as the Records context', () => {
+    expect(recordPageSource).toContain('childStore.activeChild.name')
     expect(recordPageSource).toContain('的成长记录')
   })
 
