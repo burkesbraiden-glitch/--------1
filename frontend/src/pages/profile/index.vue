@@ -16,51 +16,25 @@
       <view class="profile-page__user-copy">
         <view class="profile-page__name-row">
           <text class="profile-page__name">{{ displayUser.nickname }}</text>
-          <view v-if="child.hasRemoteChild" class="profile-page__edit" aria-hidden="true"></view>
         </view>
         <text class="profile-page__meta">{{ displayUser.meta }}</text>
         <text v-if="child.hasRemoteChild" class="profile-page__age-tag">{{ child.ageGroup }}岁</text>
       </view>
     </view>
 
-    <view class="profile-page__tabs">
-      <button :class="{ 'profile-page__tab--active': activeTab === 'records' }" @click="activeTab = 'records'">
-        记录
-      </button>
-      <button :class="{ 'profile-page__tab--active': activeTab === 'favorites' }" @click="activeTab = 'favorites'">
-        收藏
-      </button>
-    </view>
-
-    <view v-if="activeTab === 'records'" class="profile-page__section">
+    <view class="profile-page__section">
       <view class="profile-page__section-title">
         <view class="profile-page__section-mark" aria-hidden="true"></view>
-        <text>最近学习记录</text>
+        <text>成长记录</text>
       </view>
       <view class="profile-page__record-list">
-        <button v-for="record in learningRecords" :key="record.id" class="profile-page__record">
-          <view class="profile-page__record-thumb" :class="`profile-page__record-thumb--${record.thumb}`" aria-hidden="true"></view>
+        <button class="profile-page__record" @click="openJourneyRecords">
+          <view class="profile-page__record-thumb profile-page__record-thumb--record" aria-hidden="true"></view>
           <view class="profile-page__record-copy">
-            <text class="profile-page__record-title">{{ record.title }}</text>
-            <text class="profile-page__record-meta">{{ record.date }}　共 {{ record.learningRecordCount }} 条旅行记录</text>
+            <text class="profile-page__record-title">成长记录</text>
+            <text class="profile-page__record-meta">查看探索中的任务、照片与笔记</text>
           </view>
           <view class="profile-page__arrow" aria-hidden="true"></view>
-        </button>
-      </view>
-    </view>
-
-    <view v-else class="profile-page__section">
-      <view class="profile-page__section-title">
-        <view class="profile-page__section-mark" aria-hidden="true"></view>
-        <text>我的收藏</text>
-      </view>
-      <view class="profile-page__favorite-list">
-        <button v-for="favorite in favorites" :key="favorite.id" class="profile-page__favorite" @click="showToast('已收藏：' + favorite.title)">
-          <text class="profile-page__favorite-type">{{ favorite.type }}</text>
-          <view>
-            <text class="profile-page__favorite-title">{{ favorite.title }}</text>
-            <text class="profile-page__favorite-desc">{{ favorite.description }}</text>
-          </view>
         </button>
       </view>
     </view>
@@ -75,20 +49,23 @@
         <text>正在加载孩子档案...</text>
       </view>
       <view v-else-if="child.error" class="profile-page__child-state">
-        <text>无法加载孩子档案，请重试</text>
+        <text>孩子资料加载失败，请重试</text>
         <button @click="loadChildren">重试</button>
       </view>
-      <view v-else-if="!child.hasRemoteChild" class="profile-page__child-state">
-        <text class="profile-page__child-empty-title">还没有孩子档案</text>
+      <view v-else-if="child.isLoaded && child.children.length === 0" class="profile-page__child-state">
+        <text class="profile-page__child-empty-title">尚未添加孩子</text>
         <text class="profile-page__child-empty-desc">完善孩子档案后，就能记录专属成长旅程</text>
-        <button @click="openChildForm">完善孩子档案</button>
+        <button @click="openChildForm">添加孩子档案</button>
       </view>
-      <view v-else>
+      <view v-else-if="child.hasRemoteChild">
         <text class="profile-page__child-name">{{ child.currentChild.name }} · {{ child.currentChild.age }}岁 · {{ child.currentChild.city || '未填写城市' }}</text>
         <view class="profile-page__interest-list">
           <text v-for="interest in child.interests" :key="interest" class="profile-page__interest">{{ interest }}</text>
         </view>
         <button class="profile-page__child-edit" @click="openChildForm">编辑孩子档案</button>
+      </view>
+      <view v-else class="profile-page__child-state">
+        <text>正在加载孩子资料...</text>
       </view>
     </view>
 
@@ -98,20 +75,6 @@
         <text>{{ item.label }}</text>
         <view class="profile-page__arrow" aria-hidden="true"></view>
       </button>
-    </view>
-
-    <view v-if="showSettings" class="profile-page__sheet">
-      <view class="profile-page__sheet-mask" @click="showSettings = false"></view>
-      <view class="profile-page__sheet-panel">
-        <view class="profile-page__sheet-head">
-          <text>设置</text>
-          <button @click="showSettings = false">关闭</button>
-        </view>
-        <view class="profile-page__setting-row">
-          <text>登录状态</text>
-          <text>{{ user.isLoggedIn ? '已开启' : '未登录' }}</text>
-        </view>
-      </view>
     </view>
 
     <view v-if="showChildForm" class="profile-page__sheet">
@@ -162,9 +125,7 @@
 
 <script>
 import AppTabbar from '../../components/AppTabbar.vue'
-import { mockFavorites } from '../../mock/favorites'
 import { useChildStore } from '../../stores/child'
-import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
 
@@ -174,9 +135,7 @@ export default {
   },
   data() {
     return {
-      activeTab: 'records',
       showChildCard: true,
-      showSettings: false,
       showChildForm: false,
       isSavingChild: false,
       childForm: {
@@ -186,7 +145,6 @@ export default {
         interests: ['历史故事', '古建筑', '观察探索'],
       },
       interestOptions: ['历史故事', '古建筑', '观察探索'],
-      favorites: mockFavorites,
     }
   },
   computed: {
@@ -196,9 +154,6 @@ export default {
     user() {
       return useUserStore()
     },
-    record() {
-      return useRecordStore()
-    },
     displayUser() {
       if (this.child.isLoading) {
         return {
@@ -207,16 +162,30 @@ export default {
         }
       }
 
-      if (!this.child.hasRemoteChild) {
+      if (this.child.error) {
         return {
-          nickname: '尚未完善孩子档案',
+          nickname: '孩子资料加载失败',
+          meta: '请重试后再查看孩子档案',
+        }
+      }
+
+      if (this.child.isLoaded && this.child.children.length === 0) {
+        return {
+          nickname: '尚未添加孩子',
           meta: '完善后记录专属成长旅程',
         }
       }
 
+      if (this.child.hasRemoteChild) {
+        return {
+          nickname: this.child.currentChild.name,
+          meta: `${this.child.currentChild.age}岁 · ${this.child.currentChild.city || '未填写城市'}`,
+        }
+      }
+
       return {
-        nickname: this.child.currentChild.name,
-        meta: `${this.child.currentChild.age}岁 · ${this.child.currentChild.city || '未填写城市'}`,
+        nickname: '孩子资料加载中',
+        meta: '正在同步真实孩子资料',
       }
     },
     formAgeGroup() {
@@ -226,24 +195,9 @@ export default {
       }
       return '7-12'
     },
-    learningRecords() {
-      return [
-        {
-          id: 'journey-record-count',
-          title: '旅行记录',
-          date: this.record.learningRecordCount > 0 ? '已收集' : '暂未收集',
-          learningRecordCount: this.record.learningRecordCount,
-          thumb: 'record',
-        },
-      ]
-    },
     menuItems() {
       return [
         { key: 'child', label: '孩子档案', icon: 'child' },
-        { key: 'favorites', label: '我的收藏', icon: 'favorites' },
-        { key: 'notice', label: '消息通知', icon: 'notice' },
-        { key: 'settings', label: '设置', icon: 'settings' },
-        { key: 'help', label: '帮助与反馈', icon: 'help' },
         { key: 'logout', label: '退出登录', icon: 'logout' },
       ]
     },
@@ -283,6 +237,11 @@ export default {
           await endUserSession()
         }
       }
+    },
+    openJourneyRecords() {
+      uni.navigateTo({
+        url: '/pages/record/index',
+      })
     },
     openChildForm() {
       const current = this.child.hasRemoteChild ? this.child.currentChild : null
@@ -356,26 +315,9 @@ export default {
         return
       }
 
-      if (key === 'favorites') {
-        this.activeTab = 'favorites'
-        return
-      }
-
-      if (key === 'settings') {
-        this.showSettings = true
-        return
-      }
-
       if (key === 'logout') {
         endUserSession()
-        return
       }
-
-      const messages = {
-        notice: '当前阶段使用 Mock 消息提醒',
-        help: '当前阶段使用 Mock 帮助与反馈',
-      }
-      this.showToast(messages[key] || '当前阶段使用 Mock 反馈')
     },
   },
 }

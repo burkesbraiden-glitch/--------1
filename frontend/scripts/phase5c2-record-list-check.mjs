@@ -95,9 +95,9 @@ assert(/Number\(state\.total\)/.test(store) && /Array\.isArray\(state\.records\)
 assert(!/discoveries\s*:\s*\[\]/.test(store) && !/discoveries\s*\([^)]*\)\s*\{/.test(store), 'record store does not add a discoveries compatibility shim')
 
 assert(!/record\.discoveries|this\.record\.discoveries|currentJourneyRecord|generateJourneyRecord|recordJourney|mockRecords|record\.growthSkills|this\.record\.growthSkills/.test(profile), 'profile/index.vue does not reference removed Record Store fields')
-assert(/this\.record\.learningRecordCount/.test(profile), 'profile/index.vue uses the real JourneyRecord total getter')
+assert(!/this\.record\.learningRecordCount|learningRecords/.test(profile), 'profile/index.vue does not display a potentially stale JourneyRecord count')
 assert(!/fetchJourneyRecords|api\/journeyRecords/.test(profile), 'profile/index.vue does not create a second JourneyRecord request')
-assert(/条旅行记录/.test(profile), 'profile record copy matches JourneyRecord count semantics')
+assert(/openJourneyRecords\s*\(\)\s*\{[\s\S]*?uni\.navigateTo\s*\(\s*\{[\s\S]*?url:\s*['"]\/pages\/record\/index['"]/.test(profile), 'profile links to the real JourneyRecord page')
 
 const productionPages = listVueFiles(join(root, 'src/pages'))
 const staleConsumers = productionPages.flatMap((file) => {
