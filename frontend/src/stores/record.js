@@ -52,6 +52,13 @@ function coverResourceKey(record) {
 function mapJourneyRecord(record, coverResources) {
   const coverKey = coverResourceKey(record)
   const coverResource = coverKey ? coverResources[coverKey] : null
+  const displayUpdatedAt = displayDate(record?.updatedAt)
+  const displayFinalizedAt = displayDate(record?.finalizedAt)
+  const displayDateLabel = record?.status === 'finalized' && displayFinalizedAt
+    ? `封存于 ${displayFinalizedAt}`
+    : displayUpdatedAt
+      ? `更新于 ${displayUpdatedAt}`
+      : ''
 
   return {
     id: record?.id ?? null,
@@ -74,8 +81,9 @@ function mapJourneyRecord(record, coverResources) {
     createdAt: record?.createdAt || null,
     updatedAt: record?.updatedAt || null,
     displayCoverImage: coverResource?.displayPath || '',
-    displayUpdatedAt: displayDate(record?.updatedAt),
-    displayFinalizedAt: displayDate(record?.finalizedAt),
+    displayUpdatedAt,
+    displayFinalizedAt,
+    displayDateLabel,
   }
 }
 

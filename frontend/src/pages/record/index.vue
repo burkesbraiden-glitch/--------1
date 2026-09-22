@@ -12,10 +12,30 @@
       <view class="record-intro">
         <view class="record-intro__tape" aria-hidden="true"></view>
         <text class="record-intro__title">探索相册</text>
+        <text v-if="hasCurrentChild" class="record-intro__context">{{ childStore.currentChild.name }}的成长记录</text>
         <text class="record-intro__desc">每一次观察和发现，都会慢慢收藏在这里。</text>
       </view>
 
-      <view v-if="isInitialLoading" class="record-state">
+      <view v-if="isChildLoading" class="record-state">
+        <view class="record-state__spinner"></view>
+        <text class="record-state__title">正在加载孩子资料……</text>
+        <text class="record-state__desc">确认孩子档案后，再为你整理成长记录。</text>
+      </view>
+
+      <view v-else-if="showChildError" class="record-state record-state--error">
+        <view class="record-state__icon" aria-hidden="true"></view>
+        <text class="record-state__title">孩子资料加载失败</text>
+        <text class="record-state__desc">{{ childErrorMessage }}</text>
+        <button class="record-state__retry" @click="retryRecords">重新加载</button>
+      </view>
+
+      <view v-else-if="showNoChild" class="record-state record-state--empty">
+        <view class="record-state__album"></view>
+        <text class="record-state__title">尚未添加孩子</text>
+        <text class="record-state__desc">添加孩子档案后，就能查看属于 TA 的成长记录。</text>
+      </view>
+
+      <view v-else-if="isInitialLoading" class="record-state">
         <view class="record-state__spinner"></view>
         <text class="record-state__title">正在整理旅行记录……</text>
         <text class="record-state__desc">正在整理这次探索的珍贵回忆</text>
@@ -32,6 +52,7 @@
         <view class="record-state__album"></view>
         <text class="record-state__title">还没有旅行记录</text>
         <text class="record-state__desc">完成观察任务后，旅途中的发现会慢慢收藏在这里。</text>
+        <button class="record-state__explore" @click="goExplore">去探索</button>
       </view>
 
       <template v-else>
@@ -61,7 +82,7 @@
               :image-path="record.displayCoverImage || recordWatercolorFallback"
               :title="record.displayTitle"
               :description="record.destination"
-              :date-label="record.displayUpdatedAt"
+              :date-label="record.displayDateLabel"
               :rotation="index % 2 === 0 ? -2 : 2"
               :placeholder-theme="index % 2 === 0 ? 'roof' : 'gate'"
               :tape-theme="tapeTheme(index)"
@@ -81,7 +102,7 @@
                 <text>照片：{{ record.photoCount }}</text>
                 <text>笔记：{{ record.noteCount }}</text>
               </view>
-              <text v-if="record.displayUpdatedAt" class="record-card__updated">更新于 {{ record.displayUpdatedAt }}</text>
+              <text v-if="record.displayDateLabel" class="record-card__updated">{{ record.displayDateLabel }}</text>
             </view>
           </view>
         </view>
@@ -114,6 +135,9 @@ export default {
     childStore() {
       return useChildStore()
     },
+    childErrorMessage() {
+      return this.childStore.error?.message || '请检查网络后重新加载孩子资料'
+    },
     error() {
       return this.recordStore.error
     },
@@ -122,6 +146,20 @@ export default {
     },
     hasLoaded() {
       return this.recordStore.hasLoaded
+    },
+    hasCurrentChild() {
+      const childId = Number(this.childStore.currentChild?.id)
+      return (
+        this.childStore.isLoaded
+        && !this.childStore.error
+        && this.childStore.hasRemoteChild
+        && String(this.childStore.loadedForUserId) === String(this.userStore.userInfo?.id)
+        && Number.isInteger(childId)
+        && childId > 0
+      )
+    },
+    isChildLoading() {
+      return this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error)
     },
     isEmpty() {
       return this.hasLoaded && !this.loading && !this.error && this.records.length === 0
@@ -140,6 +178,12 @@ export default {
     },
     showFullError() {
       return Boolean(this.error) && this.records.length === 0
+    },
+    showChildError() {
+      return !this.isChildLoading && Boolean(this.childStore.error)
+    },
+    showNoChild() {
+      return !this.isChildLoading && !this.childStore.error && this.childStore.isLoaded && !this.hasCurrentChild
     },
     userStore() {
       return useUserStore()
@@ -169,23 +213,30 @@ export default {
       } catch (error) {
         if (isAuthenticationError(error)) {
           await this.handleAuthExpired()
-          return
         }
+        return
       }
 
-      const params = { limit: 20, offset: 0 }
-      const childId = this.childStore.currentChild?.id
-      if (Number.isInteger(childId) && childId > 0) {
-        params.childId = childId
+      if (!this.hasCurrentChild) {
+        return
       }
 
       try {
-        await this.recordStore.loadJourneyRecords(params)
+        await this.recordStore.loadJourneyRecords({
+          childId: this.childStore.currentChild.id,
+          limit: 20,
+          offset: 0,
+        })
       } catch (error) {
         if (isAuthenticationError(error)) {
           await this.handleAuthExpired()
         }
       }
+    },
+    goExplore() {
+      uni.reLaunch({
+        url: '/pages/plan/index',
+      })
     },
     openRecordDetail(record) {
       const planId = Number(record?.planId)
@@ -206,13 +257,7 @@ export default {
       return '整理中'
     },
     async retryRecords() {
-      try {
-        await this.recordStore.retryJourneyRecords()
-      } catch (error) {
-        if (isAuthenticationError(error)) {
-          await this.handleAuthExpired()
-        }
-      }
+      await this.loadRecords()
     },
     tapeTheme(index) {
       return ['green', 'pink', 'blue'][index % 3]
@@ -326,6 +371,14 @@ export default {
   font-weight: 900;
 }
 
+.record-intro__context {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 29rpx;
+  font-weight: 900;
+  color: #8a4a21;
+}
+
 .record-intro__desc,
 .record-state__desc {
   display: block;
@@ -403,7 +456,8 @@ export default {
   height: 5rpx;
 }
 
-.record-state__retry {
+.record-state__retry,
+.record-state__explore {
   min-width: 180rpx;
   margin-top: 30rpx;
   font-size: 28rpx;
