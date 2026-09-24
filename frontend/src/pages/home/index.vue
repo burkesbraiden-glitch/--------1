@@ -32,7 +32,7 @@
             v-for="option in ageOptions"
             :key="option.value"
             class="home-age__item"
-            :class="{ 'home-age__item--active': child.ageGroup === option.value }"
+            :class="{ 'home-age__item--active': planForm.ageGroup === option.value }"
             @click="selectAge(option.value)"
           >
             {{ option.label }}
@@ -290,7 +290,7 @@ export default {
     },
   },
   onShow() {
-    this.planForm.ageGroup = this.activeChild?.ageGroup || this.child.ageGroup
+    this.planForm.ageGroup = this.activeChild?.ageGroup || '7-12'
   },
   methods: {
     noop() {},
@@ -299,7 +299,6 @@ export default {
       return option ? option.label : ageGroup
     },
     selectAge(ageGroup) {
-      this.child.setAgeGroup(ageGroup)
       this.planForm.ageGroup = ageGroup
     },
     openPlanSheet() {
@@ -307,7 +306,7 @@ export default {
       this.planForm = {
         title: '',
         destination: this.searchKeyword.trim() || '故宫博物院',
-        ageGroup: activeChild?.ageGroup || this.child.ageGroup,
+        ageGroup: activeChild?.ageGroup || '7-12',
         duration: '3小时',
         interests: activeChild?.interests?.length
           ? [...activeChild.interests]
@@ -355,8 +354,6 @@ export default {
       }
 
       this.isCreatingPlan = true
-      this.child.setAgeGroup(this.planForm.ageGroup)
-
       try {
         if (!this.user.isAuthReady || this.user.isRestoring) {
           await this.user.restoreSession()

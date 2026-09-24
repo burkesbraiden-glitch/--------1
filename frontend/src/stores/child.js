@@ -2,14 +2,6 @@ import { defineStore } from 'pinia'
 import * as childrenApi from '../api/children'
 import { getCurrentSession, isCurrentSession } from '../utils/sessionBoundary.js'
 
-const FALLBACK_CHILD = {
-  name: '小小探索家',
-  age: 7,
-  city: '北京',
-  ageGroup: '7-12',
-  interests: ['历史故事', '古建筑', '观察探索'],
-}
-
 let fetchPromise = null
 let fetchPromiseUserId = null
 let fetchPromiseEpoch = null
@@ -50,17 +42,11 @@ function findChildById(children, childId) {
   return children.find((child) => normalizeChildId(child?.id) === normalizedChildId) || null
 }
 
-function ageGroupForAge(age) {
-  return age >= 3 && age <= 6 ? '3-6' : '7-12'
-}
-
 export const useChildStore = defineStore('child', {
   state: () => ({
     children: [],
-    currentChild: { ...FALLBACK_CHILD },
+    currentChild: null,
     activeChildId: null,
-    ageGroup: FALLBACK_CHILD.ageGroup,
-    interests: [...FALLBACK_CHILD.interests],
     isLoading: false,
     isLoaded: false,
     error: null,
@@ -73,21 +59,20 @@ export const useChildStore = defineStore('child', {
     },
   },
   actions: {
-    syncCompatibleFields(child) {
-      const displayChild = child || FALLBACK_CHILD
-      this.currentChild = {
-        ...displayChild,
-        city: displayChild.city || '',
-      }
-      this.ageGroup = displayChild.ageGroup || ageGroupForAge(displayChild.age)
-      this.interests = Array.isArray(displayChild.interests) ? [...displayChild.interests] : []
+    syncCurrentChild(child) {
+      this.currentChild = child
+        ? {
+            ...child,
+            city: child.city || '',
+          }
+        : null
     },
     clearRemoteStateForUser(userId = null) {
       this.children = []
       this.activeChildId = null
       this.hasRemoteChild = false
       this.loadedForUserId = userId
-      this.syncCompatibleFields(null)
+      this.syncCurrentChild(null)
     },
     resolveActiveChildId(children, backendCurrentChild, userId, previousActiveChildId = this.activeChildId) {
       const currentSession = getCurrentSession()
@@ -113,7 +98,7 @@ export const useChildStore = defineStore('child', {
       this.loadedForUserId = userId
       this.isLoaded = true
       this.error = null
-      this.syncCompatibleFields(backendCurrentChild)
+      this.syncCurrentChild(backendCurrentChild)
     },
     async fetchChildren(userId) {
       if (!userId) {
@@ -179,9 +164,9 @@ export const useChildStore = defineStore('child', {
         this.children = [...this.children, savedChild]
       }
 
-      if (savedChild.isDefault || !this.hasRemoteChild || this.currentChild.id === savedChild.id) {
+      if (savedChild.isDefault || !this.hasRemoteChild || this.currentChild?.id === savedChild.id) {
         this.hasRemoteChild = true
-        this.syncCompatibleFields(savedChild)
+        this.syncCurrentChild(savedChild)
       }
 
       this.activeChildId = this.resolveActiveChildId(this.children, this.currentChild, userId)
@@ -216,17 +201,10 @@ export const useChildStore = defineStore('child', {
       this.activeChildId = child.id
       return true
     },
-    setAgeGroup(ageGroup) {
-      if (['3-6', '7-12'].includes(ageGroup)) {
-        this.ageGroup = ageGroup
-      }
-    },
     resetSessionState() {
       this.children = []
-      this.currentChild = { ...FALLBACK_CHILD }
+      this.currentChild = null
       this.activeChildId = null
-      this.ageGroup = FALLBACK_CHILD.ageGroup
-      this.interests = [...FALLBACK_CHILD.interests]
       this.isLoading = false
       this.isLoaded = false
       this.error = null
