@@ -40,7 +40,7 @@
         <text>{{ isPhoneLoggingIn ? '登录中' : '手机号登录' }}</text>
       </button>
 
-      <button class="login-page__wechat" :disabled="isWechatLoggingIn" @click="submitWechatLogin">
+      <button v-if="isMockWechatLoginEnabled" class="login-page__wechat" :disabled="isWechatLoggingIn" @click="submitWechatLogin">
         <view class="login-page__button-icon login-page__button-icon--chat" aria-hidden="true"></view>
         <text>{{ isWechatLoggingIn ? '登录中' : '微信登录' }}</text>
       </button>
@@ -73,6 +73,7 @@
 
 <script>
 import AppTabbar from '../../components/AppTabbar.vue'
+import { isMockWechatLoginEnabled } from '../../config/authCapabilities.js'
 import { useUserStore } from '../../stores/user'
 
 export default {
@@ -81,6 +82,7 @@ export default {
   },
   data() {
     return {
+      isMockWechatLoginEnabled,
       phone: '',
       code: '',
       agreed: false,
@@ -123,6 +125,10 @@ export default {
         INVALID_PHONE: '手机号格式不正确',
         INVALID_VERIFICATION_CODE: '验证码不正确',
         SMS_NOT_CONFIGURED: '短信服务暂未配置',
+        SMS_PROVIDER_UNAVAILABLE: '短信服务暂不可用，请稍后重试',
+        SMS_COOLDOWN: '请求过于频繁，请稍后再试',
+        VERIFICATION_CODE_EXPIRED: '验证码已过期，请重新获取',
+        VERIFICATION_CODE_ATTEMPTS_EXCEEDED: '验证码尝试次数过多，请重新获取',
         UNAUTHORIZED: '登录状态已失效，请重新登录',
       }
       return messages[error?.code] || error?.message || '操作失败，请稍后再试'

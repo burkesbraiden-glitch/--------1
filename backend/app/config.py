@@ -34,6 +34,7 @@ def validate_production_config(config):
             raise RuntimeError(f"Invalid production configuration: {field_name}")
 
     validate_production_audio_config(config)
+    validate_production_sms_config(config)
 
 
 def validate_production_audio_config(config):
@@ -60,6 +61,38 @@ def validate_production_audio_config(config):
     ):
         if not normalized(field_name):
             raise RuntimeError(f"Invalid production audio configuration: {field_name}")
+
+
+def validate_production_sms_config(config):
+    if config.get("APP_ENV") != "production":
+        return
+
+    def normalized(field_name):
+        value = config.get(field_name)
+        return value.strip() if isinstance(value, str) else ""
+
+    if normalized("SMS_PROVIDER").casefold() != "http":
+        raise RuntimeError("Invalid production configuration: SMS_PROVIDER")
+
+    for field_name in (
+        "SMS_HTTP_ENDPOINT",
+        "SMS_HTTP_TOKEN",
+        "SMS_TEMPLATE_ID",
+        "SMS_VERIFICATION_SECRET",
+    ):
+        value = normalized(field_name)
+        if not value or (field_name == "SMS_VERIFICATION_SECRET" and len(value) < _MINIMUM_PRODUCTION_SECRET_LENGTH):
+            raise RuntimeError(f"Invalid production configuration: {field_name}")
+
+    for field_name, minimum in (
+        ("SMS_TIMEOUT_SECONDS", 1),
+        ("SMS_CODE_TTL_SECONDS", 60),
+        ("SMS_SEND_COOLDOWN_SECONDS", 30),
+        ("SMS_MAX_VERIFY_ATTEMPTS", 1),
+    ):
+        value = config.get(field_name)
+        if not isinstance(value, int) or value < minimum:
+            raise RuntimeError(f"Invalid production configuration: {field_name}")
 
 
 class BaseConfig:
@@ -103,6 +136,15 @@ class BaseConfig:
     R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
     R2_BUCKET = os.getenv("R2_BUCKET", "")
     AUDIO_SIGNED_URL_TTL_SECONDS = int(os.getenv("AUDIO_SIGNED_URL_TTL_SECONDS", "300"))
+    SMS_PROVIDER = os.getenv("SMS_PROVIDER", "unconfigured")
+    SMS_HTTP_ENDPOINT = os.getenv("SMS_HTTP_ENDPOINT", "")
+    SMS_HTTP_TOKEN = os.getenv("SMS_HTTP_TOKEN", "")
+    SMS_TEMPLATE_ID = os.getenv("SMS_TEMPLATE_ID", "")
+    SMS_TIMEOUT_SECONDS = int(os.getenv("SMS_TIMEOUT_SECONDS", "10"))
+    SMS_VERIFICATION_SECRET = os.getenv("SMS_VERIFICATION_SECRET", "")
+    SMS_CODE_TTL_SECONDS = int(os.getenv("SMS_CODE_TTL_SECONDS", "300"))
+    SMS_SEND_COOLDOWN_SECONDS = int(os.getenv("SMS_SEND_COOLDOWN_SECONDS", "60"))
+    SMS_MAX_VERIFY_ATTEMPTS = int(os.getenv("SMS_MAX_VERIFY_ATTEMPTS", "5"))
 
 
 class DevelopmentConfig(BaseConfig):

@@ -6,6 +6,7 @@ from app.config import ProductionConfig
 
 VALID_SECRET_KEY = "test-secret-key-for-production-config-0001"
 VALID_JWT_SECRET_KEY = "test-jwt-secret-key-for-production-config-0002"
+VALID_SMS_VERIFICATION_SECRET = "test-sms-verification-secret-for-production-config-0003"
 
 
 @pytest.fixture()
@@ -25,6 +26,15 @@ def valid_production_secrets(monkeypatch):
         "R2_ACCESS_KEY_ID": "access-key",
         "R2_SECRET_ACCESS_KEY": "secret-key",
         "R2_BUCKET": "test-private-audio-bucket",
+        "SMS_PROVIDER": "http",
+        "SMS_HTTP_ENDPOINT": "https://sms.example.test/send",
+        "SMS_HTTP_TOKEN": "test-sms-http-token",
+        "SMS_TEMPLATE_ID": "tonglvji-login",
+        "SMS_VERIFICATION_SECRET": VALID_SMS_VERIFICATION_SECRET,
+        "SMS_TIMEOUT_SECONDS": 10,
+        "SMS_CODE_TTL_SECONDS": 300,
+        "SMS_SEND_COOLDOWN_SECONDS": 60,
+        "SMS_MAX_VERIFY_ATTEMPTS": 5,
     }.items():
         monkeypatch.setattr(ProductionConfig, name, value, raising=False)
 
@@ -106,6 +116,23 @@ def test_production_rejects_fake_or_unconfigured_audio_providers(
     field_name, invalid_value, monkeypatch, valid_production_secrets
 ):
     monkeypatch.setattr(ProductionConfig, field_name, invalid_value)
+
+    with pytest.raises(RuntimeError, match=field_name):
+        create_app("production")
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "SMS_PROVIDER",
+        "SMS_HTTP_ENDPOINT",
+        "SMS_HTTP_TOKEN",
+        "SMS_TEMPLATE_ID",
+        "SMS_VERIFICATION_SECRET",
+    ],
+)
+def test_production_rejects_missing_sms_configuration(field_name, monkeypatch, valid_production_secrets):
+    monkeypatch.setattr(ProductionConfig, field_name, "", raising=False)
 
     with pytest.raises(RuntimeError, match=field_name):
         create_app("production")

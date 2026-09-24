@@ -5,6 +5,7 @@ from app.models.exploration_plan import ExplorationPlan
 from app.models.guide_card import GuideCard
 from app.models.guide_audio_job import GuideAudioJob
 from app.models.journey_record import JourneyRecord
+from app.models.phone_verification_code import PhoneVerificationCode
 from app.models.route import Route
 from app.models.route_day import RouteDay
 from app.models.route_stop import RouteStop
@@ -21,6 +22,7 @@ __all__ = [
     "GuideCard",
     "GuideAudioJob",
     "JourneyRecord",
+    "PhoneVerificationCode",
     "Route",
     "RouteDay",
     "RouteStop",

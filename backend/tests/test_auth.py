@@ -158,6 +158,15 @@ def test_mock_wechat_login_disabled_in_production(monkeypatch):
         "R2_ACCESS_KEY_ID": "access-key",
         "R2_SECRET_ACCESS_KEY": "secret-key",
         "R2_BUCKET": "test-private-audio-bucket",
+        "SMS_PROVIDER": "http",
+        "SMS_HTTP_ENDPOINT": "https://sms.example.test/send",
+        "SMS_HTTP_TOKEN": "test-sms-http-token",
+        "SMS_TEMPLATE_ID": "tonglvji-login",
+        "SMS_VERIFICATION_SECRET": "test-sms-verification-secret-for-auth-0003",
+        "SMS_TIMEOUT_SECONDS": 10,
+        "SMS_CODE_TTL_SECONDS": 300,
+        "SMS_SEND_COOLDOWN_SECONDS": 60,
+        "SMS_MAX_VERIFY_ATTEMPTS": 5,
     }.items():
         monkeypatch.setattr(ProductionConfig, name, value, raising=False)
 
