@@ -129,7 +129,7 @@
         <view class="plan-sheet__header">
           <view>
             <text class="plan-sheet__title">创建探索计划</text>
-            <text class="plan-sheet__subtitle">先用 Mock 生成一份故宫探索计划</text>
+            <text class="plan-sheet__subtitle">填写信息，生成一份探索计划</text>
           </view>
           <view class="plan-sheet__close" @click="closePlanSheet">关闭</view>
         </view>
