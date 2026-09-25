@@ -24,6 +24,14 @@ export function mockWechatLogin(mockCode) {
   })
 }
 
+export function wechatLogin(code) {
+  return request({
+    path: '/auth/wechat-login',
+    method: 'POST',
+    data: { code },
+  })
+}
+
 export function getMe() {
   return request({
     path: '/auth/me',

@@ -42,15 +42,14 @@ assert(!requestLayer.includes('useUserStore'), 'request layer must not import us
 
 const authApi = read('api/auth.js')
 for (const endpoint of [
-  '/auth/send-code',
-  '/auth/login',
+  '/auth/wechat-login',
   '/auth/mock-wechat-login',
   '/auth/me',
   '/auth/logout',
 ]) {
   assert(authApi.includes(endpoint), `auth API missing ${endpoint}`)
 }
-for (const exportName of ['sendCode', 'login', 'mockWechatLogin', 'getMe', 'logout']) {
+for (const exportName of ['wechatLogin', 'mockWechatLogin', 'getMe', 'logout']) {
   assert(authApi.includes(`function ${exportName}`) || authApi.includes(`const ${exportName}`), `auth API missing ${exportName}`)
 }
 
@@ -61,15 +60,17 @@ assert(!userStore.includes("token = 'mock-token'") && !userStore.includes("'mock
 assert(userStore.includes('restorePromise'), 'userStore must prevent duplicate restoreSession calls')
 assert(userStore.includes('authApi.logout'), 'logout must call real backend auth API')
 assert(userStore.includes('finally'), 'logout must clear local auth in finally')
-assert(userStore.includes('loginWithPhone'), 'userStore must expose loginWithPhone')
 assert(userStore.includes('loginWithWechat'), 'userStore must expose loginWithWechat')
+assert(userStore.includes('loginWithMockWechat'), 'userStore must expose the explicit development mock path')
 assert(userStore.includes('restoreSession'), 'userStore must expose restoreSession')
 
 const loginPage = read('pages/login/index.vue')
 assert(!/code\s*[!=]={2,3}\s*['"]123456['"]/.test(loginPage), 'login page must not compare code with 123456')
 assert(!loginPage.includes('Mock 验证码 123456'), 'login page must not show fixed mock code')
 assert(!loginPage.includes('uni.request'), 'login page must not call uni.request directly')
-assert(loginPage.includes('loginWithPhone'), 'login page must use userStore.loginWithPhone')
 assert(loginPage.includes('loginWithWechat'), 'login page must use userStore.loginWithWechat')
+assert(loginPage.includes('requestWechatAuthorizationCode'), 'login page must request a native WeChat authorization code')
+assert(!loginPage.includes('submitPhoneLogin'), 'formal login page must not expose phone login')
+assert(!loginPage.includes('requestCode'), 'formal login page must not expose SMS code requests')
 
 console.log('phase2c1 auth integration checks passed')

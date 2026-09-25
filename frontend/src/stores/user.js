@@ -4,12 +4,6 @@ import * as authApi from '../api/auth.js'
 export const AUTH_STORAGE_KEY = 'tonglvji_auth'
 export const LEGACY_MOCK_AUTH_STORAGE_KEY = 'tonglvji_mock_auth'
 
-const fallbackUserInfo = {
-  nickname: '小小探索家',
-  city: '北京',
-  age: 7,
-}
-
 let restorePromise = null
 
 function getUniStorage() {
@@ -22,8 +16,7 @@ function getUniStorage() {
 
 function normalizeUserInfo(userInfo = {}) {
   return {
-    ...fallbackUserInfo,
-    ...userInfo,
+    ...(userInfo || {}),
   }
 }
 
@@ -89,7 +82,12 @@ export const useUserStore = defineStore('user', {
     async requestLoginCode(phone) {
       return authApi.sendCode(phone)
     },
-    async loginWithWechat(mockCode = 'tonglvji-h5-dev') {
+    async loginWithWechat(code) {
+      const data = await authApi.wechatLogin(code)
+      this.loginSuccess(data.accessToken, data.user)
+      return data
+    },
+    async loginWithMockWechat(mockCode) {
       const data = await authApi.mockWechatLogin(mockCode)
       this.loginSuccess(data.accessToken, data.user)
       return data
@@ -152,13 +150,13 @@ export const useUserStore = defineStore('user', {
       return this.loginWithPhone(phone, code)
     },
     async mockWechatLogin(mockCode) {
-      return this.loginWithWechat(mockCode)
+      return this.loginWithMockWechat(mockCode)
     },
     async restoreMockLogin() {
       return this.restoreSession()
     },
     async setMockLogin() {
-      return this.loginWithWechat()
+      return this.loginWithMockWechat('tonglvji-h5-dev')
     },
     async logout() {
       try {

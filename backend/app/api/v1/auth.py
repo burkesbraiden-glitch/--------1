@@ -4,6 +4,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from app.services.auth import (
     AuthError,
     get_user_by_identity,
+    login_with_wechat,
     login_with_mock_wechat,
     login_with_phone,
     send_verification_code,
@@ -55,6 +56,16 @@ def mock_wechat_login():
         if not isinstance(payload, dict):
             raise AuthError("VALIDATION_ERROR", "Request body must be a JSON object", 400)
         data = login_with_mock_wechat(payload, current_app.config)
+        return success_response(data=data, message="ok")
+    except AuthError as error:
+        return handle_auth_error(error)
+
+
+@auth_bp.post("/wechat-login")
+def wechat_login():
+    try:
+        payload = get_json_object()
+        data = login_with_wechat(payload, current_app.config)
         return success_response(data=data, message="ok")
     except AuthError as error:
         return handle_auth_error(error)

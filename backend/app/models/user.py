@@ -13,9 +13,10 @@ class User(db.Model):
 
     id = db.Column(db.BigInteger, primary_key=True)
     phone = db.Column(db.String(20), nullable=True, unique=True, index=True)
-    nickname = db.Column(db.String(50), nullable=False)
+    nickname = db.Column(db.String(50), nullable=True)
     city = db.Column(db.String(50), nullable=True)
     wechat_openid = db.Column(db.String(128), nullable=True, unique=True, index=True)
+    wechat_unionid = db.Column(db.String(128), nullable=True, unique=True, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
