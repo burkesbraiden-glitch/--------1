@@ -78,7 +78,7 @@ describe('FE-R6 full application visual contract', () => {
 
     expect(login).not.toContain('login-page__button-icon">机</text>')
     expect(login).not.toContain('login-page__wechat-icon">微</text>')
-    expect(login).toContain('login-page__button-icon--phone')
+    expect(login).not.toContain('login-page__button-icon--phone')
     expect(login).toContain('login-page__button-icon--chat')
     expect(login).toContain("@click=\"agreed = !agreed\"")
 
@@ -162,8 +162,8 @@ describe('FE-R6 full application visual contract', () => {
     for (const sourceAndMarker of [
       [home, 'async submitPlan()'], [tasks, 'async completeExploration()'], [detail, 'chooseImage()'],
       [detail, 'async completeTask()'], [detail, 'JOURNEY_RECORD_FINALIZED'],
-      [recordDetail, 'confirmFinalizeRecord()'], [login, 'requestCode()'],
-      [login, 'submitPhoneLogin()'], [login, 'submitWechatLogin()'], [profile, 'saveChildProfile()'],
+      [recordDetail, 'confirmFinalizeRecord()'], [login, 'submitWechatLogin()'],
+      [profile, 'saveChildProfile()'],
       [profile, 'endUserSession()'],
     ]) {
       expect(sourceAndMarker[0]).toContain(sourceAndMarker[1])

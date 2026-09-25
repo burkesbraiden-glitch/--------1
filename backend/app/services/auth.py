@@ -4,17 +4,22 @@ import secrets
 from datetime import timedelta
 
 from flask_jwt_extended import create_access_token
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import db
 from app.models import PhoneVerificationCode, User
 from app.services.sms import SMSProviderError, get_sms_provider
+from app.services.wechat import (
+    WechatAuthorizationError,
+    WechatProviderError,
+    WechatProviderResponseError,
+    get_wechat_auth_provider,
+)
 from app.utils.time import utc_now
 from app.utils.validation import is_valid_phone, normalize_phone
 
 
 DEFAULT_PHONE_NICKNAME = "童旅用户"
-DEFAULT_WECHAT_NICKNAME = "微信探索者"
 DEFAULT_MOCK_CODE = "local-dev"
 
 
@@ -48,6 +53,21 @@ def validate_code_payload(payload):
     if len(code) != 6 or not code.isdigit():
         raise AuthError("INVALID_VERIFICATION_CODE", "Invalid verification code", 401)
     return code
+
+
+def validate_wechat_code_payload(payload):
+    code = payload.get("code")
+    if not isinstance(code, str) or not code.strip():
+        raise AuthError("VALIDATION_ERROR", "code is required", 400)
+    code = code.strip()
+    if len(code) > 2048:
+        raise AuthError("VALIDATION_ERROR", "code is invalid", 400)
+    return code
+
+
+def ensure_phone_auth_is_not_production_enabled(config):
+    if config["APP_ENV"] == "production":
+        raise AuthError("FEATURE_DISABLED", "Feature disabled", 403)
 
 
 def fixed_code_for_config(config):
@@ -120,36 +140,12 @@ def _verify_production_code(phone, code, config):
 
 
 def send_verification_code(payload, config):
+    ensure_phone_auth_is_not_production_enabled(config)
     phone = validate_phone_payload(payload)
-    if config["APP_ENV"] != "production":
-        if not fixed_code_for_config(config):
-            raise AuthError("SMS_NOT_CONFIGURED", "SMS service not configured", 503)
-        return {"cooldownSeconds": 60}
+    if not fixed_code_for_config(config):
+        raise AuthError("SMS_NOT_CONFIGURED", "SMS service not configured", 503)
+    return {"cooldownSeconds": 60}
 
-    now = utc_now()
-    record = db.session.get(PhoneVerificationCode, phone)
-    cooldown_seconds = config["SMS_SEND_COOLDOWN_SECONDS"]
-    if record is not None and now < record.sent_at + timedelta(seconds=cooldown_seconds):
-        raise AuthError("SMS_COOLDOWN", "Please wait before requesting another code", 429)
-
-    code = generate_verification_code()
-    try:
-        get_sms_provider(config).send_verification_code(phone, code)
-    except SMSProviderError:
-        raise AuthError("SMS_PROVIDER_UNAVAILABLE", "SMS provider is temporarily unavailable", 503)
-
-    expires_at = now + timedelta(seconds=config["SMS_CODE_TTL_SECONDS"])
-    if record is None:
-        record = PhoneVerificationCode(phone=phone)
-        db.session.add(record)
-    record.code_hash = verification_code_hash(phone, code, config)
-    record.sent_at = now
-    record.expires_at = expires_at
-    record.failed_attempts = 0
-    record.consumed_at = None
-    _commit_or_raise_database_error()
-
-    return {"cooldownSeconds": cooldown_seconds}
 
 
 def serialize_user(user):
@@ -171,6 +167,7 @@ def token_payload_for_user(user, config):
 
 
 def login_with_phone(payload, config):
+    ensure_phone_auth_is_not_production_enabled(config)
     phone = validate_phone_payload(payload)
     code = validate_code_payload(payload)
     fixed_code = fixed_code_for_config(config)
@@ -179,8 +176,7 @@ def login_with_phone(payload, config):
             raise AuthError("INVALID_VERIFICATION_CODE", "Invalid verification code", 401)
         return _login_phone_user(phone, config)
 
-    verification_record = _verify_production_code(phone, code, config)
-    return _login_phone_user(phone, config, verification_record)
+    raise AuthError("SMS_NOT_CONFIGURED", "SMS service not configured", 503)
 
 
 def mock_openid_from_code(mock_code):
@@ -199,10 +195,69 @@ def login_with_mock_wechat(payload, config):
     try:
         user = User.query.filter_by(wechat_openid=openid).first()
         if user is None:
-            user = User(wechat_openid=openid, nickname=DEFAULT_WECHAT_NICKNAME)
+            user = User(wechat_openid=openid, nickname=None)
             db.session.add(user)
             db.session.commit()
         return token_payload_for_user(user, config)
+    except SQLAlchemyError:
+        db.session.rollback()
+        raise AuthError("DATABASE_ERROR", "Database error", 500)
+
+
+def login_with_wechat(payload, config):
+    code = validate_wechat_code_payload(payload)
+    try:
+        identity = get_wechat_auth_provider(config).exchange_code(code)
+    except WechatAuthorizationError:
+        raise AuthError("WECHAT_AUTHORIZATION_FAILED", "Wechat authorization failed", 401)
+    except WechatProviderResponseError:
+        raise AuthError("WECHAT_PROVIDER_RESPONSE_INVALID", "Wechat provider response is invalid", 502)
+    except (WechatProviderError, TimeoutError, OSError):
+        raise AuthError("WECHAT_PROVIDER_UNAVAILABLE", "Wechat provider is temporarily unavailable", 503)
+    except Exception:
+        raise AuthError("WECHAT_AUTHORIZATION_FAILED", "Wechat authorization failed", 401)
+
+    openid = getattr(identity, "openid", None)
+    unionid = getattr(identity, "unionid", None)
+    if not isinstance(openid, str) or not openid.strip():
+        raise AuthError("WECHAT_PROVIDER_RESPONSE_INVALID", "Wechat provider response is invalid", 502)
+    openid = openid.strip()
+    unionid = unionid.strip() if isinstance(unionid, str) and unionid.strip() else None
+    if len(openid) > 128 or (unionid is not None and len(unionid) > 128):
+        raise AuthError("WECHAT_PROVIDER_RESPONSE_INVALID", "Wechat provider response is invalid", 502)
+
+    return _login_wechat_identity(openid, unionid, config)
+
+
+def _login_wechat_identity(openid, unionid, config):
+    try:
+        user_by_unionid = User.query.filter_by(wechat_unionid=unionid).first() if unionid else None
+        user_by_openid = User.query.filter_by(wechat_openid=openid).first()
+        if user_by_unionid and user_by_openid and user_by_unionid.id != user_by_openid.id:
+            raise AuthError("WECHAT_IDENTITY_CONFLICT", "Wechat identity conflict", 409)
+
+        user = user_by_unionid or user_by_openid
+        if user is None:
+            user = User(wechat_openid=openid, wechat_unionid=unionid, nickname=None)
+            db.session.add(user)
+        else:
+            if unionid and not user.wechat_unionid:
+                user.wechat_unionid = unionid
+            if user.wechat_openid != openid:
+                user.wechat_openid = openid
+
+        db.session.commit()
+        return token_payload_for_user(user, config)
+    except AuthError:
+        db.session.rollback()
+        raise
+    except IntegrityError:
+        db.session.rollback()
+        user = User.query.filter_by(wechat_unionid=unionid).first() if unionid else None
+        user = user or User.query.filter_by(wechat_openid=openid).first()
+        if user is not None:
+            return token_payload_for_user(user, config)
+        raise AuthError("DATABASE_ERROR", "Database error", 500)
     except SQLAlchemyError:
         db.session.rollback()
         raise AuthError("DATABASE_ERROR", "Database error", 500)

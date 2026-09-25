@@ -20,27 +20,7 @@
     </view>
 
     <view class="login-page__form">
-      <view class="login-page__field">
-        <text class="login-page__field-label">手机号码</text>
-        <input v-model="phone" type="number" maxlength="11" placeholder="请输入手机号码" />
-      </view>
-
-      <view class="login-page__field login-page__field--code">
-        <view class="login-page__code-input">
-          <text class="login-page__field-label">验证码</text>
-          <input v-model="code" type="number" maxlength="6" placeholder="请输入验证码" />
-        </view>
-        <button class="login-page__code-button" :disabled="countdown > 0 || isSendingCode" @click="requestCode">
-          {{ countdown > 0 ? `${countdown}s` : isSendingCode ? '发送中' : '获取验证码' }}
-        </button>
-      </view>
-
-      <button class="login-page__primary" :disabled="isPhoneLoggingIn" @click="submitPhoneLogin">
-        <view class="login-page__button-icon login-page__button-icon--phone" aria-hidden="true"></view>
-        <text>{{ isPhoneLoggingIn ? '登录中' : '手机号登录' }}</text>
-      </button>
-
-      <button v-if="isMockWechatLoginEnabled" class="login-page__wechat" :disabled="isWechatLoggingIn" @click="submitWechatLogin">
+      <button class="login-page__wechat" :disabled="isWechatLoggingIn" @click="submitWechatLogin">
         <view class="login-page__button-icon login-page__button-icon--chat" aria-hidden="true"></view>
         <text>{{ isWechatLoggingIn ? '登录中' : '微信登录' }}</text>
       </button>
@@ -74,6 +54,7 @@
 <script>
 import AppTabbar from '../../components/AppTabbar.vue'
 import { isMockWechatLoginEnabled } from '../../config/authCapabilities.js'
+import { requestWechatAuthorizationCode } from '../../services/wechatAuth.js'
 import { useUserStore } from '../../stores/user'
 
 export default {
@@ -83,13 +64,7 @@ export default {
   data() {
     return {
       isMockWechatLoginEnabled,
-      phone: '',
-      code: '',
       agreed: false,
-      countdown: 0,
-      countdownTimer: null,
-      isSendingCode: false,
-      isPhoneLoggingIn: false,
       isWechatLoggingIn: false,
       values: [
         { title: '同步探索计划', desc: '随时查看和继续探索', icon: 'plan' },
@@ -111,90 +86,19 @@ export default {
       })
     }
   },
-  onUnload() {
-    this.clearCountdown()
-  },
-  beforeUnmount() {
-    this.clearCountdown()
-  },
   methods: {
     mapAuthError(error) {
       const messages = {
         NETWORK_ERROR: '无法连接服务器，请确认后端已启动',
         VALIDATION_ERROR: '请检查输入信息',
-        INVALID_PHONE: '手机号格式不正确',
-        INVALID_VERIFICATION_CODE: '验证码不正确',
-        SMS_NOT_CONFIGURED: '短信服务暂未配置',
-        SMS_PROVIDER_UNAVAILABLE: '短信服务暂不可用，请稍后重试',
-        SMS_COOLDOWN: '请求过于频繁，请稍后再试',
-        VERIFICATION_CODE_EXPIRED: '验证码已过期，请重新获取',
-        VERIFICATION_CODE_ATTEMPTS_EXCEEDED: '验证码尝试次数过多，请重新获取',
+        WECHAT_LOGIN_UNAVAILABLE: '微信登录暂不可用',
+        WECHAT_AUTHORIZATION_CANCELLED: '已取消微信授权',
+        WECHAT_AUTHORIZATION_FAILED: '微信授权已失效，请重新登录',
+        WECHAT_PROVIDER_UNAVAILABLE: '微信登录服务暂不可用，请稍后重试',
+        WECHAT_PROVIDER_RESPONSE_INVALID: '微信登录服务响应异常，请稍后重试',
         UNAUTHORIZED: '登录状态已失效，请重新登录',
       }
       return messages[error?.code] || error?.message || '操作失败，请稍后再试'
-    },
-    validatePhoneOnly() {
-      const phone = this.phone.trim()
-      if (!phone) {
-        uni.showToast({
-          title: '请输入手机号码',
-          icon: 'none',
-        })
-        return false
-      }
-
-      if (!/^1[3-9]\d{9}$/.test(phone)) {
-        uni.showToast({
-          title: '手机号格式不正确',
-          icon: 'none',
-        })
-        return false
-      }
-
-      return true
-    },
-    async requestCode() {
-      if (this.countdown > 0 || this.isSendingCode) {
-        return
-      }
-
-      if (!this.validatePhoneOnly()) {
-        return
-      }
-
-      this.isSendingCode = true
-      try {
-        const data = await this.user.requestLoginCode(this.phone.trim())
-        this.countdown = data.cooldownSeconds || 60
-        this.clearCountdown()
-        this.countdownTimer = setInterval(() => {
-          this.countdown -= 1
-          if (this.countdown <= 0) {
-            this.clearCountdown()
-          }
-        }, 1000)
-
-        uni.showToast({
-          title: '验证码已发送',
-          icon: 'none',
-        })
-      } catch (error) {
-        uni.showToast({
-          title: this.mapAuthError(error),
-          icon: 'none',
-        })
-      } finally {
-        this.isSendingCode = false
-      }
-    },
-    clearCountdown() {
-      if (this.countdownTimer) {
-        clearInterval(this.countdownTimer)
-        this.countdownTimer = null
-      }
-      if (this.countdown < 0) {
-        this.countdown = 0
-      }
     },
     validateAgreement() {
       if (!this.agreed) {
@@ -207,46 +111,10 @@ export default {
 
       return true
     },
-    validatePhoneLogin() {
-      const phone = this.phone.trim()
-      const code = this.code.trim()
-
-      if (!this.validatePhoneOnly()) {
-        return false
-      }
-
-      if (!code) {
-        uni.showToast({
-          title: '请输入验证码',
-          icon: 'none',
-        })
-        return false
-      }
-
-      return this.validateAgreement()
-    },
     goProfile() {
       uni.reLaunch({
         url: '/pages/profile/index',
       })
-    },
-    async submitPhoneLogin() {
-      if (this.isPhoneLoggingIn || !this.validatePhoneLogin()) {
-        return
-      }
-
-      this.isPhoneLoggingIn = true
-      try {
-        await this.user.loginWithPhone(this.phone.trim(), this.code.trim())
-        this.goProfile()
-      } catch (error) {
-        uni.showToast({
-          title: this.mapAuthError(error),
-          icon: 'none',
-        })
-      } finally {
-        this.isPhoneLoggingIn = false
-      }
     },
     async submitWechatLogin() {
       if (this.isWechatLoggingIn || !this.validateAgreement()) {
@@ -255,7 +123,12 @@ export default {
 
       this.isWechatLoggingIn = true
       try {
-        await this.user.loginWithWechat('tonglvji-h5-dev')
+        if (this.isMockWechatLoginEnabled) {
+          await this.user.loginWithMockWechat('tonglvji-h5-dev')
+        } else {
+          const code = await requestWechatAuthorizationCode()
+          await this.user.loginWithWechat(code)
+        }
         this.goProfile()
       } catch (error) {
         uni.showToast({
@@ -373,57 +246,6 @@ export default {
   margin-top: 30rpx;
 }
 
-.login-page__field {
-  box-sizing: border-box;
-  min-height: 94rpx;
-  padding: 14rpx 26rpx;
-  margin-bottom: 18rpx;
-  background: rgba(255, 250, 240, 0.9);
-  border: 2rpx solid rgba(190, 142, 78, 0.3);
-  border-radius: 999rpx;
-}
-
-.login-page__field--code {
-  display: flex;
-  gap: 14rpx;
-  align-items: center;
-  padding-right: 14rpx;
-}
-
-.login-page__code-input {
-  flex: 1;
-  min-width: 0;
-}
-
-.login-page__field-label {
-  display: block;
-  margin-bottom: 2rpx;
-  font-size: 20rpx;
-  font-weight: 800;
-  color: #8a6d54;
-}
-
-.login-page__field input {
-  height: 42rpx;
-  font-size: 28rpx;
-  color: #4a2f1b;
-}
-
-.login-page__code-button {
-  width: 166rpx;
-  height: 66rpx;
-  font-size: 23rpx;
-  color: #d94b12;
-  background: #fff0bd;
-  border-radius: 999rpx;
-}
-
-.login-page__code-button[disabled] {
-  color: #8a6d54;
-  background: #eadcc8;
-}
-
-.login-page__primary,
 .login-page__wechat {
   display: flex;
   align-items: center;
@@ -437,16 +259,10 @@ export default {
   border-radius: 999rpx;
 }
 
-.login-page__primary {
+.login-page__wechat {
   color: #fff;
   background: #f26a21;
   box-shadow: 0 12rpx 24rpx rgba(242, 106, 33, 0.2);
-}
-
-.login-page__wechat {
-  color: #4a2f1b;
-  background: rgba(255, 250, 240, 0.84);
-  border: 2rpx solid rgba(190, 142, 78, 0.32);
 }
 
 .login-page__button-icon {
@@ -466,21 +282,6 @@ export default {
   position: absolute;
   box-sizing: border-box;
   content: '';
-}
-
-.login-page__button-icon--phone::before {
-  inset: 2rpx 7rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 7rpx;
-}
-
-.login-page__button-icon--phone::after {
-  bottom: 5rpx;
-  left: 13rpx;
-  width: 4rpx;
-  height: 4rpx;
-  background: currentColor;
-  border-radius: 50%;
 }
 
 .login-page__button-icon--chat::before {
@@ -776,12 +577,7 @@ export default {
   padding: 6rpx 0 0;
 }
 
-.login-page__field {
-  border-color: rgba(190, 142, 78, 0.38);
-  box-shadow: 0 8rpx 18rpx rgba(97, 63, 28, 0.05);
-}
-
-.login-page__primary {
+.login-page__wechat {
   box-shadow: 0 14rpx 24rpx rgba(217, 75, 18, 0.24);
 }
 

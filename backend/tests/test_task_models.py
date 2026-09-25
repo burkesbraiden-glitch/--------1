@@ -170,6 +170,7 @@ def test_existing_business_model_fields_are_unchanged():
         "nickname",
         "city",
         "wechat_openid",
+        "wechat_unionid",
         "created_at",
         "updated_at",
     }

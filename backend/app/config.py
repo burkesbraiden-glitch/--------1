@@ -34,7 +34,7 @@ def validate_production_config(config):
             raise RuntimeError(f"Invalid production configuration: {field_name}")
 
     validate_production_audio_config(config)
-    validate_production_sms_config(config)
+    validate_production_wechat_config(config)
 
 
 def validate_production_audio_config(config):
@@ -63,7 +63,7 @@ def validate_production_audio_config(config):
             raise RuntimeError(f"Invalid production audio configuration: {field_name}")
 
 
-def validate_production_sms_config(config):
+def validate_production_wechat_config(config):
     if config.get("APP_ENV") != "production":
         return
 
@@ -71,28 +71,25 @@ def validate_production_sms_config(config):
         value = config.get(field_name)
         return value.strip() if isinstance(value, str) else ""
 
-    if normalized("SMS_PROVIDER").casefold() != "http":
-        raise RuntimeError("Invalid production configuration: SMS_PROVIDER")
+    if normalized("AUTH_LOGIN_MODE").casefold() != "wechat_only":
+        raise RuntimeError("Invalid production configuration: AUTH_LOGIN_MODE")
 
     for field_name in (
-        "SMS_HTTP_ENDPOINT",
-        "SMS_HTTP_TOKEN",
-        "SMS_TEMPLATE_ID",
-        "SMS_VERIFICATION_SECRET",
+        "WECHAT_APP_ID",
+        "WECHAT_APP_SECRET",
     ):
         value = normalized(field_name)
-        if not value or (field_name == "SMS_VERIFICATION_SECRET" and len(value) < _MINIMUM_PRODUCTION_SECRET_LENGTH):
+        if (
+            not value
+            or value.casefold() in _PRODUCTION_SECRET_PLACEHOLDERS
+            or "replace" in value.casefold()
+            or "changeme" in value.casefold()
+        ):
             raise RuntimeError(f"Invalid production configuration: {field_name}")
 
-    for field_name, minimum in (
-        ("SMS_TIMEOUT_SECONDS", 1),
-        ("SMS_CODE_TTL_SECONDS", 60),
-        ("SMS_SEND_COOLDOWN_SECONDS", 30),
-        ("SMS_MAX_VERIFY_ATTEMPTS", 1),
-    ):
-        value = config.get(field_name)
-        if not isinstance(value, int) or value < minimum:
-            raise RuntimeError(f"Invalid production configuration: {field_name}")
+    value = config.get("WECHAT_TIMEOUT_SECONDS")
+    if not isinstance(value, int) or value < 1:
+        raise RuntimeError("Invalid production configuration: WECHAT_TIMEOUT_SECONDS")
 
 
 class BaseConfig:
@@ -136,6 +133,10 @@ class BaseConfig:
     R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
     R2_BUCKET = os.getenv("R2_BUCKET", "")
     AUDIO_SIGNED_URL_TTL_SECONDS = int(os.getenv("AUDIO_SIGNED_URL_TTL_SECONDS", "300"))
+    AUTH_LOGIN_MODE = os.getenv("AUTH_LOGIN_MODE", "wechat_only")
+    WECHAT_APP_ID = os.getenv("WECHAT_APP_ID", "")
+    WECHAT_APP_SECRET = os.getenv("WECHAT_APP_SECRET", "")
+    WECHAT_TIMEOUT_SECONDS = int(os.getenv("WECHAT_TIMEOUT_SECONDS", "10"))
     SMS_PROVIDER = os.getenv("SMS_PROVIDER", "unconfigured")
     SMS_HTTP_ENDPOINT = os.getenv("SMS_HTTP_ENDPOINT", "")
     SMS_HTTP_TOKEN = os.getenv("SMS_HTTP_TOKEN", "")

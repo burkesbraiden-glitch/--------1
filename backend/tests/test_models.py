@@ -33,7 +33,10 @@ def test_user_columns_and_login_constraints():
     assert table.c.wechat_openid.nullable is True
     assert table.c.wechat_openid.unique is True
     assert table.c.wechat_openid.index is True
-    assert table.c.nickname.nullable is False
+    assert table.c.wechat_unionid.nullable is True
+    assert table.c.wechat_unionid.unique is True
+    assert table.c.wechat_unionid.index is True
+    assert table.c.nickname.nullable is True
     assert table.c.city.nullable is True
     assert table.c.created_at.nullable is False
     assert table.c.updated_at.nullable is False
