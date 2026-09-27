@@ -42,8 +42,7 @@ const recordLoadRecords = methodFrom(recordSource, 'loadRecords', {
   isAuthenticationError: () => false,
 })
 const recordRetryRecords = methodFrom(recordSource, 'retryRecords')
-const openPlanSheet = methodFrom(homeSource, 'openPlanSheet')
-const submitPlan = methodFrom(homeSource, 'submitPlan')
+const goToRoutePlanning = methodFrom(homeSource, 'goToRoutePlanning')
 const openPlanGenerationSheet = methodFrom(routeDetailSource, 'openPlanGenerationSheet')
 const submitPlanGeneration = methodFrom(routeDetailSource, 'submitPlanGeneration', {
   isAuthenticationError: () => false,
@@ -74,44 +73,6 @@ function recordContext({ activeChild = childB, currentChild = childA } = {}) {
       userInfo: { id: 8303 },
     },
   }
-}
-
-function homeContext(activeChild = childB) {
-  const context = {
-    child: {
-      activeChild,
-      currentChild: childA,
-      hasRemoteChild: true,
-      fetchChildren: vi.fn().mockResolvedValue({}),
-      setAgeGroup: vi.fn(),
-    },
-    isCreatingPlan: false,
-    plan: { createPlan: vi.fn().mockResolvedValue({ id: 7001 }) },
-    planErrorMessage: vi.fn(() => '创建失败'),
-    planForm: {
-      title: '',
-      destination: '西安城墙',
-      ageGroup: activeChild?.ageGroup || '3-6',
-      duration: '2小时',
-      interests: activeChild ? [...activeChild.interests] : ['博物馆'],
-    },
-    planSheetOpen: true,
-    searchKeyword: '',
-    showToast: vi.fn(),
-    handleAuthExpired: vi.fn(),
-    user: {
-      isAuthReady: true,
-      isLoggedIn: true,
-      isRestoring: false,
-      userInfo: { id: 8303 },
-    },
-  }
-  Object.defineProperty(context, 'activeChild', {
-    get() {
-      return context.child.activeChild
-    },
-  })
-  return context
 }
 
 function routeContext() {
@@ -162,37 +123,18 @@ describe('P8.3C3 active-child safe consumers', () => {
     expect(context.recordStore.loadJourneyRecords).not.toHaveBeenCalled()
   })
 
-  test('Home opens a new-plan form from the current active Child context', () => {
-    const context = homeContext(childA)
-
-    openPlanSheet.call(context)
-    expect(context.planForm).toMatchObject({ ageGroup: childA.ageGroup, interests: childA.interests })
-
-    context.child.activeChild = childB
-    openPlanSheet.call(context)
-
-    expect(context.planForm).toMatchObject({ ageGroup: childB.ageGroup, interests: childB.interests })
-  })
-
-  test('Home creates a new Plan with active Child ID and active context', async () => {
-    const context = homeContext(childB)
-
-    await submitPlan.call(context)
-
-    expect(context.plan.createPlan).toHaveBeenCalledWith(expect.objectContaining({
-      childId: childB.id,
-      ageGroup: childB.ageGroup,
-      interests: childB.interests,
-    }), 8303)
-  })
-
-  test('Home does not create a Plan when no active Child exists', async () => {
-    const context = homeContext(null)
-
-    await submitPlan.call(context)
-
-    expect(context.plan.createPlan).not.toHaveBeenCalled()
-    expect(context.showToast).toHaveBeenCalledWith('请先完善孩子档案')
+  test('Home sends its primary flow to Route planning instead of creating a Plan from child context', () => {
+    const originalUni = globalThis.uni
+    const reLaunch = vi.fn()
+    globalThis.uni = { reLaunch }
+    try {
+      goToRoutePlanning.call({})
+      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/route/index' })
+    } finally {
+      globalThis.uni = originalUni
+    }
+    expect(homeSource).not.toContain('createPlan(')
+    expect(homeSource).not.toContain('planForm')
   })
 
   test('Home AudioGuideSheet stays bound to its explicit existing plan ID', () => {

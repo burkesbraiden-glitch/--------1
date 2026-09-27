@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest'
 const workspaceRoot = resolve(process.cwd(), '..')
 const routeDetailPath = resolve(workspaceRoot, 'frontend', 'src', 'pages', 'route-detail', 'index.vue')
 const source = readFileSync(routeDetailPath, 'utf8')
-const generationSubmitSource = source.match(/async submitPlanGeneration\(\) \{[\s\S]*?\n    \},\n    async submitRouteEdit/)?.[0] || ''
+const generationSubmitSource = source.match(/async submitPlanGeneration\(\) \{[\s\S]*?\n    \},\n    openGeneratedPlans/)?.[0] || ''
 
 describe('P7E-6 Route Detail exploration-plan generation UI', () => {
   test('places an exploration-plan section and sheet between route actions and daily notes', () => {
@@ -51,13 +51,16 @@ describe('P7E-6 Route Detail exploration-plan generation UI', () => {
     expect(generationSubmitSource).not.toContain('attractionId')
   })
 
-  test('shows only this sheet run results in backend order without automatic navigation', () => {
+  test('shows this sheet run results in backend order and lets the parent explicitly open Explore', () => {
     expect(source).toContain('hasSubmittedGeneration')
     expect(source).toContain('generationDisplayResults')
     expect(source).toContain("created: '已生成'")
     expect(source).toContain("existing: '已存在'")
     expect(source).toContain('result.routeStopId')
-    expect(source).not.toContain("/pages/plan/index")
+    expect(source).toContain('查看探索计划')
+    expect(source).toContain('openGeneratedPlans()')
+    expect(source).toContain("uni.reLaunch({ url: '/pages/plan/index' })")
+    expect(generationSubmitSource).not.toContain('uni.reLaunch')
     expect(source).not.toContain("/pages/explore/index")
   })
 

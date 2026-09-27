@@ -32,7 +32,7 @@
             v-for="option in ageOptions"
             :key="option.value"
             class="home-age__item"
-            :class="{ 'home-age__item--active': planForm.ageGroup === option.value }"
+            :class="{ 'home-age__item--active': selectedAgeGroup === option.value }"
             @click="selectAge(option.value)"
           >
             {{ option.label }}
@@ -59,8 +59,8 @@
               </view>
             </view>
 
-            <view class="home-hero__cta" @click="openPlanSheet">
-              <text>创建探索计划</text>
+            <view class="home-hero__cta" @click="goToRoutePlanning">
+              <text>规划亲子路线</text>
               <view class="home-hero__cta-arrow" aria-hidden="true"></view>
             </view>
           </view>
@@ -122,67 +122,6 @@
       </view>
     </view>
 
-    <view v-if="planSheetOpen" class="plan-sheet">
-      <view class="plan-sheet__mask" @click="closePlanSheet"></view>
-      <view class="plan-sheet__panel">
-        <view class="plan-sheet__handle"></view>
-        <view class="plan-sheet__header">
-          <view>
-            <text class="plan-sheet__title">创建探索计划</text>
-            <text class="plan-sheet__subtitle">填写信息，生成一份探索计划</text>
-          </view>
-          <view class="plan-sheet__close" @click="closePlanSheet">关闭</view>
-        </view>
-
-        <view class="plan-sheet__field">
-          <text class="plan-sheet__label">目的地</text>
-          <input v-model="planForm.destination" />
-        </view>
-
-        <view class="plan-sheet__field">
-          <text class="plan-sheet__label">计划标题（选填）</text>
-          <input v-model="planForm.title" maxlength="120" placeholder="给这次探索起个名字" />
-        </view>
-
-        <view class="plan-sheet__field">
-          <text class="plan-sheet__label">孩子年龄</text>
-          <view class="plan-sheet__age-list">
-            <view
-              v-for="option in ageOptions"
-              :key="option.value"
-              class="plan-sheet__age"
-              :class="{ 'plan-sheet__age--active': planForm.ageGroup === option.value }"
-              @click="planForm.ageGroup = option.value"
-            >
-              {{ option.label }}
-            </view>
-          </view>
-        </view>
-
-        <view class="plan-sheet__field">
-          <text class="plan-sheet__label">预计时间</text>
-          <input v-model="planForm.duration" />
-        </view>
-
-        <view class="plan-sheet__field">
-          <text class="plan-sheet__label">兴趣主题</text>
-          <view class="plan-sheet__interests">
-            <view
-              v-for="interest in interestOptions"
-              :key="interest"
-              class="plan-sheet__interest"
-              :class="{ 'plan-sheet__interest--active': planForm.interests.includes(interest) }"
-              @click="toggleInterest(interest)"
-            >
-              {{ interest }}
-            </view>
-          </view>
-        </view>
-
-        <view class="plan-sheet__submit" @click="submitPlan">{{ isCreatingPlan ? '生成中' : '生成探索计划' }}</view>
-      </view>
-    </view>
-
     <AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />
     <AppTabbar active="home" />
   </view>
@@ -191,9 +130,6 @@
 <script>
 import AudioGuideSheet from '../../components/AudioGuideSheet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
-import { useChildStore } from '../../stores/child'
-import { usePlanStore } from '../../stores/plan'
-import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
 import { endUserSession } from '../../utils/sessionBoundary'
 import entryPlanMap from '../../assets/home/home-entry-plan-map.webp'
@@ -211,30 +147,21 @@ export default {
   data() {
     return {
       searchKeyword: '',
-      planSheetOpen: false,
+      selectedAgeGroup: '7-12',
       audioGuideOpen: false,
       audioGuidePlanId: null,
       isOpeningAudioGuide: false,
-      isCreatingPlan: false,
       ageOptions: [
         { value: '3-6', label: '3-6岁' },
         { value: '7-12', label: '7-12岁' },
       ],
-      interestOptions: ['古代生活', '建筑礼仪', '观察表达'],
-      planForm: {
-        title: '',
-        destination: '故宫博物院',
-        ageGroup: '7-12',
-        duration: '3小时',
-        interests: ['古代生活', '建筑礼仪', '观察表达'],
-      },
       entries: [
         {
-          title: '探索计划',
-          desc: '规划行程与学习',
+          title: '路线规划',
+          desc: '安排景点与行程',
           theme: 'green',
           art: entryPlanMap,
-          path: '/pages/plan/index',
+          path: '/pages/route/index',
           method: 'reLaunch',
         },
         {
@@ -275,57 +202,13 @@ export default {
       ],
     }
   },
-  computed: {
-    activeChild() {
-      return this.child.activeChild
-    },
-    child() {
-      return useChildStore()
-    },
-    plan() {
-      return usePlanStore()
-    },
-    user() {
-      return useUserStore()
-    },
-  },
-  onShow() {
-    this.planForm.ageGroup = this.activeChild?.ageGroup || '7-12'
-  },
   methods: {
     noop() {},
-    formatAgeGroup(ageGroup) {
-      const option = this.ageOptions.find((item) => item.value === ageGroup)
-      return option ? option.label : ageGroup
-    },
     selectAge(ageGroup) {
-      this.planForm.ageGroup = ageGroup
+      this.selectedAgeGroup = ageGroup
     },
-    openPlanSheet() {
-      const activeChild = this.activeChild
-      this.planForm = {
-        title: '',
-        destination: this.searchKeyword.trim() || '故宫博物院',
-        ageGroup: activeChild?.ageGroup || '7-12',
-        duration: '3小时',
-        interests: activeChild?.interests?.length
-          ? [...activeChild.interests]
-          : ['古代生活', '建筑礼仪', '观察表达'],
-      }
-      this.planSheetOpen = true
-    },
-    closePlanSheet() {
-      this.planSheetOpen = false
-    },
-    toggleInterest(interest) {
-      if (this.planForm.interests.includes(interest)) {
-        if (this.planForm.interests.length === 1) {
-          return
-        }
-        this.planForm.interests = this.planForm.interests.filter((item) => item !== interest)
-        return
-      }
-      this.planForm.interests = [...this.planForm.interests, interest]
+    goToRoutePlanning() {
+      uni.reLaunch({ url: '/pages/route/index' })
     },
     showToast(title) {
       uni.showToast({
@@ -333,84 +216,8 @@ export default {
         icon: 'none',
       })
     },
-    planErrorMessage(error) {
-      const messages = {
-        NETWORK_ERROR: '无法连接服务器，请稍后重试',
-        UNAUTHORIZED: '登录状态已失效，请重新登录',
-        TOKEN_EXPIRED: '登录状态已失效，请重新登录',
-        INVALID_TOKEN: '登录状态已失效，请重新登录',
-        CHILD_REQUIRED: '请先完善孩子档案',
-        CHILD_NOT_FOUND: '请先完善孩子档案',
-        VALIDATION_ERROR: '请检查探索计划信息',
-      }
-      return messages[error?.code] || error?.message || '创建失败，请稍后重试'
-    },
     async handleAuthExpired() {
       await endUserSession()
-    },
-    async submitPlan() {
-      if (this.isCreatingPlan) {
-        return
-      }
-
-      this.isCreatingPlan = true
-      try {
-        if (!this.user.isAuthReady || this.user.isRestoring) {
-          await this.user.restoreSession()
-        }
-
-        if (!this.user.isLoggedIn) {
-          this.showToast('登录后才能创建探索计划')
-          uni.reLaunch({
-            url: '/pages/login/index',
-          })
-          return
-        }
-
-        await this.child.fetchChildren(this.user.userInfo.id)
-        const activeChild = this.child.activeChild
-        if (!this.child.hasRemoteChild || !activeChild) {
-          this.showToast('请先完善孩子档案')
-          uni.reLaunch({
-            url: '/pages/profile/index',
-          })
-          return
-        }
-
-        if (this.planForm.ageGroup !== activeChild.ageGroup) {
-          this.showToast(`当前孩子年龄组为 ${activeChild.ageGroup} 岁，请调整年龄选择或修改孩子档案`)
-          return
-        }
-
-        const normalizedTitle = this.planForm.title.trim()
-        const payload = {
-          destination: this.planForm.destination.trim() || '故宫博物院',
-          duration: this.planForm.duration.trim() || '3小时',
-          interests: [...this.planForm.interests],
-          childId: activeChild.id,
-          ageGroup: activeChild.ageGroup,
-        }
-        if (normalizedTitle) {
-          payload.title = normalizedTitle
-        }
-        const createdPlan = await this.plan.createPlan(
-          payload,
-          this.user.userInfo.id,
-        )
-        this.planSheetOpen = false
-
-        uni.reLaunch({
-          url: '/pages/plan/index',
-        })
-      } catch (error) {
-        if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
-          await this.handleAuthExpired()
-          return
-        }
-        this.showToast(this.planErrorMessage(error))
-      } finally {
-        this.isCreatingPlan = false
-      }
     },
     async openAudioGuide() {
       if (this.isOpeningAudioGuide) {
@@ -752,143 +559,6 @@ export default {
   color: #5f4937;
 }
 
-.plan-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-}
-
-.plan-sheet__mask {
-  position: absolute;
-  inset: 0;
-  background: rgba(74, 47, 27, 0.3);
-}
-
-.plan-sheet__panel {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  max-width: 430px;
-  margin: 0 auto;
-  padding: 18rpx 32rpx calc(30rpx + env(safe-area-inset-bottom));
-  background: #fff7e8;
-  border: 3rpx solid rgba(190, 142, 78, 0.36);
-  border-radius: 36rpx 36rpx 0 0;
-  box-shadow: 0 -18rpx 36rpx rgba(74, 47, 27, 0.14);
-}
-
-.plan-sheet__handle {
-  width: 84rpx;
-  height: 8rpx;
-  margin: 0 auto 22rpx;
-  background: rgba(138, 109, 84, 0.35);
-  border-radius: 999rpx;
-}
-
-.plan-sheet__header {
-  display: flex;
-  gap: 20rpx;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 24rpx;
-}
-
-.plan-sheet__title {
-  display: block;
-  font-size: 36rpx;
-  font-weight: 900;
-  color: #4a2f1b;
-}
-
-.plan-sheet__subtitle {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  line-height: 1.4;
-  color: #8a6d54;
-}
-
-.plan-sheet__close {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  height: 56rpx;
-  padding: 0 20rpx;
-  font-size: 24rpx;
-  color: #8a6d54;
-  border: 2rpx solid rgba(190, 142, 78, 0.32);
-  border-radius: 999rpx;
-}
-
-.plan-sheet__field {
-  margin-bottom: 20rpx;
-}
-
-.plan-sheet__label {
-  display: block;
-  margin-bottom: 10rpx;
-  font-size: 25rpx;
-  font-weight: 800;
-  color: #5e3c22;
-}
-
-.plan-sheet__field input {
-  width: 100%;
-  height: 72rpx;
-  padding: 0 22rpx;
-  font-size: 28rpx;
-  color: #4a2f1b;
-  background: #fffaf0;
-  border: 2rpx solid rgba(190, 142, 78, 0.28);
-  border-radius: 20rpx;
-}
-
-.plan-sheet__age-list,
-.plan-sheet__interests {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14rpx;
-}
-
-.plan-sheet__age,
-.plan-sheet__interest {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 62rpx;
-  padding: 0 22rpx;
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #6b482d;
-  background: #f6dfaf;
-  border: 2rpx solid rgba(190, 142, 78, 0.26);
-  border-radius: 999rpx;
-}
-
-.plan-sheet__age--active,
-.plan-sheet__interest--active {
-  color: #fff;
-  background: #f26a21;
-  border-color: #f26a21;
-}
-
-.plan-sheet__submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 82rpx;
-  margin-top: 8rpx;
-  font-size: 30rpx;
-  font-weight: 900;
-  color: #fff;
-  background: #f26a21;
-  border-radius: 26rpx;
-  box-shadow: 0 12rpx 18rpx rgba(217, 75, 18, 0.2);
-}
-
 @media (max-width: 360px) {
   .home-page__paper {
     padding-right: 24rpx;
@@ -1028,9 +698,6 @@ export default {
     font-size: 12px;
   }
 
-  .plan-sheet__panel {
-    padding: 12px 18px calc(18px + env(safe-area-inset-bottom));
-  }
 }
 
 /* FE-R5B Stage A: local picture-book visual layer. */
@@ -1238,8 +905,7 @@ export default {
 
 .home-age__item:active,
 .home-hero__cta:active,
-.home-entry:active,
-.plan-sheet__submit:active {
+.home-entry:active {
   transform: translateY(2rpx);
 }
 
@@ -1502,22 +1168,6 @@ export default {
 
 .home-learn-card__title { color: var(--tl-text-main); }
 .home-learn-card__desc { color: var(--tl-text-secondary); }
-
-.plan-sheet__panel {
-  max-width: var(--tl-content-max-width);
-  max-height: calc(100vh - 28rpx - var(--tl-safe-top));
-  overflow-y: auto;
-  padding-bottom: calc(30rpx + var(--tl-safe-bottom));
-  background: var(--tl-paper);
-  border-color: rgba(190, 142, 78, 0.42);
-}
-
-.plan-sheet__title,
-.plan-sheet__label { color: var(--tl-text-main); }
-.plan-sheet__subtitle,
-.plan-sheet__close { color: var(--tl-text-secondary); }
-.plan-sheet__field input { color: var(--tl-text-main); background: #fffaf0; }
-.plan-sheet__submit { background: var(--tl-primary); }
 
 @media (max-width: 360px) {
   .home-page__paper {

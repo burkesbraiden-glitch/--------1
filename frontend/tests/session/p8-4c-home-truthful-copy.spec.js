@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest'
 const root = resolve(process.cwd(), '..')
 const readFrontendFile = (path) => readFileSync(resolve(root, 'frontend', path), 'utf8')
 const homeSource = readFrontendFile('src/pages/home/index.vue')
+const planStoreSource = readFrontendFile('src/stores/plan.js')
 const plansApiSource = readFrontendFile('src/api/plans.js')
 
 function blockSource(source, tag) {
@@ -24,11 +25,15 @@ describe('P8.4C Home truthful production copy', () => {
     }
   })
 
-  test('the create-plan button retains the existing real API action', () => {
-    expect(templateSource).toContain('class="plan-sheet__submit" @click="submitPlan"')
-    expect(scriptSource).toContain('async submitPlan()')
-    expect(scriptSource).toContain('await this.child.fetchChildren(this.user.userInfo.id)')
-    expect(scriptSource).toContain('await this.plan.createPlan(')
+  test('the primary Home action sends parents to Route planning without a manual Plan request', () => {
+    expect(templateSource).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
+    expect(templateSource).toContain('规划亲子路线')
+    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+    expect(scriptSource).not.toContain('usePlanStore')
+    expect(scriptSource).not.toContain('createPlan(')
+    expect(templateSource).not.toContain('class="plan-sheet"')
+
+    expect(planStoreSource).toContain('async createPlan(')
     expect(plansApiSource).toContain("path: '/plans'")
     expect(plansApiSource).toContain("method: 'POST'")
     expect(plansApiSource).toContain('auth: true')
@@ -40,12 +45,12 @@ describe('P8.4C Home truthful production copy', () => {
     expect(scriptSource).not.toContain('FALLBACK_CHILD')
   })
 
-  test('the existing active-child and Plan empty-or-error guards remain intact', () => {
-    expect(scriptSource).toContain('const activeChild = this.child.activeChild')
-    expect(scriptSource).toContain('childId: activeChild.id')
+  test('the existing audio Guide empty-or-error guards remain intact without restoring a Home Plan form', () => {
     expect(audioGuideSource).toContain('result.currentPlan?.id !== null')
     expect(audioGuideSource).toContain('this.audioGuidePlanId = null')
     expect(audioGuideSource).toContain('this.audioGuideOpen = false')
     expect(audioGuideSource).toContain("this.showToast('探索计划加载失败，请重试')")
+    expect(scriptSource).not.toContain('planForm')
+    expect(scriptSource).not.toContain('FALLBACK_CHILD')
   })
 })

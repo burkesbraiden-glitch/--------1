@@ -37,45 +37,12 @@ function pageMethod(source, name, dependencies = {}) {
   return Function(...Object.keys(dependencies), `return (${functionSource})`)(...Object.values(dependencies))
 }
 
-const submitPlan = pageMethod(homeSource, 'submitPlan', {
-  endUserSession: vi.fn(),
-})
 const loadRecords = pageMethod(recordSource, 'loadRecords', {
   isAuthenticationError: () => false,
 })
 
 function login() {
   useUserStore().loginSuccess('p8-4d-token', user)
-}
-
-function homeWithoutChildContext() {
-  return {
-    isCreatingPlan: false,
-    child: {
-      activeChild: null,
-      hasRemoteChild: false,
-      fetchChildren: vi.fn().mockResolvedValue({ children: [], currentChild: null }),
-      setAgeGroup: vi.fn(),
-    },
-    plan: { createPlan: vi.fn() },
-    planErrorMessage: vi.fn(() => '创建失败'),
-    planForm: {
-      title: '',
-      destination: '故宫博物院',
-      ageGroup: '7-12',
-      duration: '3小时',
-      interests: ['古建筑'],
-    },
-    planSheetOpen: true,
-    showToast: vi.fn(),
-    handleAuthExpired: vi.fn(),
-    user: {
-      isAuthReady: true,
-      isRestoring: false,
-      isLoggedIn: true,
-      userInfo: user,
-    },
-  }
 }
 
 function recordWithoutChildContext() {
@@ -135,21 +102,18 @@ describe('P8.4D FALLBACK_CHILD cleanup contract', () => {
     expect(child.currentChild).toBeNull()
   })
 
-  test('Home blocks creation without a real active child and cannot use a compatibility child ID', async () => {
-    const context = homeWithoutChildContext()
-
-    await submitPlan.call(context)
-
-    expect(context.plan.createPlan).not.toHaveBeenCalled()
-    expect(context.showToast).toHaveBeenCalledWith('请先完善孩子档案')
-    expect(homeSource).toContain('childId: activeChild.id')
+  test('Home routes into Route planning without a Child fallback or manual Plan creation path', () => {
+    expect(homeSource).toContain('goToRoutePlanning()')
+    expect(homeSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+    expect(homeSource).not.toContain('createPlan(')
     expect(homeSource).not.toContain('currentChild.id')
   })
 
-  test('Home does not source its age selection or plan form from Child Store compatibility fields', () => {
+  test('Home does not source its age selection from Child Store compatibility fields', () => {
     expect(homeSource).not.toContain('child.ageGroup')
     expect(homeSource).not.toContain('this.child.ageGroup')
     expect(homeSource).not.toContain('this.child.setAgeGroup')
+    expect(homeSource).toContain('selectedAgeGroup')
   })
 
   test('Route generation requires real children and only accepts a real active child ID', () => {

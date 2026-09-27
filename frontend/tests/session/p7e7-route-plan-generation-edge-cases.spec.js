@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 
 const workspaceRoot = resolve(process.cwd(), '..')
 const routeDetailSource = readFileSync(resolve(workspaceRoot, 'frontend', 'src', 'pages', 'route-detail', 'index.vue'), 'utf8')
-const submitSource = routeDetailSource.match(/async submitPlanGeneration\(\) \{[\s\S]*?\n    \},\n    async submitRouteEdit/)?.[0] || ''
+const submitSource = routeDetailSource.match(/async submitPlanGeneration\(\) \{[\s\S]*?\n    \},\n    openGeneratedPlans/)?.[0] || ''
 const openSource = routeDetailSource.match(/openPlanGenerationSheet\(\) \{[\s\S]*?\n    \},\n    closePlanGenerationSheet/)?.[0] || ''
 
 describe('P7E-7 Route Detail generation edge cases', () => {

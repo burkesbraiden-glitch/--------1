@@ -22,22 +22,15 @@ const tabbarTemplateSource = blockSource(tabbarSource, 'template')
 const tabbarScriptSource = blockSource(tabbarSource, 'script')
 
 describe('FE-R5B home visual and business contract', () => {
-  test('preserves the existing home business bindings and plan creation boundary', () => {
-    expect(scriptSource).toContain("import { useChildStore } from '../../stores/child'")
-    expect(scriptSource).toContain("import { usePlanStore } from '../../stores/plan'")
-    expect(scriptSource).toContain("import { useUserStore } from '../../stores/user'")
+  test('preserves Home business bindings while moving its primary entry to Route planning', () => {
     expect(scriptSource).toContain("import { endUserSession } from '../../utils/sessionBoundary'")
     expect(scriptSource).toContain("searchKeyword: ''")
     expect(scriptSource).toContain('selectAge(ageGroup)')
-    expect(scriptSource).toContain('this.planForm.ageGroup = ageGroup')
-    expect(scriptSource).toContain('openPlanSheet()')
-    expect(scriptSource).toContain("destination: this.searchKeyword.trim() || '故宫博物院'")
-    expect(scriptSource).toContain('async submitPlan()')
-    expect(scriptSource).toContain('await this.child.fetchChildren(this.user.userInfo.id)')
-    expect(scriptSource).toContain('await this.plan.createPlan(')
-    expect(scriptSource).toContain('const normalizedTitle = this.planForm.title.trim()')
-    expect(scriptSource).toContain('if (normalizedTitle)')
-    expect(scriptSource).toContain('payload.title = normalizedTitle')
+    expect(scriptSource).toContain('this.selectedAgeGroup = ageGroup')
+    expect(scriptSource).toContain('goToRoutePlanning()')
+    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+    expect(scriptSource).not.toContain('usePlanStore')
+    expect(scriptSource).not.toContain('createPlan(')
     expect(scriptSource).toContain('await endUserSession()')
     expect(scriptSource).toContain('goEntry(entry)')
     expect(planStoreSource).toContain('plansApi.createPlan(payload)')
@@ -46,16 +39,16 @@ describe('FE-R5B home visual and business contract', () => {
   })
 
   test('preserves the formal Home routes, upgrades Guide entry to the shared Sheet, and keeps the shared tabbar', () => {
-    expect(scriptSource).toContain("path: '/pages/plan/index'")
+    expect(scriptSource).toContain("path: '/pages/route/index'")
     expect(scriptSource).toContain("path: '/pages/tasks/index'")
     expect(scriptSource).toContain("action: 'audio-guide'")
     expect(scriptSource).toContain("import AudioGuideSheet from '../../components/AudioGuideSheet.vue'")
     expect(templateSource).toContain('<AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />')
     expect(scriptSource).not.toContain("path: '/pages/guide/index'")
     expect(templateSource).toContain('<AppTabbar active="home" />')
-    expect(templateSource).toContain("planForm.ageGroup === option.value")
+    expect(templateSource).toContain("selectedAgeGroup === option.value")
     expect(templateSource).toContain('@click="selectAge(option.value)"')
-    expect(templateSource).toContain('class="home-hero__cta" @click="openPlanSheet"')
+    expect(templateSource).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
   })
 
   test('renders the Hero as a left text page and a right watercolor illustration page', () => {
