@@ -334,7 +334,28 @@ export default {
       }
 
       this.sheetState = 'loading'
-      const guidePromise = this.guideStore.fetchGuide(requestedPlanId, requestSession)
+      const shouldRefreshCachedGuide = Boolean(
+        this.guideStore.currentGuide
+        && samePlanId(this.guideStore.loadedForPlanId, requestedPlanId),
+      )
+      const guidePromise = this.guideStore.ensureGuide(requestedPlanId)
+        .then(async (guide) => {
+          if (
+            !shouldRefreshCachedGuide
+            || !guide
+            || !this.canApplyRequest(requestToken, requestedPlanId, requestSession)
+          ) {
+            return guide
+          }
+          try {
+            return await this.guideStore.fetchGuide(requestedPlanId, requestSession)
+          } catch (error) {
+            if (error?.code !== 'GUIDE_NOT_FOUND') {
+              throw error
+            }
+            return this.guideStore.ensureGuide(requestedPlanId)
+          }
+        })
 
       try {
         const guide = await guidePromise
@@ -353,10 +374,6 @@ export default {
           return
         }
         if (!this.canApplyRequest(requestToken, requestedPlanId, requestSession)) {
-          return
-        }
-        if (error?.code === 'GUIDE_NOT_FOUND') {
-          this.sheetState = 'guide-unavailable'
           return
         }
         this.error = error

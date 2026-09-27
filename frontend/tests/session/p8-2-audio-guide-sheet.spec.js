@@ -27,6 +27,7 @@ const paths = {
 }
 
 const user = { id: 820, nickname: 'P8.2A Runtime User' }
+const userB = { id: 821, nickname: 'P8.2A Runtime User B' }
 const planA = { id: 401, destination: 'Plan A' }
 const planB = { id: 402, destination: 'Plan B' }
 
@@ -55,8 +56,8 @@ function guideRequests() {
   return getRequestCalls().filter((call) => call.url.includes('/guide'))
 }
 
-function login() {
-  useUserStore().loginSuccess('p8-2a-token', user)
+function login(runtimeUser = user) {
+  useUserStore().loginSuccess('p8-2a-token', runtimeUser)
 }
 
 function loadAudioGuideSheetOptions() {
@@ -302,6 +303,56 @@ describe('P8.2A Sheet request isolation', () => {
     expect(sheet).toContain("emit('update:open', false)")
   })
 
+  test('14a. a delayed A ensureGuide result cannot overwrite the Sheet after Plan B opens', async () => {
+    login()
+    const delayedA = createDeferred()
+    setRequestHandler((options) => {
+      if (options.url.endsWith(`/plans/${planA.id}/guide`) && options.method === 'GET') {
+        delayedA.promise.then((data) => respond(options, data))
+        return
+      }
+      if (options.url.endsWith(`/plans/${planB.id}/guide`) && options.method === 'GET') {
+        respond(options, { guide: guideFor(planB.id) })
+        return
+      }
+      throw new Error(`Unexpected request: ${options.method} ${options.url}`)
+    })
+
+    const vm = createAudioGuideSheetVm({ planId: planA.id })
+    const pendingA = vm.openForPlan()
+    await flushRuntimePromises()
+    vm.planId = planB.id
+    await vm.openForPlan()
+
+    expect(vm.displayGuide).toMatchObject({ planId: planB.id })
+    delayedA.resolve({ guide: guideFor(planA.id) })
+    await pendingA
+    expect(vm.displayGuide).toMatchObject({ planId: planB.id })
+  })
+
+  test('14b. a session-epoch change makes a delayed ensureGuide result inapplicable', async () => {
+    login()
+    const delayedGuide = createDeferred()
+    setRequestHandler((options) => {
+      if (options.url.endsWith(`/plans/${planA.id}/guide`) && options.method === 'GET') {
+        delayedGuide.promise.then((data) => respond(options, data))
+        return
+      }
+      throw new Error(`Unexpected request: ${options.method} ${options.url}`)
+    })
+
+    const vm = createAudioGuideSheetVm()
+    const pendingGuide = vm.openForPlan()
+    await flushRuntimePromises()
+    login(userB)
+    delayedGuide.resolve({ guide: guideFor(planA.id) })
+    await pendingGuide
+
+    expect(vm.displayGuide).toBeNull()
+    expect(vm.sheetState).toBe('closed')
+    expect(useUserStore().userInfo.id).toBe(userB.id)
+  })
+
   test('15. repeated clicks for the same plan reuse the existing ensureGuide de-duplication', async () => {
     login()
     setRequestHandler((options) => {
@@ -352,12 +403,18 @@ describe('P8.2A honest audio and related-image states', () => {
   })
 })
 
-describe('P8.2B3 strict Guide GET and real-player foundation', () => {
-  test('24. a missing Guide remains unavailable after one GET and never generates audio or a Guide', async () => {
+describe('P8.2B3 Guide loading and real-player foundation', () => {
+  test('24. a missing Guide is generated once and shown by the Sheet', async () => {
     login()
     const contexts = installInnerAudioContextFake()
+    let getCount = 0
     setRequestHandler((options) => {
       if (options.url.endsWith(`/plans/${planA.id}/guide`) && options.method === 'GET') {
+        getCount += 1
+        if (getCount > 1) {
+          respond(options, { guide: guideFor(planA.id) })
+          return
+        }
         options.success({
           statusCode: 404,
           data: { success: false, error: { code: 'GUIDE_NOT_FOUND', message: 'missing' } },
@@ -374,12 +431,15 @@ describe('P8.2B3 strict Guide GET and real-player foundation', () => {
     const vm = createAudioGuideSheetVm()
     await vm.openForPlan()
 
-    expect(guideRequests().map((request) => request.method)).toEqual(['GET'])
+    expect(guideRequests().map((request) => request.method)).toEqual(['GET', 'POST'])
     expect(getRequestCalls().filter((request) => /\/guide\/audio\/(?:request|retry)$/.test(request.url))).toEqual([])
-    expect(vm.sheetState).toBe('guide-unavailable')
-    expect(vm.displayGuide).toBeNull()
+    expect(vm.sheetState).toBe('no-audio')
+    expect(vm.displayGuide).toMatchObject({ planId: planA.id })
     expect(globalThis.uni.createInnerAudioContext).not.toHaveBeenCalled()
     expect(contexts).toEqual([])
+
+    await vm.openForPlan()
+    expect(guideRequests().map((request) => request.method)).toEqual(['GET', 'POST', 'GET'])
   })
 
   test('25. a ready Guide exposes a play entry without creating or playing audio on Sheet open', async () => {
