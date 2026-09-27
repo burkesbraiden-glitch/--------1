@@ -46,7 +46,7 @@ describe('FE-R5B home visual and business contract', () => {
     expect(templateSource).toContain('<AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />')
     expect(scriptSource).not.toContain("path: '/pages/guide/index'")
     expect(templateSource).toContain('<AppTabbar active="home" />')
-    expect(templateSource).toContain("selectedAgeGroup === option.value")
+    expect(templateSource).toContain("displayAgeGroup === option.value")
     expect(templateSource).toContain('@click="selectAge(option.value)"')
     expect(templateSource).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
   })

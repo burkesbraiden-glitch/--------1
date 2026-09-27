@@ -20,6 +20,37 @@
         </view>
       </view>
 
+      <view v-if="hasAuthenticatedUser" class="home-child-context">
+        <view v-if="isHomeChildLoading" class="home-child-context__state">
+          <text class="home-child-context__label">当前孩子</text>
+          <text class="home-child-context__copy">正在同步孩子档案…</text>
+        </view>
+
+        <view v-else-if="showHomeChildError" class="home-child-context__state home-child-context__state--error">
+          <text class="home-child-context__label">当前孩子</text>
+          <text class="home-child-context__copy">孩子资料暂时无法加载</text>
+          <text class="home-child-context__action" @click="retryHomeChildren">重试 ›</text>
+        </view>
+
+        <view v-else-if="activeChild" class="home-child-context__active">
+          <view class="home-child-context__head">
+            <text class="home-child-context__label">当前孩子</text>
+            <text v-if="canSwitchActiveChild" class="home-child-context__action" @click="goToProfile">切换孩子 ›</text>
+          </view>
+          <view class="home-child-context__identity">
+            <text>{{ activeChild.name }} · {{ activeChild.age }}岁</text>
+            <text v-if="activeChild.city"> · {{ activeChild.city }}</text>
+          </view>
+          <text class="home-child-context__copy">接下来为 {{ activeChild.name }} 规划这次亲子探索</text>
+        </view>
+
+        <view v-else-if="showHomeNoChild" class="home-child-context__state">
+          <text class="home-child-context__label">当前孩子</text>
+          <text class="home-child-context__copy">还没有孩子档案</text>
+          <text class="home-child-context__action" @click="goToProfile">完善孩子档案 ›</text>
+        </view>
+      </view>
+
       <view class="home-search-row">
         <view class="home-search">
           <view class="home-search__icon" aria-hidden="true"></view>
@@ -32,7 +63,7 @@
             v-for="option in ageOptions"
             :key="option.value"
             class="home-age__item"
-            :class="{ 'home-age__item--active': selectedAgeGroup === option.value }"
+            :class="{ 'home-age__item--active': displayAgeGroup === option.value, 'home-age__item--context': activeChild }"
             @click="selectAge(option.value)"
           >
             {{ option.label }}
@@ -51,7 +82,7 @@
             <view class="home-hero__tags">
               <view class="home-hero__tag home-hero__tag--orange">
                 <view class="home-hero__tag-icon home-hero__tag-icon--age" aria-hidden="true"></view>
-                <text>7-12岁</text>
+                <text>{{ heroAgeLabel }}</text>
               </view>
               <view class="home-hero__tag home-hero__tag--blue">
                 <view class="home-hero__tag-icon home-hero__tag-icon--time" aria-hidden="true"></view>
@@ -130,6 +161,8 @@
 <script>
 import AudioGuideSheet from '../../components/AudioGuideSheet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
+import { useChildStore } from '../../stores/child'
+import { useUserStore } from '../../stores/user'
 import { ensureCurrentPlanReady } from '../../utils/planRecovery'
 import { endUserSession } from '../../utils/sessionBoundary'
 import entryPlanMap from '../../assets/home/home-entry-plan-map.webp'
@@ -138,6 +171,10 @@ import entryObservationNotebook from '../../assets/home/home-entry-observation-n
 import learningAncientLife from '../../assets/home/home-learning-ancient-life.webp'
 import learningArchitectureRitual from '../../assets/home/home-learning-architecture-ritual.webp'
 import learningObservationExpression from '../../assets/home/home-learning-observation-expression.webp'
+
+function isAuthenticationError(error) {
+  return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
+}
 
 export default {
   components: {
@@ -202,9 +239,66 @@ export default {
       ],
     }
   },
+  computed: {
+    activeChild() {
+      if (!this.hasAuthenticatedUser) {
+        return null
+      }
+      return this.childStore.activeChild
+    },
+    activeChildAgeGroup() {
+      const declaredAgeGroup = this.activeChild?.ageGroup
+      if (this.ageOptions.some((option) => option.value === declaredAgeGroup)) {
+        return declaredAgeGroup
+      }
+
+      const age = Number(this.activeChild?.age)
+      if (age >= 3 && age <= 6) {
+        return '3-6'
+      }
+      if (age >= 7 && age <= 12) {
+        return '7-12'
+      }
+      return ''
+    },
+    canSwitchActiveChild() {
+      return Boolean(this.activeChild) && this.childStore.children.length > 1
+    },
+    childStore() {
+      return useChildStore()
+    },
+    displayAgeGroup() {
+      return this.activeChildAgeGroup || this.selectedAgeGroup
+    },
+    hasAuthenticatedUser() {
+      return Boolean(this.userStore.isLoggedIn && this.userStore.userInfo?.id)
+    },
+    heroAgeLabel() {
+      return `${this.displayAgeGroup}岁`
+    },
+    isHomeChildLoading() {
+      return this.hasAuthenticatedUser && (this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error))
+    },
+    showHomeChildError() {
+      return this.hasAuthenticatedUser && !this.isHomeChildLoading && Boolean(this.childStore.error)
+    },
+    showHomeNoChild() {
+      return this.hasAuthenticatedUser && this.childStore.isLoaded && !this.childStore.error && !this.activeChild
+    },
+    userStore() {
+      return useUserStore()
+    },
+  },
+  async onShow() {
+    await this.loadHomeChildContext()
+  },
   methods: {
     noop() {},
     selectAge(ageGroup) {
+      if (this.activeChild) {
+        this.syncSelectedAgeGroup()
+        return
+      }
       this.selectedAgeGroup = ageGroup
     },
     goToRoutePlanning() {
@@ -218,6 +312,28 @@ export default {
     },
     async handleAuthExpired() {
       await endUserSession()
+    },
+    async loadHomeChildContext() {
+      if (!this.userStore.isAuthReady || this.userStore.isRestoring) {
+        await this.userStore.restoreSession()
+      }
+      if (!this.hasAuthenticatedUser) {
+        return
+      }
+
+      try {
+        await this.childStore.fetchChildren(this.userStore.userInfo.id)
+        this.syncSelectedAgeGroup()
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await this.handleAuthExpired()
+        }
+      }
+    },
+    goToProfile() {
+      uni.reLaunch({
+        url: '/pages/profile/index',
+      })
     },
     async openAudioGuide() {
       if (this.isOpeningAudioGuide) {
@@ -244,6 +360,14 @@ export default {
         this.showToast('探索计划加载失败，请重试')
       } finally {
         this.isOpeningAudioGuide = false
+      }
+    },
+    async retryHomeChildren() {
+      await this.loadHomeChildContext()
+    },
+    syncSelectedAgeGroup() {
+      if (this.activeChildAgeGroup) {
+        this.selectedAgeGroup = this.activeChildAgeGroup
       }
     },
     goEntry(entry) {
@@ -1510,6 +1634,107 @@ export default {
   .home-learn-card__art--yellow {
     width: 96px;
     height: 66px;
+  }
+}
+.home-child-context {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 112rpx;
+  padding: 18rpx 22rpx;
+  margin: -8rpx 0 24rpx;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, transparent 0 18rpx, rgba(216, 171, 105, 0.14) 18rpx 20rpx, transparent 20rpx),
+    rgba(255, 250, 238, 0.88);
+  border: 2rpx solid rgba(190, 142, 78, 0.36);
+  border-radius: var(--tl-radius-md);
+  box-shadow: 0 8rpx 16rpx rgba(97, 63, 28, 0.055);
+}
+
+.home-child-context::before {
+  position: absolute;
+  top: -10rpx;
+  left: 34rpx;
+  width: 56rpx;
+  height: 18rpx;
+  content: '';
+  background: rgba(214, 196, 126, 0.56);
+  border: 1rpx solid rgba(130, 116, 57, 0.14);
+  border-radius: 4rpx;
+  transform: rotate(-7deg);
+}
+
+.home-child-context__head,
+.home-child-context__state {
+  display: flex;
+  gap: 14rpx;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.home-child-context__label {
+  display: block;
+  font-size: 21rpx;
+  font-weight: 900;
+  color: var(--tl-primary-deep);
+  letter-spacing: 2rpx;
+}
+
+.home-child-context__identity {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 29rpx;
+  font-weight: 900;
+  color: var(--tl-text-main);
+}
+
+.home-child-context__copy {
+  display: block;
+  min-width: 0;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  line-height: 1.45;
+  color: var(--tl-text-secondary);
+}
+
+.home-child-context__state .home-child-context__copy {
+  flex: 1;
+  margin-top: 0;
+}
+
+.home-child-context__state--error .home-child-context__copy {
+  color: #a44722;
+}
+
+.home-child-context__action {
+  flex: 0 0 auto;
+  font-size: 22rpx;
+  font-weight: 900;
+  color: #55753c;
+}
+
+.home-age__item--context {
+  cursor: default;
+}
+
+@media (min-width: 431px) {
+  .home-child-context {
+    min-height: 66px;
+    padding: 11px 14px;
+    margin: -5px 0 15px;
+  }
+
+  .home-child-context__label {
+    font-size: 12px;
+  }
+
+  .home-child-context__identity {
+    font-size: 17px;
+  }
+
+  .home-child-context__copy,
+  .home-child-context__action {
+    font-size: 13px;
   }
 }
 </style>

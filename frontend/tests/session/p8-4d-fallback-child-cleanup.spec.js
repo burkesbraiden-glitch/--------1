@@ -109,10 +109,12 @@ describe('P8.4D FALLBACK_CHILD cleanup contract', () => {
     expect(homeSource).not.toContain('currentChild.id')
   })
 
-  test('Home does not source its age selection from Child Store compatibility fields', () => {
-    expect(homeSource).not.toContain('child.ageGroup')
-    expect(homeSource).not.toContain('this.child.ageGroup')
-    expect(homeSource).not.toContain('this.child.setAgeGroup')
+  test('Home reflects only the real active Child age group without writing a Child profile', () => {
+    expect(homeSource).toContain('activeChildAgeGroup')
+    expect(homeSource).toContain('this.activeChild?.ageGroup')
+    expect(homeSource).not.toContain('children[0]')
+    expect(homeSource).not.toContain('updateChild(')
+    expect(homeSource).not.toContain('createChild(')
     expect(homeSource).toContain('selectedAgeGroup')
   })
 
