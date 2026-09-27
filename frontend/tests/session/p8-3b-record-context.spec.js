@@ -160,9 +160,10 @@ describe('P8.3B Records child-context contract', () => {
     expect(goExplore).toContain("url: '/pages/plan/index'")
   })
 
-  test('does not present updatedAt as an unlabeled card date', () => {
+  test('keeps the labeled date in the information body instead of duplicating it on the cover photo', () => {
     expect(recordPageSource).not.toContain(':date-label="record.displayUpdatedAt"')
-    expect(recordPageSource).toContain(':date-label="record.displayDateLabel"')
+    expect(recordPageSource).not.toContain(':date-label="record.displayDateLabel"')
+    expect(recordPageSource).toContain('class="record-card__updated"')
   })
 
   test('labels non-finalized updatedAt as an update time', () => {

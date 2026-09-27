@@ -80,9 +80,6 @@
             <PolaroidCard
               class="record-card__photo"
               :image-path="record.displayCoverImage || recordWatercolorFallback"
-              :title="record.displayTitle"
-              :description="record.destination"
-              :date-label="record.displayDateLabel"
               :rotation="index % 2 === 0 ? -2 : 2"
               :placeholder-theme="index % 2 === 0 ? 'roof' : 'gate'"
               :tape-theme="tapeTheme(index)"
@@ -98,9 +95,7 @@
               <text class="record-card__destination">{{ record.destination || '目的地待补充' }}</text>
               <view class="record-card__dash"></view>
               <view class="record-card__stats">
-                <text>完成任务：{{ record.completedTaskCount }} / {{ record.taskCount }}</text>
-                <text>照片：{{ record.photoCount }}</text>
-                <text>笔记：{{ record.noteCount }}</text>
+                <text class="record-card__summary">任务 {{ record.completedTaskCount }}/{{ record.taskCount }} · 照片 {{ record.photoCount }} · 笔记 {{ record.noteCount }}</text>
               </view>
               <text v-if="record.displayDateLabel" class="record-card__updated">{{ record.displayDateLabel }}</text>
             </view>
@@ -604,11 +599,8 @@ export default {
 }
 
 .record-card__stats {
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
   font-size: 22rpx;
-  line-height: 1.25;
+  line-height: 1.5;
   color: #5e3c22;
 }
 
