@@ -24,7 +24,7 @@ describe('P8.3C2 Profile active-child switch contract', () => {
     expect(profileSource).toContain('activeChild()')
     expect(profileSource).toContain('return this.child.activeChild')
     expect(profileSource).toContain('nickname: this.activeChild.name')
-    expect(profileSource).toContain('v-else-if="activeChild"')
+    expect(profileSource).toContain('v-if="activeChild"')
   })
 
   test('does not keep Profile display bound to backend currentChild', () => {
@@ -129,16 +129,18 @@ describe('P8.3C2 Profile active-child switch contract', () => {
   })
 
   test('opens the existing editor with the active child rather than backend currentChild', () => {
-    const openChildForm = profileMethod('openChildForm')
+    const openEditChildForm = profileMethod('openEditChildForm')
     const context = {
       activeChild: childB,
       child: { hasRemoteChild: true, currentChild: childA },
+      childFormMode: 'create',
       childForm: null,
       showChildForm: false,
     }
 
-    openChildForm.call(context)
+    openEditChildForm.call(context)
 
+    expect(context.childFormMode).toBe('edit')
     expect(context.childForm).toMatchObject({ name: '小安', age: '6', city: '西安', interests: ['博物馆'] })
     expect(context.showChildForm).toBe(true)
   })

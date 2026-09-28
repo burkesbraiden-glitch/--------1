@@ -55,9 +55,33 @@
       <view v-else-if="child.isLoaded && child.children.length === 0" class="profile-page__child-state">
         <text class="profile-page__child-empty-title">尚未添加孩子</text>
         <text class="profile-page__child-empty-desc">完善孩子档案后，就能记录专属成长旅程</text>
-        <button @click="openChildForm">添加孩子档案</button>
+        <button @click="openAddChildForm">添加孩子档案</button>
       </view>
-      <view v-else-if="activeChild">
+      <view v-else-if="child.isLoaded && child.children.length > 0">
+        <scroll-view
+          class="profile-page__child-quick-list"
+          scroll-x="true"
+          :show-scrollbar="false"
+        >
+          <view class="profile-page__child-quick-list-inner">
+            <button
+              v-for="candidate in child.children"
+              :key="candidate.id"
+              class="profile-page__child-quick-item"
+              :class="{ 'profile-page__child-quick-item--active': isActiveChild(candidate) }"
+              @click="quickSelectChild(candidate)"
+            >
+              <text class="profile-page__child-quick-name">{{ candidate.name }}</text>
+              <text class="profile-page__child-quick-age">{{ candidate.age }}岁</text>
+              <text v-if="isActiveChild(candidate)" class="profile-page__child-quick-check">✓</text>
+            </button>
+            <button class="profile-page__child-quick-add" @click="openAddChildForm">
+              <text>+</text>
+              <text>添加孩子</text>
+            </button>
+          </view>
+        </scroll-view>
+        <view v-if="activeChild">
         <view class="profile-page__child-context">
           <text class="profile-page__child-current-tag">当前孩子</text>
           <button v-if="canSwitchChild" class="profile-page__child-switch" @click="openChildSwitcher">切换孩子</button>
@@ -66,7 +90,11 @@
         <view class="profile-page__interest-list">
           <text v-for="interest in activeChild.interests" :key="interest" class="profile-page__interest">{{ interest }}</text>
         </view>
-        <button class="profile-page__child-edit" @click="openChildForm">编辑孩子档案</button>
+        <button class="profile-page__child-edit" @click="openEditChildForm">编辑当前孩子</button>
+        </view>
+        <view v-else class="profile-page__child-state">
+          <text>请选择要查看的孩子档案</text>
+        </view>
       </view>
       <view v-else class="profile-page__child-state">
         <text>正在加载孩子资料...</text>
@@ -85,7 +113,7 @@
       <view class="profile-page__sheet-mask" @click="closeChildForm"></view>
       <view class="profile-page__sheet-panel profile-page__sheet-panel--child">
         <view class="profile-page__sheet-head">
-          <text>{{ activeChild ? '编辑孩子档案' : '完善孩子档案' }}</text>
+          <text>{{ childFormMode === 'create' ? '添加孩子档案' : '编辑孩子档案' }}</text>
           <button @click="closeChildForm">关闭</button>
         </view>
 
@@ -168,6 +196,7 @@ export default {
       showChildForm: false,
       showChildSwitcher: false,
       isSavingChild: false,
+      childFormMode: 'create',
       childForm: {
         name: '',
         age: '7',
@@ -285,7 +314,18 @@ export default {
         url: '/pages/record/index',
       })
     },
-    openChildForm() {
+    openAddChildForm() {
+      this.childFormMode = 'create'
+      this.childForm = {
+        name: '',
+        age: '7',
+        city: '',
+        interests: ['历史故事', '古建筑', '观察探索'],
+      }
+      this.showChildForm = true
+    },
+    openEditChildForm() {
+      this.childFormMode = 'edit'
       const current = this.activeChild
       this.childForm = {
         name: current?.name || '',
@@ -294,6 +334,9 @@ export default {
         interests: current?.interests?.length ? [...current.interests] : ['历史故事', '古建筑', '观察探索'],
       }
       this.showChildForm = true
+    },
+    openChildForm() {
+      this.openEditChildForm()
     },
     openChildSwitcher() {
       if (this.canSwitchChild) {
@@ -305,6 +348,18 @@ export default {
     },
     isActiveChild(candidate) {
       return String(candidate?.id) === String(this.activeChild?.id)
+    },
+    quickSelectChild(candidate) {
+      if (this.isActiveChild(candidate)) {
+        return
+      }
+
+      if (this.child.setActiveChild(candidate?.id)) {
+        this.showToast(`已切换到${candidate.name}`)
+        return
+      }
+
+      this.showToast('切换孩子失败，请稍后重试')
     },
     selectActiveChild(candidate) {
       if (this.child.setActiveChild(candidate?.id)) {
@@ -355,10 +410,11 @@ export default {
 
       this.isSavingChild = true
       try {
-        if (this.activeChild) {
-          await this.child.updateChild(this.activeChild.id, payload)
+        if (this.childFormMode === 'create') {
+          const savedChild = await this.child.createChild(payload)
+          this.child.setActiveChild(savedChild.id)
         } else {
-          await this.child.createChild(payload)
+          await this.child.updateChild(this.activeChild.id, payload)
         }
         this.showChildForm = false
         this.showToast('孩子档案已保存')
@@ -371,7 +427,6 @@ export default {
     handleMenu(key) {
       if (key === 'child') {
         this.showChildCard = true
-        this.openChildForm()
         return
       }
 
@@ -746,6 +801,74 @@ export default {
   font-size: 24rpx;
   font-weight: 900;
   color: #55753c;
+}
+
+.profile-page__child-quick-list {
+  width: 100%;
+  margin-top: 16rpx;
+  white-space: nowrap;
+}
+
+.profile-page__child-quick-list-inner {
+  display: inline-flex;
+  gap: 12rpx;
+  min-width: 100%;
+  padding-right: 4rpx;
+}
+
+.profile-page__child-quick-item,
+.profile-page__child-quick-add {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 7rpx;
+  align-items: center;
+  justify-content: center;
+  min-height: 64rpx;
+  padding: 0 18rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+  color: #5e3c22;
+  background: #fffaf0;
+  border: 2rpx solid rgba(190, 142, 78, 0.24);
+  border-radius: 999rpx;
+}
+
+.profile-page__child-quick-item--active {
+  color: #c85b1a;
+  background: #fff0bd;
+  border-color: rgba(242, 106, 33, 0.48);
+  box-shadow: 0 5rpx 10rpx rgba(217, 75, 18, 0.08);
+}
+
+.profile-page__child-quick-name {
+  max-width: 156rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-page__child-quick-age {
+  font-size: 21rpx;
+  color: #8a6d54;
+}
+
+.profile-page__child-quick-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26rpx;
+  height: 26rpx;
+  font-size: 18rpx;
+  color: #fff;
+  background: #f26a21;
+  border-radius: 50%;
+}
+
+.profile-page__child-quick-add {
+  color: #55753c;
+  background: #edf5df;
+  border-style: dashed;
+  border-color: rgba(85, 117, 60, 0.46);
 }
 
 .profile-page__child-state {
