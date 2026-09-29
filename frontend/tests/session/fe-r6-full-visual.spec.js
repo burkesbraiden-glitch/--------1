@@ -46,10 +46,18 @@ describe('FE-R6 full application visual contract', () => {
     expect(tabEntries).toHaveLength(5)
     for (const icon of ['home', 'plan', 'tasks', 'record', 'profile']) {
       expect(tabbar).toContain(`icon: '${icon}'`)
-      expect(tabbar).toContain(`app-tabbar__icon--${icon}`)
     }
 
     expect(tabbar).toContain('app-tabbar__icon--${item.icon}')
+    for (const source of [
+      'tab-home-idle.svg', 'tab-home-active.svg',
+      'tab-route-idle.svg', 'tab-route-active.svg',
+      'tab-explore-idle.svg', 'tab-explore-active.svg',
+      'tab-record-idle.svg', 'tab-record-active.svg',
+      'tab-profile-idle.svg', 'tab-profile-active.svg',
+    ]) {
+      expect(tabbar).toContain(source)
+    }
     expect(tabbar).toContain("targetPath = userStore.isLoggedIn ? '/pages/profile/index' : '/pages/login/index'")
     expect(tabbar).toContain('uni.reLaunch({')
   })

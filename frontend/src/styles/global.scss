@@ -19,6 +19,33 @@ page {
   --tl-shadow: #{$tl-shadow};
   --tl-border-soft: #{$tl-border-soft};
   --tl-shadow-card: #{$tl-shadow-card};
+  --tl-surface: #{$tl-surface};
+  --tl-surface-muted: #{$tl-surface-muted};
+  --tl-divider: #{$tl-divider};
+  --tl-space-xs: #{$tl-space-xs};
+  --tl-space-sm: #{$tl-space-sm};
+  --tl-space-md: #{$tl-space-md};
+  --tl-space-lg: #{$tl-space-lg};
+  --tl-space-xl: #{$tl-space-xl};
+  --tl-radius-small: #{$tl-radius-small};
+  --tl-radius-control: #{$tl-radius-control};
+  --tl-radius-media: #{$tl-radius-media};
+  --tl-radius-sheet: #{$tl-radius-sheet};
+  --tl-shadow-none: #{$tl-shadow-none};
+  --tl-shadow-media: #{$tl-shadow-media};
+  --tl-shadow-overlay: #{$tl-shadow-overlay};
+  --tl-type-page-title: #{$tl-type-page-title};
+  --tl-type-section-title: #{$tl-type-section-title};
+  --tl-type-body: #{$tl-type-body};
+  --tl-type-meta: #{$tl-type-meta};
+  --tl-type-primary-action: #{$tl-type-primary-action};
+  --tl-weight-page-title: #{$tl-weight-page-title};
+  --tl-weight-section-title: #{$tl-weight-section-title};
+  --tl-weight-body: #{$tl-weight-body};
+  --tl-weight-meta: #{$tl-weight-meta};
+  --tl-weight-primary-action: #{$tl-weight-primary-action};
+  --tl-line-height-body: #{$tl-line-height-body};
+  --tl-control-min-height: #{$tl-control-min-height};
   --tl-radius-lg: #{$tl-radius-lg};
   --tl-radius-md: #{$tl-radius-md};
   --tl-radius-sm: #{$tl-radius-sm};
@@ -62,12 +89,73 @@ button::after {
 
 .tl-page-title {
   display: block;
-  margin-bottom: 20rpx;
-  font-size: 48rpx;
-  font-weight: 800;
-  color: $tl-text-main;
+  margin-bottom: var(--tl-space-sm);
+  font-size: var(--tl-type-page-title);
+  font-weight: var(--tl-weight-page-title);
+  line-height: 1.3;
+  color: var(--tl-text-main);
 }
 
+.tl-section-title {
+  display: block;
+  margin-bottom: var(--tl-space-sm);
+  font-size: var(--tl-type-section-title);
+  font-weight: var(--tl-weight-section-title);
+  line-height: 1.35;
+  color: var(--tl-text-main);
+}
+
+.tl-body {
+  display: block;
+  font-size: var(--tl-type-body);
+  font-weight: var(--tl-weight-body);
+  line-height: var(--tl-line-height-body);
+  color: var(--tl-text-main);
+}
+
+.tl-meta {
+  display: block;
+  font-size: var(--tl-type-meta);
+  font-weight: var(--tl-weight-meta);
+  line-height: 1.5;
+  color: var(--tl-text-secondary);
+}
+
+.tl-divider {
+  width: 100%;
+  height: 2rpx;
+  background: var(--tl-divider);
+}
+
+.tl-primary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tl-control-min-height);
+  padding: 0 var(--tl-space-md);
+  font-size: var(--tl-type-primary-action);
+  font-weight: var(--tl-weight-primary-action);
+  line-height: 1.2;
+  color: var(--tl-paper);
+  background: var(--tl-primary);
+  border: 0;
+  border-radius: var(--tl-radius-control);
+}
+
+.tl-text-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tl-control-min-height);
+  padding: 0 var(--tl-space-xs);
+  font-size: var(--tl-type-meta);
+  font-weight: var(--tl-weight-primary-action);
+  line-height: 1.2;
+  color: var(--tl-primary-deep);
+  background: transparent;
+}
+
+// Legacy utility: preserve its existing appearance while new screens use the semantic utilities above.
 .tl-page-subtitle {
   display: block;
   margin-bottom: 28rpx;
@@ -76,6 +164,7 @@ button::after {
   color: $tl-text-secondary;
 }
 
+// Legacy utility: not a default P10.1 card pattern.
 .tl-stage-card {
   @include watercolor-card;
   padding: 28rpx;

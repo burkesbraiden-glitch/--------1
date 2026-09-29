@@ -28,7 +28,7 @@ const coreTokens = [
   '$tl-radius-md: 24rpx;',
   '$tl-radius-sm: 14rpx;',
   '$tl-page-padding: 32rpx;',
-  '$tl-tabbar-height: 132rpx;',
+  '$tl-tabbar-height: 112rpx;',
   '$tl-safe-bottom: env(safe-area-inset-bottom);',
 ]
 
@@ -44,6 +44,11 @@ const bridgeTokens = [
   'blue', 'blue-deep', 'green', 'green-deep', 'yellow', 'line', 'shadow', 'border-soft',
   'shadow-card', 'radius-lg', 'radius-md', 'radius-sm', 'page-padding', 'content-max-width',
   'tabbar-height', 'safe-top', 'safe-bottom',
+  'surface', 'surface-muted', 'divider', 'space-xs', 'space-sm', 'space-md', 'space-lg', 'space-xl',
+  'radius-small', 'radius-control', 'radius-media', 'radius-sheet', 'shadow-none', 'shadow-media',
+  'shadow-overlay', 'type-page-title', 'type-section-title', 'type-body', 'type-meta',
+  'type-primary-action', 'weight-page-title', 'weight-section-title', 'weight-body', 'weight-meta',
+  'weight-primary-action', 'line-height-body', 'control-min-height',
 ]
 
 function mixinBody(name) {
@@ -96,7 +101,7 @@ describe('FE-R5A global visual foundation', () => {
     expect(watercolorCard).not.toMatch(/padding|min-height|header|hero|tabbar|illustration/i)
   })
 
-  test('keeps the five-item AppTabbar visual foundation while consuming only equivalent bridge tokens', () => {
+  test('keeps the five-item AppTabbar business contract with the P10.1 restrained presentation', () => {
     const template = blockSource('template')
     const script = blockSource('script')
     const style = blockSource('style')
@@ -106,7 +111,6 @@ describe('FE-R5A global visual foundation', () => {
     expect(tabEntries).toHaveLength(5)
     for (const icon of ['home', 'plan', 'tasks', 'record', 'profile']) {
       expect(script).toContain(`icon: '${icon}'`)
-      expect(style).toContain(`.app-tabbar__icon--${icon}`)
     }
     expect(script).toContain('async go(item)')
     expect(script).toContain('await userStore.restoreSession()')
@@ -114,11 +118,14 @@ describe('FE-R5A global visual foundation', () => {
     expect(script).toContain('uni.reLaunch({')
 
     expect(style).toContain('height: calc(var(--tl-tabbar-height) + var(--tl-safe-bottom));')
-    expect(style).toContain('padding: 14rpx 18rpx calc(12rpx + var(--tl-safe-bottom));')
+    expect(style).toContain('padding: 10rpx 18rpx calc(10rpx + var(--tl-safe-bottom));')
     expect(style).toContain('color: var(--tl-text-secondary);')
     expect(style).toContain('color: var(--tl-primary);')
-    expect(style).toContain('background: rgba(255, 247, 232, 0.96);')
-    expect(style).toContain('border-top: 2rpx solid rgba(190, 142, 78, 0.22);')
-    expect(style).toContain('box-shadow: 0 -10rpx 28rpx rgba(97, 63, 28, 0.08);')
+    expect(style).toContain('background: var(--tl-surface);')
+    expect(style).toContain('border-top: 1rpx solid var(--tl-divider);')
+    expect(style).toContain('min-height: var(--tl-control-min-height);')
+    expect(style).toContain('font-weight: var(--tl-weight-meta);')
+    expect(style).not.toContain('.app-tabbar__icon::before')
+    expect(style).not.toContain('display: none !important')
   })
 })

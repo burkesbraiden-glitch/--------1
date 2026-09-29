@@ -13,7 +13,45 @@ $tl-yellow: #fff0bd;
 $tl-line: #dfbd83;
 $tl-shadow: rgba(97, 63, 28, 0.12);
 $tl-border-soft: rgba(190, 142, 78, 0.28);
+// Legacy card shadow: retained for existing screens; do not use for new P10+ layouts.
 $tl-shadow-card: 0 12rpx 24rpx $tl-shadow;
+
+// P10.1 semantic surfaces and separation.
+$tl-surface: $tl-paper;
+$tl-surface-muted: $tl-paper-deep;
+$tl-divider: $tl-border-soft;
+
+// P10.1 spacing scale.
+$tl-space-xs: 16rpx;
+$tl-space-sm: 24rpx;
+$tl-space-md: 32rpx;
+$tl-space-lg: 48rpx;
+$tl-space-xl: 64rpx;
+
+// P10.1 radii. The legacy radius tokens below remain available to older pages.
+$tl-radius-small: 12rpx;
+$tl-radius-control: 20rpx;
+$tl-radius-media: 24rpx;
+$tl-radius-sheet: 32rpx;
+
+// P10.1 elevation: text and ordinary lists stay flat; elevation belongs to media and sheets.
+$tl-shadow-none: none;
+$tl-shadow-media: 0 4rpx 12rpx rgba(97, 63, 28, 0.06);
+$tl-shadow-overlay: 0 -16rpx 40rpx rgba(53, 31, 15, 0.2);
+
+// P10.1 type hierarchy.
+$tl-type-page-title: 48rpx;
+$tl-type-section-title: 34rpx;
+$tl-type-body: 30rpx;
+$tl-type-meta: 26rpx;
+$tl-type-primary-action: 30rpx;
+$tl-weight-page-title: 700;
+$tl-weight-section-title: 600;
+$tl-weight-body: 400;
+$tl-weight-meta: 400;
+$tl-weight-primary-action: 600;
+$tl-line-height-body: 1.6;
+$tl-control-min-height: 88rpx;
 
 $tl-radius-lg: 32rpx;
 $tl-radius-md: 24rpx;
@@ -21,6 +59,6 @@ $tl-radius-sm: 14rpx;
 
 $tl-page-padding: 32rpx;
 $tl-content-max-width: 430px;
-$tl-tabbar-height: 132rpx;
+$tl-tabbar-height: 112rpx;
 $tl-safe-top: env(safe-area-inset-top);
 $tl-safe-bottom: env(safe-area-inset-bottom);
