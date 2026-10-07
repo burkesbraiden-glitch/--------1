@@ -59,7 +59,7 @@ describe('P7E-6 Route Detail exploration-plan generation UI', () => {
     expect(source).toContain('result.routeStopId')
     expect(source).toContain('查看探索计划')
     expect(source).toContain('openGeneratedPlans()')
-    expect(source).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
+    expect(source).toContain("uni.reLaunch({ url: '/pages/plan/index' })")
     expect(generationSubmitSource).not.toContain('uni.reLaunch')
     expect(source).not.toContain("/pages/explore/index")
   })
