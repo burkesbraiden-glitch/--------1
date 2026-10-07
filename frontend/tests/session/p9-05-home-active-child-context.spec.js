@@ -71,7 +71,7 @@ describe('P9-05 Home Active Child context', () => {
     expect(homeSource).toContain('this.selectedAgeGroup = this.activeChildAgeGroup')
     expect(homeSource).toContain('{{ heroAgeLabel }}')
     expect(homeSource).toContain('规划亲子路线')
-    expect(homeSource).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
+    expect(homeSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
     expect(homeSource).not.toContain('createPlan(')
     expect(homeSource).not.toContain('planSheetOpen')
   })
