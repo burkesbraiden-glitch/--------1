@@ -320,7 +320,7 @@ import { useTaskStore } from '../../stores/task'
 import { useUserStore } from '../../stores/user'
 import { isAuthenticationError } from '../../utils/request'
 import { endUserSession } from '../../utils/sessionBoundary'
-import brandLogo from '../../assets/brand/tonglvji-logo.svg'
+import brandLogo from '../../assets/brand/tonglvji-logo.png'
 import defaultHero from '../../assets/home/home-hero-watercolor.webp'
 
 function sameId(left, right) {
