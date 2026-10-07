@@ -691,7 +691,7 @@ export default {
     },
     goTaskList() {
       uni.reLaunch({
-        url: '/pages/tasks/index',
+        url: `/pages/explore/index?planId=${encodeURIComponent(String(this.routePlanId || this.plan.currentPlan?.id || ''))}`,
       })
     },
   },
