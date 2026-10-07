@@ -8,7 +8,7 @@ const taskDetailSource = readFileSync(
   'utf8',
 )
 const tasksPageSource = readFileSync(
-  resolve(root, 'frontend/src/pages/explore/index.vue'),
+  resolve(root, 'frontend/src/pages/tasks/index.vue'),
   'utf8',
 )
 
