@@ -36,7 +36,7 @@ describe('P9-03 Route to ExplorationPlan main user flow', () => {
   test('Home Hero routes parents into Route planning without a manual Plan creation path', () => {
     expect(homeTemplate).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
     expect(homeTemplate).toContain('规划亲子路线')
-    expect(homeScript).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+    expect(homeScript).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
     expect(homeScript).not.toContain('usePlanStore')
     expect(homeScript).not.toContain('createPlan(')
     expect(homeScript).not.toContain('planSheetOpen')
@@ -47,8 +47,8 @@ describe('P9-03 Route to ExplorationPlan main user flow', () => {
   test('Home first feature card is Route planning and opens the Route page', () => {
     expect(homeScript).toContain("title: '路线规划'")
     expect(homeScript).toContain("desc: '安排景点与行程'")
-    expect(homeScript).toContain("path: '/pages/route/index'")
-    expect(homeScript).not.toContain("path: '/pages/plan/index'")
+    expect(homeScript).toContain("path: '/pages/explore/index'")
+    expect(homeScript).not.toContain("path: '/pages/explore/index'")
   })
 
   test('Route Detail keeps the sealed generation endpoint and exact Child plus RouteStop payload', async () => {
@@ -90,7 +90,7 @@ describe('P9-03 Route to ExplorationPlan main user flow', () => {
     globalThis.uni = { reLaunch }
     try {
       openGeneratedPlans.call({})
-      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/plan/index' })
+      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/explore/index' })
     } finally {
       globalThis.uni = originalUni
     }
