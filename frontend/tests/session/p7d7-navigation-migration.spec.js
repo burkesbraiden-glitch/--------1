@@ -11,8 +11,8 @@ describe('P7D-7 atomic navigation migration contracts', () => {
     const source = sourceOf('src', 'components', 'AppTabbar.vue')
 
     expect(source).toContain("{ key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' }")
-    expect(source).toContain("{ key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' }")
-    expect(source).toContain("{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' }")
+    expect(source).toContain("{ key: 'route', label: '路线', icon: 'plan', path: '/pages/explore/index' }")
+    expect(source).toContain("{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/explore/index' }")
     expect(source).toContain("{ key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' }")
     expect(source).toContain("{ key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' }")
     expect(source).not.toMatch(/\{\s*key:\s*'plan'/)
