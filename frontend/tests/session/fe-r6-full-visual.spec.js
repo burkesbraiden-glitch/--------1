@@ -7,9 +7,9 @@ const readFrontendFile = (path) => readFileSync(resolve(root, 'frontend', path),
 
 const pagePaths = [
   'src/pages/home/index.vue',
-  'src/pages/explore/index.vue',
+  'src/pages/plan/index.vue',
   'src/pages/guide/index.vue',
-  'src/pages/explore/index.vue',
+  'src/pages/tasks/index.vue',
   'src/pages/task-detail/index.vue',
   'src/pages/record/index.vue',
   'src/pages/record-detail/index.vue',
@@ -161,7 +161,7 @@ describe('FE-R6 full application visual contract', () => {
 
   test('keeps core business handlers and permanently protected task/record affordances', () => {
     const home = readFrontendFile('src/pages/home/index.vue')
-    const tasks = readFrontendFile('src/pages/explore/index.vue')
+    const tasks = readFrontendFile('src/pages/tasks/index.vue')
     const detail = readFrontendFile('src/pages/task-detail/index.vue')
     const recordDetail = readFrontendFile('src/pages/record-detail/index.vue')
     const login = readFrontendFile('src/pages/login/index.vue')
