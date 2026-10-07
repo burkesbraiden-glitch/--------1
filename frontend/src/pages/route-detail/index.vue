@@ -277,7 +277,7 @@ export default {
       }
     },
     openGeneratedPlans() {
-      uni.reLaunch({ url: '/pages/plan/index' })
+      uni.reLaunch({ url: `/pages/explore/index?routeId=${encodeURIComponent(String(this.currentRoute?.id || this.routeId))}` })
     },
     openRouteEditSheet() {
       if (!this.currentRoute) return
@@ -321,7 +321,7 @@ export default {
       const confirmed = await new Promise((resolve) => uni.showModal({ title: '确认删除这条路线？', content: '路线中的每日安排也会一起删除。', success: (result) => resolve(Boolean(result.confirm)), fail: () => resolve(false) }))
       if (!confirmed) return
       this.isDeletingRoute = true; this.mutationError = ''
-      try { await this.routeStore.deleteRoute(this.routeId); uni.reLaunch({ url: '/pages/route/index' }) } catch (error) { await this.handleRequestError(error, 'mutationError') } finally { this.isDeletingRoute = false }
+      try { await this.routeStore.deleteRoute(this.routeId); uni.reLaunch({ url: '/pages/explore/index' }) } catch (error) { await this.handleRequestError(error, 'mutationError') } finally { this.isDeletingRoute = false }
     },
     openCreateDaySheet() { this.dayFormMode = 'create'; this.dayForm = emptyDayForm(); this.dayFormError = ''; this.showDaySheet = true },
     openEditDaySheet(day) { this.dayFormMode = 'edit'; this.dayForm = { id: day.id, date: day.date || '', title: day.title || '' }; this.dayFormError = ''; this.showDaySheet = true },
