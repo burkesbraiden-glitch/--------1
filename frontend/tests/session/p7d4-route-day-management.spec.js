@@ -30,7 +30,7 @@ describe('P7D-4 Route Detail and Day management contracts', () => {
     expect(source).toContain('标记为已准备')
     expect(source).toContain('uni.showModal')
     expect(source).toContain('routeStore.deleteRoute(this.routeId)')
-    expect(source).toContain("url: '/pages/explore/index'")
+    expect(source).toContain("url: '/pages/route/index'")
     expect(source).toContain('结束日期不能早于开始日期')
     expect(source).not.toContain('in-progress')
     expect(source).not.toContain('completed')
