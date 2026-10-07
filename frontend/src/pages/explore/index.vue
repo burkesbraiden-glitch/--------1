@@ -25,10 +25,28 @@
         <button class="workbench-state__button" @click="loadWorkbench(true)">重新加载</button>
       </view>
 
-      <view v-else-if="!routeStore.routes.length" class="workbench-state workbench-state--empty">
-        <text class="workbench-state__title">从第一条路线开始</text>
-        <text class="workbench-state__copy">安排每天要去的景点，再为每个景点准备孩子的探索任务。</text>
-        <button class="workbench-state__button" @click="openCreateRouteSheet">创建第一条路线</button>
+      <view v-else-if="!routeStore.routes.length">
+        <view class="workbench-state workbench-state--empty">
+          <text class="workbench-state__title">从第一条路线开始</text>
+          <text class="workbench-state__copy">安排每天要去的景点，再为每个景点准备孩子的探索任务。</text>
+          <button class="workbench-state__button" @click="openCreateRouteSheet">创建第一条路线</button>
+        </view>
+
+        <view v-if="freePlans.length" class="free-section">
+          <view class="free-section__heading">
+            <view>
+              <text class="free-section__title">自由探索</text>
+              <text class="free-section__copy">这些探索没有路线来源，仍然可以继续完成。</text>
+            </view>
+          </view>
+          <button v-for="plan in freePlans" :key="plan.id" class="free-plan" @click="openFreePlan(plan)">
+            <view>
+              <text class="free-plan__title">{{ plan.title }}</text>
+              <text class="free-plan__meta">{{ plan.destination }} · {{ planProgressText(plan) }}</text>
+            </view>
+            <text class="free-plan__arrow">›</text>
+          </button>
+        </view>
       </view>
 
       <template v-else-if="currentRoute">
