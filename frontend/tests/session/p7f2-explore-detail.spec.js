@@ -84,7 +84,7 @@ describe('P7F-2 Explore Detail', () => {
     expect(source).toContain('开始探索')
     expect(source).toContain('继续探索')
     expect(source).toContain('startExploration')
-    expect(source).toContain('/pages/explore/index')
+    expect(source).toContain('/pages/tasks/index')
   })
 
   test('confines existing Task preparation to the explicit Detail lifecycle action and keeps Guide and Task APIs independent', () => {
