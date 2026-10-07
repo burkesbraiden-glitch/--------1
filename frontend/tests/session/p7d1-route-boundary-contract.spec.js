@@ -6,7 +6,7 @@ const root = resolve(process.cwd(), '..')
 const frontendFile = (path) => resolve(root, 'frontend', path)
 const readFrontendFile = (path) => readFileSync(frontendFile(path), 'utf8')
 
-const planPageSource = readFrontendFile('src/pages/plan/index.vue')
+const planPageSource = readFrontendFile('src/pages/explore/index.vue')
 const exploreDetailPath = 'src/pages/explore-detail/index.vue'
 const exploreDetailSource = existsSync(frontendFile(exploreDetailPath))
   ? readFrontendFile(exploreDetailPath)
@@ -34,7 +34,7 @@ describe('P7D-1 Route and navigation boundary contract', () => {
     expect(exploreDetailSource).toMatch(/import\s*\{\s*usePlanStore\s*\}\s*from\s*['"][^'"]*stores\/plan['"]/)
     expect(exploreDetailSource).toMatch(/import\s*\{\s*useTaskStore\s*\}\s*from\s*['"][^'"]*stores\/task['"]/)
     expect(exploreDetailSource).toContain('startExploration')
-    expect(exploreDetailSource).toContain('/pages/tasks/index')
+    expect(exploreDetailSource).toContain('/pages/explore/index')
     expectNoRouteDomainCoupling(exploreDetailSource)
   })
 
@@ -89,10 +89,10 @@ describe('P7D-1 Route and navigation boundary contract', () => {
 
   test('keeps current ExplorationPlan domain pages present with their migrated responsibilities', () => {
     const pageContracts = [
-      ['src/pages/plan/index.vue', planPageSource, 'usePlanStore'],
+      ['src/pages/explore/index.vue', planPageSource, 'usePlanStore'],
       [exploreDetailPath, exploreDetailSource, 'useTaskStore'],
       ['src/pages/guide/index.vue', readFrontendFile('src/pages/guide/index.vue'), 'useGuideStore'],
-      ['src/pages/tasks/index.vue', readFrontendFile('src/pages/tasks/index.vue'), 'useTaskStore'],
+      ['src/pages/explore/index.vue', readFrontendFile('src/pages/explore/index.vue'), 'useTaskStore'],
       ['src/pages/task-detail/index.vue', readFrontendFile('src/pages/task-detail/index.vue'), 'useTaskStore'],
     ]
 
