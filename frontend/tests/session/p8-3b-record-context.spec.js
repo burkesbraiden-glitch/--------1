@@ -157,7 +157,7 @@ describe('P8.3B Records child-context contract', () => {
     const goExplore = recordPageSource.match(/goExplore\(\) \{[\s\S]*?\n    \},/)?.[0] || ''
 
     expect(goExplore).toContain('uni.reLaunch')
-    expect(goExplore).toContain("url: '/pages/plan/index'")
+    expect(goExplore).toContain("url: '/pages/explore/index'")
   })
 
   test('keeps the labeled date in the information body instead of duplicating it on the cover photo', () => {
