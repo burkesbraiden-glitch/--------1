@@ -28,7 +28,7 @@ describe('FE-R5B home visual and business contract', () => {
     expect(scriptSource).toContain('selectAge(ageGroup)')
     expect(scriptSource).toContain('this.selectedAgeGroup = ageGroup')
     expect(scriptSource).toContain('goToRoutePlanning()')
-    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
+    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
     expect(scriptSource).not.toContain('usePlanStore')
     expect(scriptSource).not.toContain('createPlan(')
     expect(scriptSource).toContain('await endUserSession()')
@@ -39,8 +39,8 @@ describe('FE-R5B home visual and business contract', () => {
   })
 
   test('preserves the formal Home routes, upgrades Guide entry to the shared Sheet, and keeps the shared tabbar', () => {
-    expect(scriptSource).toContain("path: '/pages/explore/index'")
-    expect(scriptSource).toContain("path: '/pages/explore/index'")
+    expect(scriptSource).toContain("path: '/pages/route/index'")
+    expect(scriptSource).toContain("path: '/pages/tasks/index'")
     expect(scriptSource).toContain("action: 'audio-guide'")
     expect(scriptSource).toContain("import AudioGuideSheet from '../../components/AudioGuideSheet.vue'")
     expect(templateSource).toContain('<AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />')
@@ -122,8 +122,8 @@ describe('FE-R5B home visual and business contract', () => {
 
     for (const item of [
       "{ key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' }",
-      "{ key: 'route', label: '路线', icon: 'plan', path: '/pages/explore/index' }",
-      "{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/explore/index' }",
+      "{ key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' }",
+      "{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' }",
       "{ key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' }",
       "{ key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' }",
     ]) {
