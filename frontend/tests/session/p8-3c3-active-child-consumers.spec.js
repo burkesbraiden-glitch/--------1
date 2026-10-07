@@ -129,7 +129,7 @@ describe('P8.3C3 active-child safe consumers', () => {
     globalThis.uni = { reLaunch }
     try {
       goToRoutePlanning.call({})
-      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/explore/index' })
+      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/route/index' })
     } finally {
       globalThis.uni = originalUni
     }
