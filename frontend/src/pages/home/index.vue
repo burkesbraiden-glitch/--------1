@@ -198,7 +198,7 @@ export default {
           desc: '安排景点与行程',
           theme: 'green',
           art: entryPlanMap,
-          path: '/pages/route/index',
+          path: '/pages/explore/index',
           method: 'reLaunch',
         },
         {
@@ -302,7 +302,7 @@ export default {
       this.selectedAgeGroup = ageGroup
     },
     goToRoutePlanning() {
-      uni.reLaunch({ url: '/pages/route/index' })
+      uni.reLaunch({ url: '/pages/explore/index' })
     },
     showToast(title) {
       uni.showToast({

@@ -230,7 +230,7 @@ export default {
     },
     goExplore() {
       uni.reLaunch({
-        url: '/pages/plan/index',
+        url: '/pages/explore/index',
       })
     },
     openRecordDetail(record) {

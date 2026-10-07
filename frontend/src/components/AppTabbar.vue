@@ -23,8 +23,6 @@
 import { useUserStore } from '../stores/user'
 import tabHomeIdle from '../assets/navigation/tab-home-idle.svg'
 import tabHomeActive from '../assets/navigation/tab-home-active.svg'
-import tabRouteIdle from '../assets/navigation/tab-route-idle.svg'
-import tabRouteActive from '../assets/navigation/tab-route-active.svg'
 import tabExploreIdle from '../assets/navigation/tab-explore-idle.svg'
 import tabExploreActive from '../assets/navigation/tab-explore-active.svg'
 import tabRecordIdle from '../assets/navigation/tab-record-idle.svg'
@@ -34,7 +32,6 @@ import tabProfileActive from '../assets/navigation/tab-profile-active.svg'
 
 const TAB_ICON_SOURCES = {
   home: { idle: tabHomeIdle, active: tabHomeActive },
-  route: { idle: tabRouteIdle, active: tabRouteActive },
   explore: { idle: tabExploreIdle, active: tabExploreActive },
   record: { idle: tabRecordIdle, active: tabRecordActive },
   profile: { idle: tabProfileIdle, active: tabProfileActive },
@@ -52,8 +49,7 @@ export default {
     return {
       tabs: [
         { key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' },
-        { key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' },
-        { key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' },
+        { key: 'explore', label: '探索', icon: 'tasks', path: '/pages/explore/index' },
         { key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' },
         { key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' },
       ],

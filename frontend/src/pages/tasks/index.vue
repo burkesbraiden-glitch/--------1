@@ -363,7 +363,7 @@ export default {
     },
     goPlan() {
       uni.reLaunch({
-        url: '/pages/plan/index',
+        url: `/pages/explore/index?planId=${encodeURIComponent(String(this.displayPlan?.id || ''))}`,
       })
     },
     goDetail(item) {

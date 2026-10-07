@@ -84,11 +84,10 @@ describe('P10.1 design-system foundation', () => {
     expect(globalStyles).not.toContain('font-weight: 900')
   })
 
-  it('keeps the five-tab navigation contract while using the restrained tabbar presentation', () => {
+  it('keeps the restrained navigation presentation after Route is absorbed by Explore', () => {
     for (const item of [
       "{ key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' }",
-      "{ key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' }",
-      "{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' }",
+      "{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/explore/index' }",
       "{ key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' }",
       "{ key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' }",
     ]) {
@@ -97,7 +96,6 @@ describe('P10.1 design-system foundation', () => {
 
     for (const svg of [
       'tab-home-idle.svg', 'tab-home-active.svg',
-      'tab-route-idle.svg', 'tab-route-active.svg',
       'tab-explore-idle.svg', 'tab-explore-active.svg',
       'tab-record-idle.svg', 'tab-record-active.svg',
       'tab-profile-idle.svg', 'tab-profile-active.svg',
