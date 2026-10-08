@@ -137,7 +137,7 @@
       <view class="route-form-field"><text>备注</text><input v-model="stopNote" placeholder="写下这站的小提醒" maxlength="500" /></view>
       <text v-if="stopNoteError" class="route-error">{{ stopNoteError }}</text><button class="route-sheet__submit" :disabled="isUpdatingStop" @click="submitStopNote">{{ isUpdatingStop ? '正在保存…' : '保存备注' }}</button>
     </view></view>
-    <AppTabbar active="route" />
+    <AppTabbar active="explore" />
   </view>
 </template>
 
@@ -277,7 +277,9 @@ export default {
       }
     },
     openGeneratedPlans() {
-      uni.reLaunch({ url: '/pages/plan/index' })
+      const routeId = this.currentRoute?.id
+      const suffix = routeId ? `?routeId=${encodeURIComponent(String(routeId))}` : ''
+      uni.reLaunch({ url: `/pages/explore/index${suffix}` })
     },
     openRouteEditSheet() {
       if (!this.currentRoute) return

@@ -8,6 +8,13 @@
       }
     },
     {
+      "path": "pages/explore/index",
+      "style": {
+        "navigationBarTitleText": "探索",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/plan/index",
       "style": {
         "navigationBarTitleText": "计划",

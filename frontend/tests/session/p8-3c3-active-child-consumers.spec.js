@@ -123,13 +123,13 @@ describe('P8.3C3 active-child safe consumers', () => {
     expect(context.recordStore.loadJourneyRecords).not.toHaveBeenCalled()
   })
 
-  test('Home sends its primary flow to Route planning instead of creating a Plan from child context', () => {
+  test('Home sends its primary flow to the Explore workbench instead of creating a Plan from child context', () => {
     const originalUni = globalThis.uni
     const reLaunch = vi.fn()
     globalThis.uni = { reLaunch }
     try {
       goToRoutePlanning.call({})
-      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/route/index' })
+      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/explore/index' })
     } finally {
       globalThis.uni = originalUni
     }

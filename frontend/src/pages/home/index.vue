@@ -3,15 +3,17 @@
     <view class="home-page__paper">
       <view class="home-header">
         <view class="home-header__brand">
-          <text class="home-header__title">童旅记</text>
-          <text class="home-header__subtitle">在旅行中学习，在故事里成长</text>
+          <image
+            v-if="brandLogoPath"
+            class="home-header__logo"
+            :src="brandLogoPath"
+            mode="heightFix"
+          />
         </view>
 
         <view class="home-header__tools">
-          <view class="home-header__city" @click="noop">
-            <view class="home-header__pin" aria-hidden="true"></view>
-            <text>北京</text>
-            <view class="home-header__arrow" aria-hidden="true"></view>
+          <view class="home-header__search" aria-label="搜索" @click="showToast('搜索功能正在准备中')">
+            <view class="home-header__search-icon" aria-hidden="true"></view>
           </view>
           <view class="home-header__notice" @click="noop">
             <view class="home-header__notice-icon" aria-hidden="true"></view>
@@ -172,6 +174,9 @@ import learningAncientLife from '../../assets/home/home-learning-ancient-life.we
 import learningArchitectureRitual from '../../assets/home/home-learning-architecture-ritual.webp'
 import learningObservationExpression from '../../assets/home/home-learning-observation-expression.webp'
 
+const brandLogoModules = import.meta.glob('../../assets/brand/tonglvji-logo.png', { eager: true, import: 'default' })
+const brandLogoPath = Object.values(brandLogoModules)[0] || ''
+
 function isAuthenticationError(error) {
   return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
 }
@@ -183,6 +188,7 @@ export default {
   },
   data() {
     return {
+      brandLogoPath,
       searchKeyword: '',
       selectedAgeGroup: '7-12',
       audioGuideOpen: false,
@@ -198,7 +204,7 @@ export default {
           desc: '安排景点与行程',
           theme: 'green',
           art: entryPlanMap,
-          path: '/pages/route/index',
+          path: '/pages/explore/index',
           method: 'reLaunch',
         },
         {
@@ -213,7 +219,7 @@ export default {
           desc: '边看边完成',
           theme: 'blue',
           art: entryObservationNotebook,
-          path: '/pages/tasks/index',
+          path: '/pages/explore/index',
           method: 'reLaunch',
         },
       ],
@@ -302,7 +308,7 @@ export default {
       this.selectedAgeGroup = ageGroup
     },
     goToRoutePlanning() {
-      uni.reLaunch({ url: '/pages/route/index' })
+      uni.reLaunch({ url: '/pages/explore/index' })
     },
     showToast(title) {
       uni.showToast({
@@ -957,6 +963,56 @@ export default {
   background: var(--tl-primary);
 }
 
+/* The actual brand asset is optional until the user supplies it. No text or CSS logo substitutes it. */
+.home-header__brand {
+  min-height: 76rpx;
+}
+
+.home-header__logo {
+  display: block;
+  max-width: 280rpx;
+  height: 72rpx;
+}
+
+.home-header__tools {
+  padding-top: 10rpx;
+}
+
+.home-header__search {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 54rpx;
+  height: 54rpx;
+  color: var(--tl-text-main);
+  background: var(--tl-paper);
+  border: 2rpx solid rgba(190, 142, 78, 0.52);
+  border-radius: 50%;
+  box-shadow: 0 6rpx 12rpx rgba(97, 63, 28, 0.08);
+}
+
+.home-header__search-icon {
+  position: relative;
+  width: 22rpx;
+  height: 22rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+}
+
+.home-header__search-icon::after {
+  position: absolute;
+  right: -10rpx;
+  bottom: -7rpx;
+  width: 11rpx;
+  height: 3rpx;
+  content: '';
+  background: currentColor;
+  border-radius: 99rpx;
+  transform: rotate(45deg);
+}
+
 .home-search-row {
   gap: 16rpx;
   margin-bottom: 34rpx;
@@ -1299,7 +1355,6 @@ export default {
     padding-left: 24rpx;
   }
 
-  .home-header__title { font-size: 62rpx; }
   .home-search-row { flex-direction: column; align-items: stretch; }
   .home-age { justify-content: flex-end; }
   .home-hero__book { min-height: 0; }

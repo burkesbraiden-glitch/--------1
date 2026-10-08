@@ -22,13 +22,13 @@ const tabbarTemplateSource = blockSource(tabbarSource, 'template')
 const tabbarScriptSource = blockSource(tabbarSource, 'script')
 
 describe('FE-R5B home visual and business contract', () => {
-  test('preserves Home business bindings while moving its primary entry to Route planning', () => {
+  test('preserves Home business bindings while moving its primary entry to the Explore workbench', () => {
     expect(scriptSource).toContain("import { endUserSession } from '../../utils/sessionBoundary'")
     expect(scriptSource).toContain("searchKeyword: ''")
     expect(scriptSource).toContain('selectAge(ageGroup)')
     expect(scriptSource).toContain('this.selectedAgeGroup = ageGroup')
     expect(scriptSource).toContain('goToRoutePlanning()')
-    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
     expect(scriptSource).not.toContain('usePlanStore')
     expect(scriptSource).not.toContain('createPlan(')
     expect(scriptSource).toContain('await endUserSession()')
@@ -38,9 +38,8 @@ describe('FE-R5B home visual and business contract', () => {
     expect(plansApiSource).toContain("method: 'POST'")
   })
 
-  test('preserves the formal Home routes, upgrades Guide entry to the shared Sheet, and keeps the shared tabbar', () => {
-    expect(scriptSource).toContain("path: '/pages/route/index'")
-    expect(scriptSource).toContain("path: '/pages/tasks/index'")
+  test('preserves the formal Home workbench entries, upgrades Guide entry to the shared Sheet, and keeps the shared tabbar', () => {
+    expect(scriptSource).toContain("path: '/pages/explore/index'")
     expect(scriptSource).toContain("action: 'audio-guide'")
     expect(scriptSource).toContain("import AudioGuideSheet from '../../components/AudioGuideSheet.vue'")
     expect(templateSource).toContain('<AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />')
@@ -109,7 +108,6 @@ describe('FE-R5B home visual and business contract', () => {
   test('replaces only the Tabbar icon artwork while preserving its formal navigation contract', () => {
     const tabIcons = [
       'tab-home-idle.svg', 'tab-home-active.svg',
-      'tab-route-idle.svg', 'tab-route-active.svg',
       'tab-explore-idle.svg', 'tab-explore-active.svg',
       'tab-record-idle.svg', 'tab-record-active.svg',
       'tab-profile-idle.svg', 'tab-profile-active.svg',
@@ -122,8 +120,7 @@ describe('FE-R5B home visual and business contract', () => {
 
     for (const item of [
       "{ key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' }",
-      "{ key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' }",
-      "{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' }",
+      "{ key: 'explore', label: '探索', icon: 'explore', path: '/pages/explore/index' }",
       "{ key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' }",
       "{ key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' }",
     ]) {

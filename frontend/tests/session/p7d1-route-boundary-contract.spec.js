@@ -34,7 +34,7 @@ describe('P7D-1 Route and navigation boundary contract', () => {
     expect(exploreDetailSource).toMatch(/import\s*\{\s*usePlanStore\s*\}\s*from\s*['"][^'"]*stores\/plan['"]/)
     expect(exploreDetailSource).toMatch(/import\s*\{\s*useTaskStore\s*\}\s*from\s*['"][^'"]*stores\/task['"]/)
     expect(exploreDetailSource).toContain('startExploration')
-    expect(exploreDetailSource).toContain('/pages/tasks/index')
+    expect(exploreDetailSource).toContain('/pages/explore/index')
     expectNoRouteDomainCoupling(exploreDetailSource)
   })
 

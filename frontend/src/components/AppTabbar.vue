@@ -1,21 +1,23 @@
 <template>
   <view class="app-tabbar">
-    <button
-      v-for="item in tabs"
-      :key="item.key"
-      class="app-tabbar__item"
-      :class="{ 'app-tabbar__item--active': active === item.key }"
-      @click="go(item)"
-    >
-      <view class="app-tabbar__icon" :class="`app-tabbar__icon--${item.icon}`" aria-hidden="true">
-        <image
-          class="app-tabbar__icon-image"
-          :src="getIconSource(item.key)"
-          mode="aspectFit"
-        />
-      </view>
-      <text class="app-tabbar__label">{{ item.label }}</text>
-    </button>
+    <view class="app-tabbar__inner">
+      <button
+        v-for="item in tabs"
+        :key="item.key"
+        class="app-tabbar__item"
+        :class="{ 'app-tabbar__item--active': active === item.key }"
+        @click="go(item)"
+      >
+        <view class="app-tabbar__icon" :class="`app-tabbar__icon--${item.icon}`" aria-hidden="true">
+          <image
+            class="app-tabbar__icon-image"
+            :src="getIconSource(item.key)"
+            mode="aspectFit"
+          />
+        </view>
+        <text class="app-tabbar__label">{{ item.label }}</text>
+      </button>
+    </view>
   </view>
 </template>
 
@@ -23,8 +25,6 @@
 import { useUserStore } from '../stores/user'
 import tabHomeIdle from '../assets/navigation/tab-home-idle.svg'
 import tabHomeActive from '../assets/navigation/tab-home-active.svg'
-import tabRouteIdle from '../assets/navigation/tab-route-idle.svg'
-import tabRouteActive from '../assets/navigation/tab-route-active.svg'
 import tabExploreIdle from '../assets/navigation/tab-explore-idle.svg'
 import tabExploreActive from '../assets/navigation/tab-explore-active.svg'
 import tabRecordIdle from '../assets/navigation/tab-record-idle.svg'
@@ -34,7 +34,6 @@ import tabProfileActive from '../assets/navigation/tab-profile-active.svg'
 
 const TAB_ICON_SOURCES = {
   home: { idle: tabHomeIdle, active: tabHomeActive },
-  route: { idle: tabRouteIdle, active: tabRouteActive },
   explore: { idle: tabExploreIdle, active: tabExploreActive },
   record: { idle: tabRecordIdle, active: tabRecordActive },
   profile: { idle: tabProfileIdle, active: tabProfileActive },
@@ -52,8 +51,7 @@ export default {
     return {
       tabs: [
         { key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' },
-        { key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' },
-        { key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' },
+        { key: 'explore', label: '探索', icon: 'explore', path: '/pages/explore/index' },
         { key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' },
         { key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' },
       ],
@@ -99,6 +97,13 @@ export default {
   border-top: 1rpx solid var(--tl-divider);
 }
 
+.app-tabbar__inner {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
 .app-tabbar__item {
   display: flex;
   flex: 1;
@@ -141,6 +146,15 @@ export default {
 
 .app-tabbar__item--active {
   color: var(--tl-primary);
+}
+
+@media (min-width: 431px) {
+  .app-tabbar__inner {
+    flex: 0 1 var(--tl-content-max-width);
+    width: 100%;
+    max-width: var(--tl-content-max-width);
+    margin: 0 auto;
+  }
 }
 
 @media (max-width: 360px) {

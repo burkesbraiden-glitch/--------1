@@ -25,10 +25,10 @@ describe('P8.4C Home truthful production copy', () => {
     }
   })
 
-  test('the primary Home action sends parents to Route planning without a manual Plan request', () => {
+  test('the primary Home action sends parents to the Explore workbench without a manual Plan request', () => {
     expect(templateSource).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
     expect(templateSource).toContain('规划亲子路线')
-    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
     expect(scriptSource).not.toContain('usePlanStore')
     expect(scriptSource).not.toContain('createPlan(')
     expect(templateSource).not.toContain('class="plan-sheet"')

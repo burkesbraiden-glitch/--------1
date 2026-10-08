@@ -102,9 +102,9 @@ describe('P8.4D FALLBACK_CHILD cleanup contract', () => {
     expect(child.currentChild).toBeNull()
   })
 
-  test('Home routes into Route planning without a Child fallback or manual Plan creation path', () => {
+  test('Home routes into the Explore workbench without a Child fallback or manual Plan creation path', () => {
     expect(homeSource).toContain('goToRoutePlanning()')
-    expect(homeSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+    expect(homeSource).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
     expect(homeSource).not.toContain('createPlan(')
     expect(homeSource).not.toContain('currentChild.id')
   })

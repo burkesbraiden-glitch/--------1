@@ -101,15 +101,15 @@ describe('FE-R5A global visual foundation', () => {
     expect(watercolorCard).not.toMatch(/padding|min-height|header|hero|tabbar|illustration/i)
   })
 
-  test('keeps the five-item AppTabbar business contract with the P10.1 restrained presentation', () => {
+  test('keeps the four-item P10.2 AppTabbar business contract with the restrained presentation', () => {
     const template = blockSource('template')
     const script = blockSource('script')
     const style = blockSource('style')
 
     expect(template).toContain('app-tabbar__icon--${item.icon}')
     const tabEntries = script.match(/\{\s*key:\s*'[^']+',\s*label:\s*'[^']+',\s*icon:\s*'[^']+',\s*path:\s*'[^']+'\s*\}/g) || []
-    expect(tabEntries).toHaveLength(5)
-    for (const icon of ['home', 'plan', 'tasks', 'record', 'profile']) {
+    expect(tabEntries).toHaveLength(4)
+    for (const icon of ['home', 'explore', 'record', 'profile']) {
       expect(script).toContain(`icon: '${icon}'`)
     }
     expect(script).toContain('async go(item)')
