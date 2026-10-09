@@ -91,7 +91,7 @@ describe('FE-R6 full application visual contract', () => {
 
     expect(profile).not.toContain('profile-page__avatar">\n        <text>探</text>')
     expect(profile).not.toContain("icon: '档'")
-    expect(profile).toContain('displayUser.nickname')
+    expect(profile).toContain('active-child-card__name')
     expect(profile).toContain('activeChild.name')
 
     expect(tabbar).toContain('flex: 1;')
@@ -124,8 +124,8 @@ describe('FE-R6 full application visual contract', () => {
     expect(login).toContain('display: none;')
     expect(login).toContain("@click=\"agreed = !agreed\"")
 
-    expect(profile).toContain('nickname: this.activeChild.name')
-    expect(profile).toContain("this.activeChild.city || '未填写城市'")
+    expect(profile).toContain('当前探索档案')
+    expect(profile).not.toContain("'未填写城市'")
   })
 
   test('keeps the P10.4 Record page quiet instead of treating an album as scrapbook decoration', () => {

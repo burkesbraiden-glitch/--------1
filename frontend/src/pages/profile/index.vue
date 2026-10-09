@@ -1,181 +1,99 @@
 <template>
   <view class="profile-page">
-    <view class="profile-page__title-row">
-      <text class="profile-page__title">我的</text>
-      <view class="profile-page__spark" aria-hidden="true"></view>
-    </view>
-
-    <view class="profile-page__hero-art">
-      <image src="../../assets/profile/profile-growth-watercolor.webp" mode="aspectFill" />
-    </view>
-
-    <view class="profile-page__user">
-      <view class="profile-page__avatar">
-        <view class="profile-page__avatar-portrait" aria-hidden="true"></view>
-      </view>
-      <view class="profile-page__user-copy">
-        <view class="profile-page__name-row">
-          <text class="profile-page__name">{{ displayUser.nickname }}</text>
+    <view class="profile-page__paper">
+      <view class="profile-header">
+        <view>
+          <text class="profile-header__title">我的</text>
+          <text class="profile-header__subtitle">和孩子一起，发现更大的世界</text>
         </view>
-        <text class="profile-page__meta">{{ displayUser.meta }}</text>
-        <text v-if="activeChild" class="profile-page__age-tag">{{ activeAgeGroup }}岁</text>
-      </view>
-    </view>
-
-    <view class="profile-page__section">
-      <view class="profile-page__section-title">
-        <view class="profile-page__section-mark" aria-hidden="true"></view>
-        <text>成长记录</text>
-      </view>
-      <view class="profile-page__record-list">
-        <button class="profile-page__record" @click="openJourneyRecords">
-          <view class="profile-page__record-thumb profile-page__record-thumb--record" aria-hidden="true"></view>
-          <view class="profile-page__record-copy">
-            <text class="profile-page__record-title">成长记录</text>
-            <text class="profile-page__record-meta">查看探索中的任务、照片与笔记</text>
-          </view>
-          <view class="profile-page__arrow" aria-hidden="true"></view>
+        <button class="profile-header__settings" aria-label="账号与设置" @click="openSettings">
+          <view class="profile-header__settings-icon" aria-hidden="true"></view>
         </button>
       </view>
-    </view>
 
-    <view v-if="showChildCard" class="profile-page__child-card">
-      <view class="profile-page__child-head">
-        <text>孩子档案</text>
-        <button @click="showChildCard = false">收起</button>
+      <view v-if="child.isLoading" class="profile-state">
+        <text>正在同步孩子档案…</text>
       </view>
-
-      <view v-if="child.isLoading" class="profile-page__child-state">
-        <text>正在加载孩子档案...</text>
-      </view>
-      <view v-else-if="child.error" class="profile-page__child-state">
+      <view v-else-if="child.error" class="profile-state profile-state--error">
         <text>孩子资料加载失败，请重试</text>
-        <button @click="loadChildren">重试</button>
+        <button class="profile-state__action" @click="loadChildren">重试</button>
       </view>
-      <view v-else-if="child.isLoaded && child.children.length === 0" class="profile-page__child-state">
-        <text class="profile-page__child-empty-title">尚未添加孩子</text>
-        <text class="profile-page__child-empty-desc">完善孩子档案后，就能记录专属成长旅程</text>
-        <button @click="openAddChildForm">添加孩子档案</button>
+      <view v-else-if="child.isLoaded && child.children.length === 0" class="profile-state">
+        <text class="profile-state__title">尚未添加孩子</text>
+        <text class="profile-state__copy">添加孩子档案后，就能开始保存专属探索记录。</text>
+        <button class="profile-state__action" @click="openAddChildForm">添加孩子</button>
       </view>
-      <view v-else-if="child.isLoaded && child.children.length > 0">
-        <scroll-view
-          class="profile-page__child-quick-list"
-          scroll-x="true"
-          :show-scrollbar="false"
-        >
-          <view class="profile-page__child-quick-list-inner">
-            <button
-              v-for="candidate in child.children"
-              :key="candidate.id"
-              class="profile-page__child-quick-item"
-              :class="{ 'profile-page__child-quick-item--active': isActiveChild(candidate) }"
-              @click="quickSelectChild(candidate)"
-            >
-              <text class="profile-page__child-quick-name">{{ candidate.name }}</text>
-              <text class="profile-page__child-quick-age">{{ candidate.age }}岁</text>
-              <text v-if="isActiveChild(candidate)" class="profile-page__child-quick-check">✓</text>
-            </button>
-            <button class="profile-page__child-quick-add" @click="openAddChildForm">
-              <text>+</text>
-              <text>添加孩子</text>
-            </button>
+      <view v-else-if="activeChild" class="active-child-card">
+        <button class="active-child-card__identity" @click="openManageChild">
+          <view class="active-child-card__avatar" aria-hidden="true"><text>{{ childInitial }}</text></view>
+          <view class="active-child-card__copy">
+            <text class="active-child-card__name">{{ activeChild.name }}</text>
+            <text class="active-child-card__meta"><template v-if="ageText">{{ ageText }} · </template>当前探索档案</text>
           </view>
-        </scroll-view>
-        <view v-if="activeChild">
-        <view class="profile-page__child-context">
-          <text class="profile-page__child-current-tag">当前孩子</text>
-          <button v-if="canSwitchChild" class="profile-page__child-switch" @click="openChildSwitcher">切换孩子</button>
-        </view>
-        <text class="profile-page__child-name">{{ activeChild.name }} · {{ activeChild.age }}岁 · {{ activeChild.city || '未填写城市' }}</text>
-        <view class="profile-page__interest-list">
-          <text v-for="interest in activeChild.interests" :key="interest" class="profile-page__interest">{{ interest }}</text>
-        </view>
-        <button class="profile-page__child-edit" @click="openEditChildForm">编辑当前孩子</button>
-        </view>
-        <view v-else class="profile-page__child-state">
-          <text>请选择要查看的孩子档案</text>
-        </view>
-      </view>
-      <view v-else class="profile-page__child-state">
-        <text>正在加载孩子资料...</text>
-      </view>
-    </view>
-
-    <view class="profile-page__menu">
-      <button v-for="item in menuItems" :key="item.key" class="profile-page__menu-item" @click="handleMenu(item.key)">
-        <view class="profile-page__menu-icon" :class="`profile-page__menu-icon--${item.icon}`" aria-hidden="true"></view>
-        <text>{{ item.label }}</text>
-        <view class="profile-page__arrow" aria-hidden="true"></view>
-      </button>
-    </view>
-
-    <view v-if="showChildForm" class="profile-page__sheet">
-      <view class="profile-page__sheet-mask" @click="closeChildForm"></view>
-      <view class="profile-page__sheet-panel profile-page__sheet-panel--child">
-        <view class="profile-page__sheet-head">
-          <text>{{ childFormMode === 'create' ? '添加孩子档案' : '编辑孩子档案' }}</text>
-          <button @click="closeChildForm">关闭</button>
-        </view>
-
-        <view class="profile-page__form-field">
-          <text>姓名</text>
-          <input v-model="childForm.name" placeholder="请输入孩子姓名" />
-        </view>
-        <view class="profile-page__form-field">
-          <text>年龄</text>
-          <input v-model="childForm.age" type="number" placeholder="3-12" />
-          <text class="profile-page__form-hint">{{ formAgeGroup }}岁</text>
-        </view>
-        <view class="profile-page__form-field">
-          <text>城市</text>
-          <input v-model="childForm.city" placeholder="可不填" />
-        </view>
-        <view class="profile-page__form-field">
-          <text>兴趣</text>
-          <view class="profile-page__interest-list profile-page__interest-list--form">
-            <button
-              v-for="interest in interestOptions"
-              :key="interest"
-              class="profile-page__interest"
-              :class="{ 'profile-page__interest--active': childForm.interests.includes(interest) }"
-              @click="toggleChildInterest(interest)"
-            >
-              {{ interest }}
-            </button>
-          </view>
-        </view>
-
-        <button class="profile-page__form-submit" :disabled="isSavingChild" @click="saveChildProfile">
-          {{ isSavingChild ? '保存中' : '保存档案' }}
+          <text class="active-child-card__arrow" aria-hidden="true">›</text>
         </button>
-      </view>
-    </view>
-
-    <view v-if="showChildSwitcher" class="profile-page__sheet">
-      <view class="profile-page__sheet-mask" @click="closeChildSwitcher"></view>
-      <view class="profile-page__sheet-panel profile-page__sheet-panel--switcher">
-        <view class="profile-page__sheet-head">
-          <text>切换孩子</text>
-          <button @click="closeChildSwitcher">关闭</button>
+        <view class="active-child-card__actions">
+          <button class="active-child-card__action active-child-card__action--primary" @click="openChildSwitcher">切换孩子</button>
+          <button class="active-child-card__action" @click="openManageChild">管理孩子</button>
         </view>
-        <view class="profile-page__child-option-list">
-          <button
-            v-for="candidate in child.children"
-            :key="candidate.id"
-            class="profile-page__child-option"
-            :class="{ 'profile-page__child-option--active': isActiveChild(candidate) }"
-            @click="selectActiveChild(candidate)"
-          >
-            <view class="profile-page__child-option-copy">
-              <text class="profile-page__child-option-name">{{ candidate.name }}</text>
-              <text class="profile-page__child-option-meta">{{ candidate.age }}岁 · {{ candidate.city || '未填写城市' }}</text>
-            </view>
-            <text v-if="isActiveChild(candidate)" class="profile-page__child-option-current">当前孩子</text>
+      </view>
+      <view v-else class="profile-state"><text>正在同步孩子档案…</text></view>
+
+      <view class="profile-section">
+        <text class="profile-section__title">孩子与家庭</text>
+        <view class="profile-list">
+          <button class="profile-list__item" @click="openManageChild">
+            <view class="profile-list__icon profile-list__icon--profile" aria-hidden="true"></view>
+            <view class="profile-list__copy"><text>孩子档案</text><text>查看和编辑孩子的基本信息</text></view>
+            <text class="profile-list__arrow" aria-hidden="true">›</text>
+          </button>
+          <button class="profile-list__item" @click="openAddChildForm">
+            <view class="profile-list__icon profile-list__icon--add" aria-hidden="true"></view>
+            <view class="profile-list__copy"><text>添加孩子</text><text>为家人添加新的孩子档案</text></view>
+            <text class="profile-list__arrow" aria-hidden="true">›</text>
+          </button>
+        </view>
+      </view>
+
+      <view v-if="activeChild" class="profile-section">
+        <text class="profile-section__title">探索偏好</text>
+        <view class="profile-list">
+          <button class="profile-list__item" @click="openManageChild">
+            <view class="profile-list__icon profile-list__icon--interest" aria-hidden="true"></view>
+            <view class="profile-list__copy"><text>兴趣偏好</text><text>设置孩子感兴趣的探索主题</text></view>
+            <text class="profile-list__arrow" aria-hidden="true">›</text>
+          </button>
+        </view>
+      </view>
+
+      <view class="profile-section profile-section--last">
+        <text class="profile-section__title">账号与设置</text>
+        <view class="profile-list">
+          <button class="profile-list__item" @click="openSettings">
+            <view class="profile-list__icon profile-list__icon--settings" aria-hidden="true"></view>
+            <view class="profile-list__copy"><text>账号与设置</text><text>查看账号信息与应用说明</text></view>
+            <text class="profile-list__arrow" aria-hidden="true">›</text>
           </button>
         </view>
       </view>
     </view>
 
+    <view v-if="showChildForm" class="child-form-sheet">
+      <view class="child-form-sheet__mask" @click="closeChildForm"></view>
+      <view class="child-form-sheet__panel">
+        <view class="child-form-sheet__header"><text>{{ childFormMode === 'create' ? '添加孩子' : '管理孩子' }}</text><button :disabled="isSavingChild" @click="closeChildForm">关闭</button></view>
+        <view class="child-form-sheet__field"><text>姓名</text><input v-model="childForm.name" placeholder="请输入孩子姓名" /></view>
+        <view class="child-form-sheet__field"><text>年龄</text><input v-model="childForm.age" type="number" placeholder="3-12" /></view>
+        <view class="child-form-sheet__field"><text>城市</text><input v-model="childForm.city" placeholder="可不填" /></view>
+        <view class="child-form-sheet__field">
+          <text>兴趣偏好</text>
+          <view class="child-form-sheet__interests">
+            <button v-for="interest in interestOptions" :key="interest" :class="{ 'child-form-sheet__interest--selected': childForm.interests.includes(interest) }" class="child-form-sheet__interest" @click="toggleChildInterest(interest)">{{ interest }}</button>
+          </view>
+        </view>
+        <button class="child-form-sheet__submit" :disabled="isSavingChild" @click="saveChildProfile">{{ isSavingChild ? '保存中…' : '保存档案' }}</button>
+      </view>
+    </view>
     <AppTabbar active="profile" />
   </view>
 </template>
@@ -186,120 +104,42 @@ import { useChildStore } from '../../stores/child'
 import { useUserStore } from '../../stores/user'
 import { endUserSession } from '../../utils/sessionBoundary'
 
+const DEFAULT_INTERESTS = ['历史故事', '古建筑', '观察探索']
+
 export default {
-  components: {
-    AppTabbar,
-  },
+  components: { AppTabbar },
   data() {
     return {
-      showChildCard: true,
       showChildForm: false,
-      showChildSwitcher: false,
       isSavingChild: false,
       childFormMode: 'create',
-      childForm: {
-        name: '',
-        age: '7',
-        city: '',
-        interests: ['历史故事', '古建筑', '观察探索'],
-      },
-      interestOptions: ['历史故事', '古建筑', '观察探索'],
+      pendingChildAction: '',
+      childForm: { name: '', age: '7', city: '', interests: [...DEFAULT_INTERESTS] },
+      interestOptions: DEFAULT_INTERESTS,
     }
   },
   computed: {
-    child() {
-      return useChildStore()
-    },
-    user() {
-      return useUserStore()
-    },
-    activeChild() {
-      return this.child.activeChild
-    },
-    canSwitchChild() {
-      return Boolean(this.activeChild) && this.child.children.length > 1
-    },
-    activeAgeGroup() {
-      if (this.activeChild?.ageGroup) {
-        return this.activeChild.ageGroup
-      }
-      return this.activeChild?.age >= 3 && this.activeChild.age <= 6 ? '3-6' : '7-12'
-    },
-    displayUser() {
-      if (this.child.isLoading) {
-        return {
-          nickname: '孩子档案加载中',
-          meta: '正在同步真实孩子资料',
-        }
-      }
-
-      if (this.child.error) {
-        return {
-          nickname: '孩子资料加载失败',
-          meta: '请重试后再查看孩子档案',
-        }
-      }
-
-      if (this.child.isLoaded && this.child.children.length === 0) {
-        return {
-          nickname: '尚未添加孩子',
-          meta: '完善后记录专属成长旅程',
-        }
-      }
-
-      if (this.activeChild) {
-        return {
-          nickname: this.activeChild.name,
-          meta: `${this.activeChild.age}岁 · ${this.activeChild.city || '未填写城市'}`,
-        }
-      }
-
-      return {
-        nickname: '孩子资料加载中',
-        meta: '正在同步真实孩子资料',
-      }
-    },
-    formAgeGroup() {
-      const age = Number(this.childForm.age)
-      if (age >= 3 && age <= 6) {
-        return '3-6'
-      }
-      return '7-12'
-    },
-    menuItems() {
-      return [
-        { key: 'child', label: '孩子档案', icon: 'child' },
-        { key: 'logout', label: '退出登录', icon: 'logout' },
-      ]
-    },
+    child() { return useChildStore() },
+    user() { return useUserStore() },
+    activeChild() { return this.child.activeChild },
+    childInitial() { return String(this.activeChild?.name || '孩').trim().slice(0, 1) || '孩' },
+    ageText() { return Number.isInteger(this.activeChild?.age) ? `${this.activeChild.age}岁` : '' },
+    canSwitchChild() { return this.child.children.length > 1 },
+  },
+  onLoad(options) {
+    this.pendingChildAction = options?.childAction || ''
   },
   async onShow() {
     await this.user.restoreSession()
     if (!this.user.isLoggedIn) {
-      uni.reLaunch({
-        url: '/pages/login/index',
-      })
+      uni.reLaunch({ url: '/pages/login/index' })
       return
     }
     await this.loadChildren()
+    this.runPendingChildAction()
   },
   methods: {
-    showToast(title) {
-      uni.showToast({
-        title,
-        icon: 'none',
-      })
-    },
-    mapChildError(error) {
-      const messages = {
-        NETWORK_ERROR: '无法加载孩子档案，请重试',
-        VALIDATION_ERROR: '请检查孩子档案信息',
-        UNAUTHORIZED: '登录状态已失效，请重新登录',
-        INVALID_TOKEN: '登录状态已失效，请重新登录',
-        TOKEN_EXPIRED: '登录状态已失效，请重新登录',
-      }
-      return messages[error?.code] || error?.message || '操作失败，请稍后再试'
-    },
+    showToast(title) { uni.showToast({ title, icon: 'none' }) },
     async loadChildren() {
       try {
         await this.child.fetchChildren(this.user.userInfo.id)
@@ -309,84 +149,54 @@ export default {
         }
       }
     },
-    openJourneyRecords() {
-      uni.navigateTo({
-        url: '/pages/record/index',
-      })
+    runPendingChildAction() {
+      const action = this.pendingChildAction
+      this.pendingChildAction = ''
+      if (action === 'create') this.openAddChildForm()
+      if (action === 'manage' && this.activeChild) this.openEditChildForm()
+    },
+    openChildSwitcher() {
+      if (!this.canSwitchChild) {
+        this.showToast('添加更多孩子后即可切换')
+        return
+      }
+      uni.navigateTo({ url: '/pages/child-switch/index' })
+    },
+    openSettings() { uni.navigateTo({ url: '/pages/settings/index' }) },
+    openManageChild() {
+      if (this.activeChild) this.openEditChildForm()
+      else this.openAddChildForm()
     },
     openAddChildForm() {
       this.childFormMode = 'create'
-      this.childForm = {
-        name: '',
-        age: '7',
-        city: '',
-        interests: ['历史故事', '古建筑', '观察探索'],
-      }
+      this.childForm = { name: '', age: '7', city: '', interests: [...DEFAULT_INTERESTS] }
       this.showChildForm = true
     },
     openEditChildForm() {
-      this.childFormMode = 'edit'
       const current = this.activeChild
+      this.childFormMode = 'edit'
       this.childForm = {
         name: current?.name || '',
-        age: String(current?.age || 7),
+        age: Number.isInteger(current?.age) ? String(current.age) : '',
         city: current?.city || '',
-        interests: current?.interests?.length ? [...current.interests] : ['历史故事', '古建筑', '观察探索'],
+        interests: current?.interests?.length ? [...current.interests] : [...DEFAULT_INTERESTS],
       }
       this.showChildForm = true
     },
-    openChildForm() {
-      this.openEditChildForm()
-    },
-    openChildSwitcher() {
-      if (this.canSwitchChild) {
-        this.showChildSwitcher = true
-      }
-    },
-    closeChildSwitcher() {
-      this.showChildSwitcher = false
-    },
-    isActiveChild(candidate) {
-      return String(candidate?.id) === String(this.activeChild?.id)
-    },
-    quickSelectChild(candidate) {
-      if (this.isActiveChild(candidate)) {
-        return
-      }
-
-      if (this.child.setActiveChild(candidate?.id)) {
-        this.showToast(`已切换到${candidate.name}`)
-        return
-      }
-
-      this.showToast('切换孩子失败，请稍后重试')
-    },
-    selectActiveChild(candidate) {
-      if (this.child.setActiveChild(candidate?.id)) {
-        this.showChildSwitcher = false
-        return
-      }
-      this.showToast('切换孩子失败，请稍后重试')
-    },
+    openChildForm() { this.openManageChild() },
     closeChildForm() {
-      if (!this.isSavingChild) {
-        this.showChildForm = false
-      }
+      if (!this.isSavingChild) this.showChildForm = false
     },
     toggleChildInterest(interest) {
       if (this.childForm.interests.includes(interest)) {
-        if (this.childForm.interests.length === 1) {
-          return
-        }
-        this.childForm.interests = this.childForm.interests.filter((item) => item !== interest)
+        if (this.childForm.interests.length > 1) this.childForm.interests = this.childForm.interests.filter((item) => item !== interest)
         return
       }
       this.childForm.interests = [...this.childForm.interests, interest]
     },
     validateChildForm() {
-      const name = this.childForm.name.trim()
       const age = Number(this.childForm.age)
-      if (!name) {
+      if (!this.childForm.name.trim()) {
         this.showToast('请输入孩子姓名')
         return false
       }
@@ -397,41 +207,22 @@ export default {
       return true
     },
     async saveChildProfile() {
-      if (this.isSavingChild || !this.validateChildForm()) {
-        return
-      }
-
-      const payload = {
-        name: this.childForm.name.trim(),
-        age: Number(this.childForm.age),
-        city: this.childForm.city.trim(),
-        interests: [...this.childForm.interests],
-      }
-
+      if (this.isSavingChild || !this.validateChildForm()) return
+      const payload = { name: this.childForm.name.trim(), age: Number(this.childForm.age), city: this.childForm.city.trim(), interests: [...this.childForm.interests] }
       this.isSavingChild = true
       try {
         if (this.childFormMode === 'create') {
           const savedChild = await this.child.createChild(payload)
           this.child.setActiveChild(savedChild.id)
-        } else {
+        } else if (this.activeChild) {
           await this.child.updateChild(this.activeChild.id, payload)
         }
         this.showChildForm = false
         this.showToast('孩子档案已保存')
       } catch (error) {
-        this.showToast(this.mapChildError(error))
+        this.showToast(error?.message || '保存失败，请稍后重试')
       } finally {
         this.isSavingChild = false
-      }
-    },
-    handleMenu(key) {
-      if (key === 'child') {
-        this.showChildCard = true
-        return
-      }
-
-      if (key === 'logout') {
-        endUserSession()
       }
     },
   },
@@ -439,868 +230,13 @@ export default {
 </script>
 
 <style scoped>
-.profile-page {
-  min-height: 100vh;
-  box-sizing: border-box;
-  padding: 40rpx 42rpx calc(170rpx + env(safe-area-inset-bottom));
-  overflow-x: hidden;
-  color: #4a2f1b;
-  background:
-    radial-gradient(circle at 18% 8%, rgba(255, 240, 189, 0.72), transparent 24%),
-    linear-gradient(180deg, #fff4da 0%, #f8efd9 100%);
-}
-
-.profile-page__title-row,
-.profile-page__user,
-.profile-page__name-row,
-.profile-page__child-head,
-.profile-page__sheet-head,
-.profile-page__setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.profile-page__title-row {
-  justify-content: flex-start;
-  gap: 16rpx;
-  margin-top: 22rpx;
-}
-
-.profile-page__title {
-  font-size: 66rpx;
-  font-weight: 900;
-}
-
-.profile-page__spark {
-  position: relative;
-  width: 22rpx;
-  height: 22rpx;
-  color: #f4aa23;
-  transform: rotate(45deg);
-}
-
-.profile-page__spark::after,
-.profile-page__section-mark::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  background: currentColor;
-  border-radius: 5rpx;
-}
-
-.profile-page__user {
-  justify-content: flex-start;
-  gap: 26rpx;
-  margin-top: 26rpx;
-}
-
-.profile-page__avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 142rpx;
-  height: 142rpx;
-  color: #d94b12;
-  background: #ffd782;
-  border: 8rpx solid #fffaf0;
-  border-radius: 50%;
-  box-shadow: 0 12rpx 24rpx rgba(97, 63, 28, 0.12);
-}
-
-.profile-page__avatar-portrait {
-  position: relative;
-  width: 58rpx;
-  height: 68rpx;
-  border: 4rpx solid currentColor;
-  border-radius: 34rpx 34rpx 20rpx 20rpx;
-}
-
-.profile-page__avatar-portrait::before,
-.profile-page__avatar-portrait::after {
-  position: absolute;
-  right: 0;
-  left: 0;
-  margin: auto;
-  content: '';
-}
-
-.profile-page__avatar-portrait::before {
-  top: 10rpx;
-  width: 18rpx;
-  height: 18rpx;
-  border: 4rpx solid currentColor;
-  border-radius: 50%;
-}
-
-.profile-page__avatar-portrait::after {
-  bottom: 9rpx;
-  width: 32rpx;
-  height: 16rpx;
-  border: 4rpx solid currentColor;
-  border-bottom: 0;
-  border-radius: 22rpx 22rpx 0 0;
-}
-
-.profile-page__user-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.profile-page__name-row {
-  justify-content: flex-start;
-  gap: 12rpx;
-}
-
-.profile-page__name {
-  font-size: 40rpx;
-  font-weight: 900;
-}
-
-.profile-page__edit {
-  position: relative;
-  width: 24rpx;
-  height: 24rpx;
-  color: #d94b12;
-  transform: rotate(-38deg);
-}
-
-.profile-page__edit::before {
-  position: absolute;
-  top: 2rpx;
-  left: 9rpx;
-  width: 6rpx;
-  height: 20rpx;
-  content: '';
-  background: currentColor;
-  border-radius: 999rpx;
-}
-
-.profile-page__meta {
-  display: block;
-  margin-top: 12rpx;
-  font-size: 28rpx;
-  color: #5e3c22;
-}
-
-.profile-page__age-tag {
-  display: inline-flex;
-  padding: 8rpx 18rpx;
-  margin-top: 14rpx;
-  font-size: 24rpx;
-  color: #f26a21;
-  background: #fff0bd;
-  border: 2rpx solid rgba(242, 106, 33, 0.28);
-  border-radius: 999rpx;
-}
-
-.profile-page__tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  padding: 4rpx;
-  margin-top: 26rpx;
-  background: #f7dfb4;
-  border-radius: 999rpx;
-}
-
-.profile-page__tabs button {
-  height: 64rpx;
-  font-size: 30rpx;
-  font-weight: 900;
-  color: #5e3c22;
-  border-radius: 999rpx;
-}
-
-.profile-page__tab--active {
-  color: #f26a21;
-  background: #fffaf0;
-}
-
-.profile-page__section {
-  margin-top: 28rpx;
-}
-
-.profile-page__section-title {
-  display: flex;
-  gap: 12rpx;
-  align-items: center;
-  margin-bottom: 16rpx;
-  font-size: 34rpx;
-  font-weight: 900;
-}
-
-.profile-page__section-mark {
-  position: relative;
-  width: 18rpx;
-  height: 18rpx;
-  color: #f4aa23;
-  transform: rotate(45deg);
-}
-
-.profile-page__record,
-.profile-page__favorite {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 104rpx;
-  padding: 12rpx 18rpx;
-  margin-bottom: 14rpx;
-  text-align: left;
-  background: rgba(255, 250, 240, 0.72);
-  border: 2rpx solid rgba(190, 142, 78, 0.2);
-  border-radius: 22rpx;
-}
-
-.profile-page__record-thumb {
-  position: relative;
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 160rpx;
-  height: 74rpx;
-  margin-right: 22rpx;
-  color: #d94b12;
-  background: #dfeff8;
-  border-radius: 16rpx;
-}
-
-.profile-page__record-thumb::before,
-.profile-page__record-thumb::after,
-.profile-page__menu-icon::before,
-.profile-page__menu-icon::after,
-.profile-page__arrow::after {
-  position: absolute;
-  box-sizing: border-box;
-  content: '';
-}
-
-.profile-page__record-thumb--record::before {
-  width: 32rpx;
-  height: 38rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 6rpx;
-}
-
-.profile-page__record-thumb--record::after {
-  width: 17rpx;
-  height: 3rpx;
-  background: currentColor;
-  border-radius: 999rpx;
-  box-shadow: 0 9rpx 0 currentColor, 0 18rpx 0 currentColor;
-}
-
-.profile-page__record-copy,
-.profile-page__favorite view {
-  flex: 1;
-  min-width: 0;
-}
-
-.profile-page__record-title,
-.profile-page__favorite-title {
-  display: block;
-  overflow: hidden;
-  font-size: 29rpx;
-  font-weight: 900;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-page__record-meta,
-.profile-page__favorite-desc {
-  display: block;
-  margin-top: 8rpx;
-  overflow: hidden;
-  font-size: 23rpx;
-  color: #6f5238;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-page__arrow {
-  position: relative;
-  width: 22rpx;
-  height: 28rpx;
-  flex-shrink: 0;
-  margin-left: 12rpx;
-  color: #8a6d54;
-}
-
-.profile-page__arrow::after {
-  top: 7rpx;
-  left: 2rpx;
-  width: 11rpx;
-  height: 11rpx;
-  border-top: 3rpx solid currentColor;
-  border-right: 3rpx solid currentColor;
-  transform: rotate(45deg);
-}
-
-.profile-page__favorite-type {
-  flex-shrink: 0;
-  padding: 10rpx 14rpx;
-  margin-right: 16rpx;
-  font-size: 22rpx;
-  font-weight: 900;
-  color: #d94b12;
-  background: #fff0bd;
-  border-radius: 14rpx;
-}
-
-.profile-page__child-card,
-.profile-page__menu {
-  padding: 24rpx;
-  margin-top: 28rpx;
-  background: rgba(255, 250, 240, 0.72);
-  border: 2rpx solid rgba(190, 142, 78, 0.22);
-  border-radius: 24rpx;
-}
-
-.profile-page__child-head {
-  font-size: 30rpx;
-  font-weight: 900;
-}
-
-.profile-page__child-head button {
-  font-size: 24rpx;
-  color: #8a6d54;
-}
-
-.profile-page__child-name {
-  display: block;
-  margin-top: 16rpx;
-  font-size: 28rpx;
-  font-weight: 800;
-}
-
-.profile-page__child-context {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
-  margin-top: 16rpx;
-}
-
-.profile-page__child-current-tag,
-.profile-page__child-option-current {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6rpx 14rpx;
-  font-size: 22rpx;
-  font-weight: 900;
-  color: #f26a21;
-  background: #fff0bd;
-  border: 2rpx solid rgba(242, 106, 33, 0.22);
-  border-radius: 999rpx;
-}
-
-.profile-page__child-switch {
-  padding: 8rpx 4rpx;
-  font-size: 24rpx;
-  font-weight: 900;
-  color: #55753c;
-}
-
-.profile-page__child-quick-list {
-  width: 100%;
-  margin-top: 16rpx;
-  white-space: nowrap;
-}
-
-.profile-page__child-quick-list-inner {
-  display: inline-flex;
-  gap: 12rpx;
-  min-width: 100%;
-  padding-right: 4rpx;
-}
-
-.profile-page__child-quick-item,
-.profile-page__child-quick-add {
-  display: inline-flex;
-  flex-shrink: 0;
-  gap: 7rpx;
-  align-items: center;
-  justify-content: center;
-  min-height: 64rpx;
-  padding: 0 18rpx;
-  font-size: 24rpx;
-  font-weight: 800;
-  color: #5e3c22;
-  background: #fffaf0;
-  border: 2rpx solid rgba(190, 142, 78, 0.24);
-  border-radius: 999rpx;
-}
-
-.profile-page__child-quick-item--active {
-  color: #c85b1a;
-  background: #fff0bd;
-  border-color: rgba(242, 106, 33, 0.48);
-  box-shadow: 0 5rpx 10rpx rgba(217, 75, 18, 0.08);
-}
-
-.profile-page__child-quick-name {
-  max-width: 156rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-page__child-quick-age {
-  font-size: 21rpx;
-  color: #8a6d54;
-}
-
-.profile-page__child-quick-check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26rpx;
-  height: 26rpx;
-  font-size: 18rpx;
-  color: #fff;
-  background: #f26a21;
-  border-radius: 50%;
-}
-
-.profile-page__child-quick-add {
-  color: #55753c;
-  background: #edf5df;
-  border-style: dashed;
-  border-color: rgba(85, 117, 60, 0.46);
-}
-
-.profile-page__child-state {
-  display: flex;
-  flex-direction: column;
-  gap: 14rpx;
-  align-items: flex-start;
-  margin-top: 16rpx;
-  font-size: 27rpx;
-  line-height: 1.45;
-  color: #6f5238;
-}
-
-.profile-page__child-state button,
-.profile-page__child-edit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 62rpx;
-  padding: 0 22rpx;
-  margin-top: 4rpx;
-  font-size: 25rpx;
-  font-weight: 900;
-  color: #fff;
-  background: #f26a21;
-  border-radius: 999rpx;
-}
-
-.profile-page__child-empty-title {
-  font-size: 30rpx;
-  font-weight: 900;
-  color: #4a2f1b;
-}
-
-.profile-page__child-empty-desc {
-  color: #6f5238;
-}
-
-.profile-page__interest-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  margin-top: 16rpx;
-}
-
-.profile-page__interest {
-  padding: 10rpx 16rpx;
-  font-size: 24rpx;
-  color: #55753c;
-  background: #dceecb;
-  border-radius: 999rpx;
-}
-
-.profile-page__interest--active {
-  color: #fff;
-  background: #f26a21;
-}
-
-.profile-page__menu {
-  padding: 0;
-  overflow: hidden;
-}
-
-.profile-page__menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 88rpx;
-  padding: 0 24rpx;
-  font-size: 29rpx;
-  color: #4a2f1b;
-  text-align: left;
-}
-
-.profile-page__menu-item + .profile-page__menu-item {
-  border-top: 2rpx solid rgba(190, 142, 78, 0.18);
-}
-
-.profile-page__menu-icon {
-  position: relative;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 52rpx;
-  height: 52rpx;
-  margin-right: 18rpx;
-  color: #f26a21;
-  background: #fff0bd;
-  border-radius: 16rpx;
-}
-
-.profile-page__menu-icon--child::before,
-.profile-page__menu-icon--notice::before,
-.profile-page__menu-icon--settings::before,
-.profile-page__menu-icon--help::before {
-  top: 11rpx;
-  left: 14rpx;
-  width: 20rpx;
-  height: 20rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 50%;
-}
-
-.profile-page__menu-icon--child::after {
-  bottom: 8rpx;
-  left: 10rpx;
-  width: 28rpx;
-  height: 14rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 18rpx 18rpx 7rpx 7rpx;
-}
-
-.profile-page__menu-icon--favorites::before {
-  top: 13rpx;
-  left: 13rpx;
-  width: 24rpx;
-  height: 21rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 14rpx 14rpx 8rpx 8rpx;
-  transform: rotate(45deg);
-}
-
-.profile-page__menu-icon--notice::after {
-  top: 31rpx;
-  left: 18rpx;
-  width: 16rpx;
-  height: 3rpx;
-  background: currentColor;
-  border-radius: 999rpx;
-}
-
-.profile-page__menu-icon--settings::after {
-  top: 21rpx;
-  left: 7rpx;
-  width: 38rpx;
-  height: 3rpx;
-  background: currentColor;
-  border-radius: 999rpx;
-  transform: rotate(45deg);
-}
-
-.profile-page__menu-icon--help::after {
-  top: 17rpx;
-  left: 24rpx;
-  width: 4rpx;
-  height: 12rpx;
-  background: currentColor;
-  border-radius: 999rpx;
-}
-
-.profile-page__menu-icon--logout::before {
-  top: 12rpx;
-  left: 9rpx;
-  width: 25rpx;
-  height: 28rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 6rpx;
-}
-
-.profile-page__menu-icon--logout::after {
-  top: 22rpx;
-  right: 7rpx;
-  width: 22rpx;
-  height: 3rpx;
-  background: currentColor;
-  border-radius: 999rpx;
-}
-
-.profile-page__menu-item .profile-page__arrow {
-  margin-left: auto;
-}
-
-.profile-page__sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 88;
-}
-
-.profile-page__sheet-mask {
-  position: absolute;
-  inset: 0;
-  background: rgba(74, 47, 27, 0.24);
-}
-
-.profile-page__sheet-panel {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  padding: 30rpx 34rpx calc(30rpx + env(safe-area-inset-bottom));
-  background: #fff7e8;
-  border-radius: 32rpx 32rpx 0 0;
-}
-
-.profile-page__sheet-panel--child {
-  max-height: 78vh;
-  overflow-y: auto;
-}
-
-.profile-page__sheet-panel--switcher {
-  max-height: 62vh;
-  overflow-y: auto;
-}
-
-.profile-page__sheet-head {
-  margin-bottom: 22rpx;
-  font-size: 34rpx;
-  font-weight: 900;
-}
-
-.profile-page__sheet-head button {
-  font-size: 24rpx;
-  color: #8a6d54;
-}
-
-.profile-page__setting-row {
-  min-height: 70rpx;
-  font-size: 28rpx;
-  border-top: 2rpx solid rgba(190, 142, 78, 0.16);
-}
-
-.profile-page__child-option-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14rpx;
-}
-
-.profile-page__child-option {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 104rpx;
-  padding: 20rpx 22rpx;
-  color: #4a2f1b;
-  text-align: left;
-  background: #fffaf0;
-  border: 2rpx solid rgba(190, 142, 78, 0.24);
-  border-radius: 22rpx;
-}
-
-.profile-page__child-option--active {
-  background: #fff0bd;
-  border-color: rgba(242, 106, 33, 0.52);
-}
-
-.profile-page__child-option-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.profile-page__child-option-name,
-.profile-page__child-option-meta {
-  display: block;
-}
-
-.profile-page__child-option-name {
-  font-size: 30rpx;
-  font-weight: 900;
-}
-
-.profile-page__child-option-meta {
-  margin-top: 8rpx;
-  font-size: 24rpx;
-  color: #6f5238;
-}
-
-.profile-page__form-field {
-  margin-bottom: 20rpx;
-}
-
-.profile-page__form-field > text:first-child {
-  display: block;
-  margin-bottom: 10rpx;
-  font-size: 25rpx;
-  font-weight: 800;
-  color: #5e3c22;
-}
-
-.profile-page__form-field input {
-  width: 100%;
-  height: 72rpx;
-  padding: 0 22rpx;
-  font-size: 28rpx;
-  color: #4a2f1b;
-  background: #fffaf0;
-  border: 2rpx solid rgba(190, 142, 78, 0.28);
-  border-radius: 20rpx;
-}
-
-.profile-page__form-hint {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 23rpx;
-  color: #8a6d54;
-}
-
-.profile-page__interest-list--form .profile-page__interest {
-  border: 2rpx solid rgba(190, 142, 78, 0.26);
-}
-
-.profile-page__form-submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 82rpx;
-  margin-top: 8rpx;
-  font-size: 30rpx;
-  font-weight: 900;
-  color: #fff;
-  background: #f26a21;
-  border-radius: 26rpx;
-  box-shadow: 0 12rpx 18rpx rgba(217, 75, 18, 0.2);
-}
-
-.profile-page__form-submit[disabled] {
-  color: #8a6d54;
-  background: #eadcc8;
-  box-shadow: none;
-}
-.profile-page {
-  width: 100%;
-  max-width: var(--tl-content-max-width, 430px);
-  padding-top: calc(30rpx + env(safe-area-inset-top));
-  margin: 0 auto;
-  background:
-    radial-gradient(circle at 88% 18%, rgba(207, 231, 245, 0.84), transparent 20%),
-    linear-gradient(180deg, #fff8e8 0%, #f8efd9 100%);
-}
-
-.profile-page__title-row {
-  position: relative;
-  z-index: 1;
-  margin-top: 0;
-}
-
-.profile-page__title {
-  font-size: 52rpx;
-}
-
-.profile-page__hero-art {
-  height: 214rpx;
-  margin: 12rpx -14rpx -74rpx;
-  overflow: hidden;
-  pointer-events: none;
-  border-radius: 28rpx 28rpx 46rpx 46rpx;
-  box-shadow: inset 0 -34rpx 42rpx rgba(255, 248, 232, 0.86);
-}
-
-.profile-page__hero-art image {
-  width: 100%;
-  height: 100%;
-  opacity: 0.84;
-}
-
-.profile-page__user {
-  position: relative;
-  z-index: 1;
-  padding: 22rpx;
-  margin-top: 0;
-  background: rgba(255, 250, 240, 0.92);
-  border: 2rpx solid rgba(190, 142, 78, 0.24);
-  border-radius: 28rpx;
-  box-shadow: 0 12rpx 26rpx rgba(97, 63, 28, 0.08);
-}
-
-.profile-page__avatar {
-  background: linear-gradient(135deg, #ffd782, #f5ad58);
-  box-shadow: 0 0 0 5rpx rgba(255, 250, 240, 0.78), 0 12rpx 24rpx rgba(97, 63, 28, 0.12);
-}
-
-.profile-page__tabs {
-  margin-top: 30rpx;
-  box-shadow: inset 0 0 0 2rpx rgba(190, 142, 78, 0.12);
-}
-
-.profile-page__record,
-.profile-page__favorite,
-.profile-page__child-card,
-.profile-page__menu {
-  background-color: rgba(255, 250, 240, 0.9);
-  box-shadow: 0 10rpx 20rpx rgba(97, 63, 28, 0.05);
-}
-
-.profile-page__record-thumb {
-  border: 2rpx solid rgba(115, 172, 211, 0.28);
-  transform: rotate(-3deg);
-}
-
-.profile-page__child-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.profile-page__child-card::after {
-  position: absolute;
-  right: -8rpx;
-  bottom: -12rpx;
-  width: 76rpx;
-  height: 42rpx;
-  content: '';
-  pointer-events: none;
-  border: 5rpx solid rgba(123, 154, 80, 0.2);
-  border-color: rgba(123, 154, 80, 0.2) transparent transparent rgba(123, 154, 80, 0.2);
-  border-radius: 50%;
-  transform: rotate(14deg);
-}
-
-.profile-page__sheet-panel {
-  background: #fff8ea;
-  box-shadow: 0 -16rpx 34rpx rgba(74, 47, 27, 0.12);
-}
-
-@media (max-width: 370px) {
-  .profile-page {
-    padding-right: 28rpx;
-    padding-left: 28rpx;
-  }
-
-  .profile-page__hero-art {
-    height: 190rpx;
-  }
-
-  .profile-page__user {
-    gap: 18rpx;
-    padding: 18rpx;
-  }
-
-  .profile-page__avatar {
-    width: 118rpx;
-    height: 118rpx;
-  }
-}
+.profile-page { min-height: 100vh; color: var(--tl-text-main); background: var(--tl-bg); }
+.profile-page__paper { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; padding: calc(var(--tl-page-padding) + var(--tl-safe-top)) var(--tl-page-padding) calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 40rpx); margin: 0 auto; }
+.profile-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 40rpx; }.profile-header__title,.profile-header__subtitle { display: block; }.profile-header__title { font-size: var(--tl-type-page-title); font-weight: var(--tl-weight-page-title); line-height: 1.25; }.profile-header__subtitle { margin-top: 10rpx; font-size: var(--tl-type-body); line-height: 1.5; color: var(--tl-text-secondary); }
+.profile-header__settings { display: flex; align-items: center; justify-content: center; width: 88rpx; min-width: 88rpx; height: 88rpx; }.profile-header__settings-icon { position: relative; width: 34rpx; height: 34rpx; border: 4rpx solid #315248; border-radius: 50%; }.profile-header__settings-icon::before,.profile-header__settings-icon::after { position: absolute; inset: -9rpx; content: ''; border: 3rpx solid #315248; border-radius: 10rpx; transform: rotate(45deg); }.profile-header__settings-icon::after { inset: 8rpx; background: var(--tl-bg); border: 0; border-radius: 50%; }
+.active-child-card,.profile-state { background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-sheet); box-shadow: var(--tl-shadow-media); }.active-child-card { overflow: hidden; }.active-child-card__identity { display: flex; align-items: center; width: 100%; min-height: 170rpx; padding: 30rpx; text-align: left; }.active-child-card__avatar { display: flex; flex: 0 0 104rpx; align-items: center; justify-content: center; width: 104rpx; height: 104rpx; margin-right: 24rpx; font-size: 42rpx; font-weight: 600; color: #fff; background: #1f7b47; border-radius: 50%; }.active-child-card__copy { flex: 1; min-width: 0; }.active-child-card__name,.active-child-card__meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.active-child-card__name { font-size: 34rpx; font-weight: 700; }.active-child-card__meta { margin-top: 10rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }.active-child-card__arrow,.profile-list__arrow { flex: 0 0 auto; margin-left: 16rpx; font-size: 42rpx; font-weight: 300; color: var(--tl-text-secondary); }.active-child-card__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; padding: 16rpx 30rpx 28rpx; border-top: 1rpx solid var(--tl-divider); }.active-child-card__action { min-height: 76rpx; font-size: var(--tl-type-meta); font-weight: 600; color: #315248; background: #eff7f1; border-radius: var(--tl-radius-control); }.active-child-card__action--primary { color: #17673c; background: #e2f3e7; }
+.profile-state { display: flex; flex-direction: column; gap: 18rpx; align-items: flex-start; padding: 32rpx; font-size: var(--tl-type-body); line-height: var(--tl-line-height-body); }.profile-state--error { color: #a34a38; }.profile-state__title { font-size: var(--tl-type-section-title); font-weight: 700; color: var(--tl-text-main); }.profile-state__copy { color: var(--tl-text-secondary); }.profile-state__action { min-height: 72rpx; padding: 0 24rpx; font-size: var(--tl-type-meta); font-weight: 600; color: #17673c; border: 1rpx solid #1f7b47; border-radius: var(--tl-radius-control); }
+.profile-section { margin-top: 52rpx; }.profile-section--last { padding-bottom: 12rpx; }.profile-section__title { display: block; margin-bottom: 20rpx; font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); }.profile-list { overflow: hidden; background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-media); box-shadow: var(--tl-shadow-media); }.profile-list__item { display: flex; align-items: center; width: 100%; min-height: 120rpx; padding: 18rpx 24rpx; color: var(--tl-text-main); text-align: left; }.profile-list__item + .profile-list__item { border-top: 1rpx solid var(--tl-divider); }.profile-list__icon { position: relative; display: flex; flex: 0 0 56rpx; align-items: center; justify-content: center; width: 56rpx; height: 56rpx; margin-right: 20rpx; color: #315248; }.profile-list__icon::before,.profile-list__icon::after { position: absolute; box-sizing: border-box; content: ''; }.profile-list__icon--profile::before { top: 3rpx; width: 21rpx; height: 21rpx; border: 3rpx solid currentColor; border-radius: 50%; }.profile-list__icon--profile::after { bottom: 2rpx; width: 40rpx; height: 24rpx; border: 3rpx solid currentColor; border-bottom: 0; border-radius: 24rpx 24rpx 0 0; }.profile-list__icon--add::before { width: 42rpx; height: 42rpx; border: 3rpx solid currentColor; border-radius: 50%; }.profile-list__icon--add::after { width: 20rpx; height: 3rpx; background: currentColor; transform: rotate(90deg); }.profile-list__icon--interest::before { width: 34rpx; height: 24rpx; border: 3rpx solid currentColor; border-radius: 24rpx 4rpx 24rpx 4rpx; transform: rotate(-38deg); }.profile-list__icon--interest::after { width: 3rpx; height: 42rpx; background: currentColor; transform: rotate(45deg); }.profile-list__icon--settings::before { width: 38rpx; height: 38rpx; border: 3rpx solid currentColor; border-radius: 50%; }.profile-list__icon--settings::after { width: 12rpx; height: 12rpx; background: currentColor; border-radius: 50%; }.profile-list__copy { flex: 1; min-width: 0; }.profile-list__copy text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.profile-list__copy text:first-child { font-size: var(--tl-type-body); font-weight: 600; }.profile-list__copy text:last-child { margin-top: 6rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }
+.child-form-sheet { position: fixed; inset: 0; z-index: 80; }.child-form-sheet__mask { position: absolute; inset: 0; background: rgba(47, 35, 25, .28); }.child-form-sheet__panel { position: absolute; right: 0; bottom: 0; left: 0; max-height: 84vh; padding: 32rpx var(--tl-page-padding) calc(32rpx + var(--tl-safe-bottom)); overflow-y: auto; background: var(--tl-surface); border-radius: var(--tl-radius-sheet) var(--tl-radius-sheet) 0 0; box-shadow: var(--tl-shadow-overlay); }.child-form-sheet__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28rpx; font-size: var(--tl-type-section-title); font-weight: 700; }.child-form-sheet__header button { min-height: 64rpx; padding: 0 12rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }.child-form-sheet__field { margin-top: 22rpx; }.child-form-sheet__field > text { display: block; margin-bottom: 12rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }.child-form-sheet__field input { width: 100%; height: 84rpx; padding: 0 20rpx; font-size: var(--tl-type-body); color: var(--tl-text-main); background: var(--tl-surface-muted); border-radius: var(--tl-radius-control); }.child-form-sheet__interests { display: flex; flex-wrap: wrap; gap: 12rpx; }.child-form-sheet__interest { min-height: 64rpx; padding: 0 18rpx; font-size: var(--tl-type-meta); color: #315248; background: #eff7f1; border-radius: var(--tl-radius-control); }.child-form-sheet__interest--selected { color: #17673c; background: #e2f3e7; }.child-form-sheet__submit { width: 100%; min-height: var(--tl-control-min-height); margin-top: 36rpx; font-size: var(--tl-type-primary-action); font-weight: 600; color: #fff; background: #1f7b47; border-radius: var(--tl-radius-control); }.child-form-sheet__submit[disabled] { opacity: .55; }
+@media (min-width: 431px) { .profile-page__paper { padding: calc(18px + var(--tl-safe-top)) 18px calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 22px); }.profile-header { margin-bottom: 20px; }.profile-header__settings { width: 44px; min-width: 44px; height: 44px; }.profile-header__settings-icon { width: 17px; height: 17px; border-width: 2px; }.profile-header__settings-icon::before { inset: -5px; border-width: 1px; }.profile-header__settings-icon::after { inset: 4px; }.active-child-card__identity { min-height: 85px; padding: 15px; }.active-child-card__avatar { flex-basis: 52px; width: 52px; height: 52px; margin-right: 12px; font-size: 21px; }.active-child-card__actions { padding: 8px 15px 14px; gap: 8px; }.active-child-card__action { min-height: 38px; }.profile-section { margin-top: 26px; }.profile-list__item { min-height: 60px; padding: 9px 12px; }.profile-list__icon { flex-basis: 28px; width: 28px; height: 28px; margin-right: 10px; }.child-form-sheet__panel { max-width: var(--tl-content-max-width); margin: 0 auto; padding: 16px 18px calc(16px + var(--tl-safe-bottom)); } }
 </style>

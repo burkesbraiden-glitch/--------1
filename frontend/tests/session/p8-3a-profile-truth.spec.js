@@ -8,6 +8,7 @@ import { useUserStore } from '../../src/stores/user.js'
 
 const root = resolve(process.cwd(), '..')
 const profileSource = readFileSync(resolve(root, 'frontend/src/pages/profile/index.vue'), 'utf8')
+const settingsSource = readFileSync(resolve(root, 'frontend/src/pages/settings/index.vue'), 'utf8')
 const userId = 8301
 
 function login() {
@@ -39,15 +40,14 @@ describe('P8.3A Profile data-truth contract', () => {
     expect(profileSource).not.toContain('当前阶段使用 Mock')
   })
 
-  test('replaces the stale count with a real JourneyRecord navigation entry', () => {
+  test('keeps Profile focused on child and settings context instead of duplicating Record content', () => {
     expect(profileSource).not.toContain('learningRecordCount')
     expect(profileSource).not.toContain('learningRecords')
     expect(profileSource).not.toContain('loadJourneyRecords(')
-    expect(profileSource).toContain('成长记录')
-    expect(profileSource).toContain('查看探索中的任务、照片与笔记')
-    expect(profileSource).toContain('openJourneyRecords()')
-    expect(profileSource).toContain("url: '/pages/record/index'")
-    expect(profileSource).toContain('uni.navigateTo({')
+    expect(profileSource).not.toContain('openJourneyRecords()')
+    expect(profileSource).not.toContain("url: '/pages/record/index'")
+    expect(profileSource).toContain('当前探索档案')
+    expect(profileSource).toContain('账号与设置')
   })
 
   test('orders child loading, request failure, and successful-empty states distinctly', () => {
@@ -61,15 +61,15 @@ describe('P8.3A Profile data-truth contract', () => {
     expect(profileSource).toContain('孩子资料加载失败，请重试')
     expect(profileSource).toContain('尚未添加孩子')
     expect(profileSource).toContain('@click="loadChildren"')
-    expect(profileSource).toContain('this.activeChild.name')
+    expect(profileSource).toContain('{{ activeChild.name }}')
   })
 
-  test('keeps the real child editor and session logout boundaries', () => {
+  test('keeps the real child editor and routes session logout through Settings', () => {
     expect(profileSource).toContain('openChildForm()')
     expect(profileSource).toContain('this.child.createChild(payload)')
     expect(profileSource).toContain('this.child.updateChild(this.activeChild.id, payload)')
-    expect(profileSource).toContain("key: 'logout'")
-    expect(profileSource).toContain('endUserSession()')
+    expect(profileSource).toContain('openSettings()')
+    expect(settingsSource).toContain('endUserSession()')
   })
 
   test('keeps a successful empty child response distinct from a failed request', async () => {

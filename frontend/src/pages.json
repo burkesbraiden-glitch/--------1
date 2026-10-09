@@ -70,6 +70,20 @@
       }
     },
     {
+      "path": "pages/child-switch/index",
+      "style": {
+        "navigationBarTitleText": "切换孩子",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationBarTitleText": "账号与设置",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录",
