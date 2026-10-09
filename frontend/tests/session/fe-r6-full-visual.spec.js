@@ -99,9 +99,9 @@ describe('FE-R6 full application visual contract', () => {
     expect(tabbar).toContain('white-space: nowrap;')
     expect(tabbar).toContain('@media (max-width: 360px)')
 
-    expect(recordDetail).toContain('entryPhotoState(entry)')
-    expect(recordDetail).toContain('照片加载失败')
-    expect(recordDetail).toContain('recordWatercolorFallback')
+    expect(recordDetail).toContain('previewEntryImage(entry)')
+    expect(recordDetail).toContain('uni.previewImage({')
+    expect(recordDetail).not.toContain('recordWatercolorFallback')
     expect(recordDetail).toContain('retryDetail')
   })
 
@@ -128,34 +128,23 @@ describe('FE-R6 full application visual contract', () => {
     expect(profile).toContain("this.activeChild.city || '未填写城市'")
   })
 
-  test('keeps a small, content-safe scrapbook tape on the Record album heading', () => {
+  test('keeps the P10.4 Record page quiet instead of treating an album as scrapbook decoration', () => {
     const record = readFrontendFile('src/pages/record/index.vue')
 
-    expect(record).toContain('<view class="record-intro__tape" aria-hidden="true"></view>')
-    expect(record).toContain('.record-intro__tape {')
-    expect(record).toContain('top: 12rpx;')
-    expect(record).toContain('left: 18rpx;')
-    expect(record).toContain('width: 48rpx;')
-    expect(record).toContain('height: 18rpx;')
-    expect(record).toContain('pointer-events: none;')
-    expect(record).toContain('transform: rotate(10deg);')
-    expect(record).not.toContain('top: -16rpx;')
-    expect(record).not.toContain('width: 74rpx;')
+    expect(record).toContain('class="record-year-group"')
+    expect(record).toContain('class="record-card__progress-track"')
+    expect(record).not.toContain('record-intro__tape')
+    expect(record).not.toContain('PolaroidCard')
+    expect(record).not.toContain('recordWatercolorFallback')
   })
 
-  test('renders the Record section-title star directly without an absolute pseudo-element', () => {
+  test('uses quiet hierarchy and a single light media-card elevation on Record', () => {
     const record = readFrontendFile('src/pages/record/index.vue')
 
-    expect(record).not.toContain('.section-title__star::after')
-    expect(record).toContain('.section-title__star {')
-    expect(record).toContain('flex: 0 0 auto;')
-    expect(record).toContain('width: 12rpx;')
-    expect(record).toContain('height: 12rpx;')
-    expect(record).toContain('color: #f4aa23;')
-    expect(record).toContain('background: currentColor;')
-    expect(record).toContain('border-radius: 3rpx;')
-    expect(record).toContain('transform: rotate(45deg);')
-    expect(record).toContain('pointer-events: none;')
+    expect(record).toContain('box-shadow: var(--tl-shadow-media)')
+    expect(record).toContain('.record-header__subtitle')
+    expect(record).not.toContain('section-title__star')
+    expect(record).not.toContain('record-header__spark')
   })
 
   test('keeps core business handlers and permanently protected task/record affordances', () => {
@@ -169,11 +158,13 @@ describe('FE-R6 full application visual contract', () => {
     for (const sourceAndMarker of [
       [home, 'openCurrentExploration()'], [tasks, 'async completeExploration()'], [detail, 'chooseImage()'],
       [detail, 'async completeTask()'], [detail, 'JOURNEY_RECORD_FINALIZED'],
-      [recordDetail, 'confirmFinalizeRecord()'], [login, 'submitWechatLogin()'],
+      [recordDetail, 'previewEntryImage(entry)'], [login, 'submitWechatLogin()'],
       [profile, 'saveChildProfile()'],
       [profile, 'endUserSession()'],
     ]) {
       expect(sourceAndMarker[0]).toContain(sourceAndMarker[1])
     }
+    expect(recordDetail).not.toContain('saveJourneyRecordDraft')
+    expect(recordDetail).not.toContain('finalizeJourneyRecordDraft')
   })
 })

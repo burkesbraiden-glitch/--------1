@@ -405,13 +405,28 @@ def _serialize_entry(task):
     }
 
 
-def _cover_image_url(record):
-    submission = record.cover_submission
+def _submission_image_url(submission, plan_id):
     if submission is None or not submission.image_url or submission.task is None:
         return None
-    if submission.task.plan_id != record.plan_id:
+    if submission.task.plan_id != plan_id:
         return None
     return serialize_task(submission.task)["record"]["imageUrl"]
+
+
+def _cover_image_url(record):
+    selected_cover = _submission_image_url(record.cover_submission, record.plan_id)
+    if selected_cover:
+        return selected_cover
+
+    # A record page is a read-only review surface. When a user has not picked a
+    # dedicated cover, surface the first real task photo rather than inventing
+    # an illustration or requiring the list page to fetch every task detail.
+    tasks = sorted(record.plan.tasks or [], key=lambda task: (task.sort_order, task.id))
+    for task in tasks:
+        image_url = _submission_image_url(task.submission, record.plan_id)
+        if image_url:
+            return image_url
+    return None
 
 
 def serialize_journey_record(record, include_entries=True):
@@ -462,6 +477,12 @@ def _serialize_snapshot_journey_record(record, *, include_entries):
     except JourneyRecordSnapshotValidationError:
         _snapshot_invalid()
     values = snapshot["record"]
+    cover_asset_id = snapshot["cover"]["imageAssetId"]
+    if cover_asset_id is None:
+        cover_asset_id = next(
+            (entry["imageAssetId"] for entry in snapshot["entries"] if entry["imageAssetId"] is not None),
+            None,
+        )
     payload = {
         "id": values["id"],
         "planId": values["planId"],
@@ -474,7 +495,7 @@ def _serialize_snapshot_journey_record(record, *, include_entries):
         "status": values["status"],
         "summary": values["summary"],
         "coverSubmissionId": values["coverSubmissionId"],
-        "coverImageUrl": _record_image_url(record.id, snapshot["cover"]["imageAssetId"]),
+        "coverImageUrl": _record_image_url(record.id, cover_asset_id),
         "taskCount": values["taskCount"],
         "completedTaskCount": values["completedTaskCount"],
         "photoCount": values["photoCount"],

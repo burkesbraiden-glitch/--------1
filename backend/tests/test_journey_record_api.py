@@ -404,7 +404,11 @@ def test_detail_and_list_audit_public_response_fields_and_cover_isolation(client
     isolated_cover_response = client.get(record_path(), headers=headers)
 
     assert isolated_cover_response.status_code == 200
-    assert isolated_cover_response.get_json()["data"]["journeyRecord"]["coverImageUrl"] is None
+    # A foreign selected cover is never exposed. The record can still use its
+    # own real task photo as the read-only review cover.
+    assert isolated_cover_response.get_json()["data"]["journeyRecord"]["coverImageUrl"].endswith(
+        "/plans/100/tasks/501/submission/image"
+    )
 
 
 def test_detail_hides_missing_other_user_and_missing_record(client, app, journey_api_db):
@@ -514,7 +518,8 @@ def test_patch_updates_and_clears_only_journey_record_fields(client, app, journe
     clear = client.patch(record_path(), json={"customTitle": None, "summary": "   ", "coverSubmissionId": None}, headers=headers)
     cleared_record = clear.get_json()["data"]["journeyRecord"]
     assert cleared_record["customTitle"] is None and cleared_record["summary"] is None
-    assert cleared_record["coverSubmissionId"] is None and cleared_record["coverImageUrl"] is None
+    assert cleared_record["coverSubmissionId"] is None
+    assert cleared_record["coverImageUrl"].endswith("/plans/100/tasks/501/submission/image")
     with app.app_context():
         assert non_journey_state() == before_non_journey
 

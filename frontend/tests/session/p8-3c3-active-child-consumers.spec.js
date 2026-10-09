@@ -101,8 +101,9 @@ describe('P8.3C3 active-child safe consumers', () => {
     expect(context.recordStore.loadJourneyRecords).toHaveBeenCalledWith({ childId: childB.id, limit: 20, offset: 0 })
   })
 
-  test('Records title is sourced from active Child', () => {
-    expect(recordSource).toContain('childStore.activeChild.name')
+  test('Records keeps active Child in its data query without placing it in the product header', () => {
+    expect(recordSource).toContain('childId: this.childStore.activeChild.id')
+    expect(recordSource).toContain('探索记录')
     expect(recordSource).not.toContain('childStore.currentChild.name')
   })
 
