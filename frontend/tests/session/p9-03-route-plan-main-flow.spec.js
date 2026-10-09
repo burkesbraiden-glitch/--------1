@@ -33,22 +33,23 @@ const homeScript = blockSource(homeSource, 'script')
 const submitPlanGeneration = pageMethod(routeDetailSource, 'submitPlanGeneration')
 
 describe('P9-03 Route to ExplorationPlan main user flow', () => {
-  test('Home Hero routes parents into the Explore workbench without a manual Plan creation path', () => {
-    expect(homeTemplate).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
-    expect(homeTemplate).toContain('规划亲子路线')
-    expect(homeScript).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
-    expect(homeScript).not.toContain('usePlanStore')
+  test('Home summary routes parents into the Explore workbench without a manual Plan creation path', () => {
+    expect(homeTemplate).toContain('class="current-exploration__action" @click="openCurrentExploration"')
+    expect(homeTemplate).toContain('{{ heroActionLabel }}')
+    expect(homeScript).toContain('buildExploreUrl(context = this.currentExploration)')
+    expect(homeScript).toContain("selectionPolicy: 'none'")
     expect(homeScript).not.toContain('createPlan(')
     expect(homeScript).not.toContain('planSheetOpen')
     expect(homeScript).not.toContain('planForm')
     expect(homeTemplate).not.toContain('class="plan-sheet"')
   })
 
-  test('Home first feature card keeps Route planning copy and opens the Explore workbench', () => {
-    expect(homeScript).toContain("title: '路线规划'")
-    expect(homeScript).toContain("desc: '安排景点与行程'")
-    expect(homeScript).toContain("path: '/pages/explore/index'")
-    expect(homeScript).not.toContain("path: '/pages/plan/index'")
+  test('Home forwards the known Route, Day, Stop, and Plan context to Explore', () => {
+    for (const key of ['routeId', 'dayId', 'stopId', 'planId']) {
+      expect(homeScript).toContain(`['${key}', context?.${key}]`)
+    }
+    expect(homeScript).toContain('/pages/explore/index?')
+    expect(homeScript).not.toContain("/pages/plan/index")
   })
 
   test('Route Detail keeps the sealed generation endpoint and exact Child plus RouteStop payload', async () => {

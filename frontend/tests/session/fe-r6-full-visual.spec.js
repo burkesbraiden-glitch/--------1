@@ -167,7 +167,7 @@ describe('FE-R6 full application visual contract', () => {
     const profile = readFrontendFile('src/pages/profile/index.vue')
 
     for (const sourceAndMarker of [
-      [home, 'goToRoutePlanning()'], [tasks, 'async completeExploration()'], [detail, 'chooseImage()'],
+      [home, 'openCurrentExploration()'], [tasks, 'async completeExploration()'], [detail, 'chooseImage()'],
       [detail, 'async completeTask()'], [detail, 'JOURNEY_RECORD_FINALIZED'],
       [recordDetail, 'confirmFinalizeRecord()'], [login, 'submitWechatLogin()'],
       [profile, 'saveChildProfile()'],

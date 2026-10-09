@@ -16,7 +16,6 @@ function blockSource(source, tag) {
 
 const templateSource = blockSource(homeSource, 'template')
 const scriptSource = blockSource(homeSource, 'script')
-const audioGuideSource = scriptSource.match(/async openAudioGuide\(\) \{[\s\S]*?\n    \},/)?.[0] || ''
 
 describe('P8.4C Home truthful production copy', () => {
   test('Home production template contains no Mock, simulated, test-data, or demo-data copy', () => {
@@ -26,10 +25,9 @@ describe('P8.4C Home truthful production copy', () => {
   })
 
   test('the primary Home action sends parents to the Explore workbench without a manual Plan request', () => {
-    expect(templateSource).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
-    expect(templateSource).toContain('规划亲子路线')
-    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/explore/index' })")
-    expect(scriptSource).not.toContain('usePlanStore')
+    expect(templateSource).toContain('class="current-exploration__action" @click="openCurrentExploration"')
+    expect(scriptSource).toContain('buildExploreUrl(context = this.currentExploration)')
+    expect(scriptSource).toContain("selectionPolicy: 'none'")
     expect(scriptSource).not.toContain('createPlan(')
     expect(templateSource).not.toContain('class="plan-sheet"')
 
@@ -45,11 +43,10 @@ describe('P8.4C Home truthful production copy', () => {
     expect(scriptSource).not.toContain('FALLBACK_CHILD')
   })
 
-  test('the existing audio Guide empty-or-error guards remain intact without restoring a Home Plan form', () => {
-    expect(audioGuideSource).toContain('result.currentPlan?.id !== null')
-    expect(audioGuideSource).toContain('this.audioGuidePlanId = null')
-    expect(audioGuideSource).toContain('this.audioGuideOpen = false')
-    expect(audioGuideSource).toContain("this.showToast('探索计划加载失败，请重试')")
+  test('Home leaves Guide loading to Explore without restoring a Home Plan form', () => {
+    expect(scriptSource).not.toContain('AudioGuideSheet')
+    expect(scriptSource).not.toContain('ensureCurrentPlanReady')
+    expect(scriptSource).not.toContain('ensureGuide')
     expect(scriptSource).not.toContain('planForm')
     expect(scriptSource).not.toContain('FALLBACK_CHILD')
   })

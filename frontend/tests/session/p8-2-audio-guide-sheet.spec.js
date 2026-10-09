@@ -147,30 +147,23 @@ afterEach(() => {
   delete globalThis.uni.createInnerAudioContext
 })
 
-describe('P8.2A Home entry', () => {
-  test('1. current Plan A opens the shared Sheet for A after current-plan recovery', () => {
+describe('P8.2A Home boundary', () => {
+  test('1. Home leaves Guide opening to the focused Explore workflow', () => {
     const home = source(paths.home)
 
-    expect(home).toContain("import AudioGuideSheet from '../../components/AudioGuideSheet.vue'")
-    expect(home).toMatch(/ensureCurrentPlanReady\(\{\s*withTasks:\s*false\s*}\)/)
-    expect(home).toContain('audioGuideOpen')
-    expect(home).toMatch(/audioGuidePlanId\s*=\s*.*currentPlan.*\.id/)
-    expect(home).toContain('<AudioGuideSheet')
+    expect(home).not.toContain("import AudioGuideSheet from '../../components/AudioGuideSheet.vue'")
+    expect(home).not.toContain('ensureCurrentPlanReady')
+    expect(home).toContain("selectionPolicy: 'none'")
+    expect(home).toContain('buildExploreUrl(context = this.currentExploration)')
   })
 
-  test('2. no Plan keeps the Sheet closed instead of creating a Plan', () => {
+  test('2. no Home Guide entry creates a Plan or generates a Guide', () => {
     const home = source(paths.home)
-    const sheet = source(paths.sheet)
-    const openAudioGuideSource = home.match(/async openAudioGuide\(\) \{[\s\S]*?\n    \},/)?.[0] || ''
 
-    expect(home).toMatch(/audioGuidePlanId\s*=\s*null/)
-    expect(home).toContain('audioGuideOpen = false')
-    expect(openAudioGuideSource).toContain('ensureCurrentPlanReady')
-    expect(openAudioGuideSource).not.toContain('createPlan')
-    expect(openAudioGuideSource).not.toContain('ensureGuide')
-    expect(sheet).toContain('no-plan')
-    expect(sheet).toContain('暂无可查看的景点讲解')
-    expect(sheet).toContain('去探索')
+    expect(home).not.toContain('createPlan(')
+    expect(home).not.toContain('ensureGuide')
+    expect(home).not.toContain('generateExplorationPlans(')
+    expect(home).not.toContain('ensureTasks(')
   })
 
   test('3. Home does not directly load or generate a Guide before its explicit entry click', () => {
