@@ -12,6 +12,11 @@ describe('P9-05 Home active-child summary context', () => {
     expect(homeSource).toContain('await this.childStore.fetchChildren(userId)')
   })
 
+  test('redirects an unauthenticated direct Home entry to Login', () => {
+    expect(homeSource).toContain("if (!this.hasAuthenticatedUser) {")
+    expect(homeSource).toContain("uni.reLaunch({ url: '/pages/login/index' })")
+  })
+
   test('renders the current journey summary instead of local child management controls', () => {
     expect(homeSource).toContain('class="current-exploration"')
     expect(homeSource).toContain('继续探索')

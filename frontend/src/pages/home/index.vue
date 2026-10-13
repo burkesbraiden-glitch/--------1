@@ -230,7 +230,10 @@ export default {
       this.attractions = []
       try {
         if (!this.userStore.isAuthReady || this.userStore.isRestoring) await this.userStore.restoreSession()
-        if (!this.hasAuthenticatedUser) return
+        if (!this.hasAuthenticatedUser) {
+          uni.reLaunch({ url: '/pages/login/index' })
+          return
+        }
         const userId = this.userStore.userInfo.id
         await this.childStore.fetchChildren(userId)
         await Promise.all([
