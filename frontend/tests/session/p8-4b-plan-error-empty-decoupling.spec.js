@@ -314,57 +314,27 @@ describe('P8.4B Plan error versus empty decoupling', () => {
     expect(result).toMatchObject({ currentPlan: null, unavailable: true })
   })
 
-  test('18. Home Audio keeps a successful empty Plan context closed', async () => {
-    const openAudioGuide = pageMethod(homeSource, 'openAudioGuide', {
-      ensureCurrentPlanReady: vi.fn().mockResolvedValue({ currentPlan: null }),
-    })
-    const context = homeContext()
-
-    await openAudioGuide.call(context)
-
-    expect(context.audioGuideOpen).toBe(false)
-    expect(context.audioGuidePlanId).toBeNull()
+  test('18. Home summary does not recover a current Plan or open a Guide itself', () => {
+    expect(homeSource).not.toContain('ensureCurrentPlanReady')
+    expect(homeSource).not.toContain('AudioGuideSheet')
+    expect(homeSource).not.toContain('createPlan(')
   })
 
-  test('19. Home Audio keeps a Plan network error closed and shows a light error', async () => {
-    const openAudioGuide = pageMethod(homeSource, 'openAudioGuide', {
-      ensureCurrentPlanReady: vi.fn().mockRejectedValue({ statusCode: 0, code: 'NETWORK_ERROR' }),
-    })
-    const context = homeContext()
-
-    await openAudioGuide.call(context)
-
-    expect(context.audioGuideOpen).toBe(false)
-    expect(context.audioGuidePlanId).toBeNull()
-    expect(context.showToast).toHaveBeenCalledWith('探索计划加载失败，请重试')
+  test('19. Home summary renders its own loading and transport-error boundary', () => {
+    expect(homeSource).toContain('isHomeLoading')
+    expect(homeSource).toContain('homeError')
+    expect(homeSource).toContain('首页暂时无法加载')
   })
 
-  test('20. Home Audio does not fall back to stale Child A after a Plan error', async () => {
-    const openAudioGuide = pageMethod(homeSource, 'openAudioGuide', {
-      ensureCurrentPlanReady: vi.fn().mockRejectedValue({ statusCode: 500, code: 'PLAN_SERVICE_ERROR' }),
-    })
-    const context = homeContext()
-    context.audioGuidePlanId = planA.id
-
-    await openAudioGuide.call(context)
-
-    expect(context.audioGuidePlanId).toBeNull()
-    expect(context.audioGuideOpen).toBe(false)
+  test('20. Home does not fall back to a persisted global Plan when Child context changes', () => {
+    expect(homeSource).toContain('sameId(plan.childId, this.activeChild.id)')
+    expect(homeSource).not.toContain('planStore.currentPlan')
   })
 
-  test('21. the next successful Home Audio attempt opens only the newly resolved Child B Plan', async () => {
-    const ensureCurrentPlanReady = vi.fn()
-      .mockRejectedValueOnce({ statusCode: 0, code: 'NETWORK_ERROR' })
-      .mockResolvedValueOnce({ currentPlan: planB })
-    const openAudioGuide = pageMethod(homeSource, 'openAudioGuide', { ensureCurrentPlanReady })
-    const context = homeContext()
-
-    await openAudioGuide.call(context)
-    expect(context.audioGuideOpen).toBe(false)
-    await openAudioGuide.call(context)
-
-    expect(context.audioGuideOpen).toBe(true)
-    expect(context.audioGuidePlanId).toBe(planB.id)
+  test('21. Home forwards only the selected summary context into Explore', () => {
+    expect(homeSource).toContain('buildExploreUrl(context = this.currentExploration)')
+    expect(homeSource).toContain("['planId', context?.planId]")
+    expect(homeSource).toContain("return '/pages/explore/index'")
   })
 
   test('22. a no-explicit Guide uses the loading state while Plan recovery is pending', () => {

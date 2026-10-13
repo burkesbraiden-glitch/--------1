@@ -139,12 +139,13 @@ describe('P8.3B Records child-context contract', () => {
     expect(noChild).toBeGreaterThan(childError)
     expect(recordLoading).toBeGreaterThan(noChild)
     expect(recordPageSource).toContain('孩子资料加载失败')
-    expect(recordPageSource).toContain('尚未添加孩子')
+    expect(recordPageSource).toContain('还没有选择孩子')
   })
 
-  test('shows the active child name as the Records context', () => {
-    expect(recordPageSource).toContain('childStore.activeChild.name')
-    expect(recordPageSource).toContain('的成长记录')
+  test('keeps the Records heading product-focused while child context stays in the request boundary', () => {
+    expect(recordPageSource).toContain('探索记录')
+    expect(recordPageSource).toContain('记录孩子的每一次探索与成长')
+    expect(recordPageSource).toContain('childId: this.childStore.activeChild.id')
   })
 
   test('keeps the successful-empty Records state and offers a go-explore action', () => {
@@ -153,22 +154,22 @@ describe('P8.3B Records child-context contract', () => {
     expect(recordPageSource).toContain('@click="goExplore"')
   })
 
-  test('routes the empty-state action to the real Explore Center with reLaunch', () => {
+  test('routes the empty-state action to the Explore workbench with reLaunch', () => {
     const goExplore = recordPageSource.match(/goExplore\(\) \{[\s\S]*?\n    \},/)?.[0] || ''
 
     expect(goExplore).toContain('uni.reLaunch')
-    expect(goExplore).toContain("url: '/pages/plan/index'")
+    expect(goExplore).toContain("url: '/pages/explore/index'")
   })
 
-  test('keeps the labeled date in the information body instead of duplicating it on the cover photo', () => {
-    expect(recordPageSource).not.toContain(':date-label="record.displayUpdatedAt"')
-    expect(recordPageSource).not.toContain(':date-label="record.displayDateLabel"')
-    expect(recordPageSource).toContain('class="record-card__updated"')
+  test('keeps a real record date in the information body instead of fabricating a photo caption', () => {
+    expect(recordPageSource).toContain('class="record-card__date"')
+    expect(recordPageSource).toContain('{{ record.recordDateLabel }}')
+    expect(recordPageSource).toContain('formatRecordDate')
+    expect(recordPageSource).not.toContain('recordWatercolorFallback')
   })
 
-  test('labels non-finalized updatedAt as an update time', () => {
-    expect(recordStoreSource).toContain("`更新于 ${displayUpdatedAt}`")
-    expect(recordPageSource).toContain('{{ record.displayDateLabel }}')
+  test('uses a real Record timestamp when a finalized timestamp is unavailable', () => {
+    expect(recordPageSource).toContain('record?.finalizedAt || record?.updatedAt || record?.createdAt')
   })
 
   test('preserves finalizedAt as a finalized-time label when it is available', () => {

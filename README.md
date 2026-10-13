@@ -1,157 +1,154 @@
 # 童旅记
 
-## 第 6A-5.2.3 阶段记录
+童旅记是一款亲子文化旅行学习 App。它不做酒店预订、门票交易、旅游团、旅游线路交易、普通旅游推荐或社交社区。
 
-- JourneyRecord finalize 现在要求所属 Plan 已完成，并独立复核正式任务数、每个 Submission 与 completed 状态；不完整来源返回稳定的 `JOURNEY_RECORD_SOURCE_INCOMPLETE` 详情。
-- finalize 在同一事务中锁定 Plan 和 JourneyRecord，先将任务图片复制到独立 record-images，再构建 snapshot v1、发布图片、一次性写入 snapshot/status/finalized_at/updated_at 并提交。
-- finalized 且 snapshot 非空时，列表和详情的稳定业务字段及 entries 只从 snapshot 返回；图片 URL 按 asset ID 构造为受 JWT 保护的 record-image 路由，内部 storage key 不返回。
-- legacy finalized 且 snapshot 为 NULL 继续动态读取，不会在 GET 或重复 finalize 时回填、复制图片或写数据库。重复 finalize 保持时间、快照和图片不变。
-- 图片发布后若数据库提交失败，会 rollback 并删除本次 record-images final 目录，同时保留 task-images 源文件；真实 MySQL 尚未应用 `f6a52a1b2d4`，真实并发验收留到 6A-5.2.4。
+产品把一次普通出行组织为一条可回顾的学习路径：
 
-## 第 6A-5.2.2 阶段记录
+```text
+路线 → 景点 → 儿童友好探索任务 → 照片和发现 → 探索记录
+```
 
-- 新增独立 `RECORD_IMAGE_UPLOAD_DIR`，默认目录为 `backend/var/uploads/record-images`；测试配置使用独立的 `backend/var/testing-uploads/record-images`，测试可覆盖为临时目录。
-- record 图片仅从既有 `task-images/<filename>` 读取，按实际签名字节识别 PNG、JPEG、WebP；每次操作先复制到私有 `.staging/{recordId}-{operationUuid}`，再以同卷目录 rename 发布到 `record-images/{recordId}/`，不会覆盖或合并已有最终目录。
-- 新增受 JWT 保护的下载接口：`GET /api/v1/journey-records/{recordId}/images/{assetId}`。接口先验证当前用户拥有记录、记录已 finalized 和 snapshot，再按 assetId 返回 inline 图片及 `Cache-Control: private`；URL 不暴露 storage key 或 JWT。
-- 下载会重新校验 snapshot、最终文件的根目录、大小和 MIME 签名；不存在、路径异常或内容不匹配统一不暴露本地路径。
-- 本阶段不会接入 finalize 写 snapshot 或复制图片，不修改 JourneyRecord serializer、模型、migration、前端或 MySQL，也不增加孤儿文件扫描。
+## 当前产品结构
 
-## 第 6A-5.2.1 阶段记录
+底部一级导航固定为四项：
 
-- JourneyRecord 新增可空 JSON `snapshot` ORM 字段和迁移 `f6a52a1b2d4`；真实 MySQL 尚未执行该迁移。
-- 新增纯 Python snapshot v1 builder/validator，使用 `schemaVersion=1`，会构建稳定的 record、cover、entries 和 imageAssets 数据结构。
-- 本阶段尚未接入 finalize，尚未复制 record-images，尚未修改 API 响应或 finalized serializer。
+| 页面 | 职责 |
+| --- | --- |
+| 首页 | 品牌入口、当前旅程摘要、目的地与景点发现。品牌 Logo 仅在此处出现。 |
+| 探索 | 路线、天、景点、探索计划和任务的执行工作台。 |
+| 记录 | 浏览 JourneyRecord 成果档案，包括任务成果、照片与笔记。 |
+| 我的 | 当前孩子、孩子切换与管理、账号和设置。 |
 
-## 第 4C-3 阶段记录
+路线规划、任务详情、记录详情、孩子切换和设置是上下文页面，不是独立一级 Tab。
 
-- 任务图片已接入真实 `POST /plans/{planId}/tasks/{taskId}/submission/image` 上传与受 JWT 保护的图片下载接口；上传复用统一 API base 和既有 `tonglvji_auth` token 来源，不将 JWT 放入 URL，也不手动设置 multipart boundary。
-- H5 通过带 Authorization 的 `fetch`、`cache: no-store` 和 Blob Object URL 显示图片；非 H5 使用 `uni.downloadFile` 的临时文件路径。展示路径仅存于前端图片缓存，不写回 Remote Task。
-- `taskStore.taskImageCache` 按 `userId:planId:taskId` 隔离，并使用独立 generation、共享下载 Promise 与 session epoch 防止旧下载、旧用户或旧缓存覆盖新图片。替换图片会先写入后端返回的 Task，再失效缓存、revoke Blob URL 并认证重下。
-- `localTaskDrafts` 和最终 `record.imagePath` 依赖已删除。详情页仅在上传中使用局部 `pendingPreviewPath`；任务详情和探索相册均只展示 `record.displayImagePath`。
-- completed Task 替换图片后，`status`、`record.note` 和 `completedAt` 继续以上传接口返回的 Remote Task 为准。退出登录会清空图片缓存、使在途结果失效并撤销全部 H5 Blob URL。
+## 核心领域模型
 
-## 第 4C-2 阶段记录
+```text
+User
+└── Route
+    └── RouteDay
+        └── RouteStop
+            └── ExplorationPlan
+                ├── GuideCard
+                └── Task
+                    └── TaskSubmission
 
-- 前端已接入真实 TaskSubmission 写入：任务开始、文字记录 PATCH 和任务完成全部复用 `frontend/src/api/tasks.js` 与统一 request 层，均携带 JWT。
-- Remote Task 的 `status`、`record.note` 和 `completedAt` 现在只由后端返回的 Task 更新；`taskStore.upsertRemoteTask()` 替换对应 Plan 下的远程任务，任务页、详情页和记录页同步读取新结果。
-- `localTaskDrafts[planId][taskId]` 已删除本地 `status` 与 `note`，现在只保存未上传的 `imagePath`；本地图片仍可预览，刷新后允许消失。
-- 同一用户、Plan、Task 的 Submission 请求进入串行队列；详情页使用 600ms 防抖 `noteDraft`，完成前会取消未触发防抖、等待已发保存，并以最新文字调用 complete，避免旧 PATCH 覆盖完成结果。
-- Plan 为 `ready` 时任务可以查看但不会自动开始；任务页和详情页提供显式“开始探索”。任务为 `not-started` 时必须先开始任务，completed 后仍可修正文字记录。
-- 本阶段未接入任务图片上传或认证下载，绝不向 Submission API 发送 `imagePath`、`imageUrl` 或 `image_url`；图片持久化仍留在第 4C-3。
-- 本阶段没有修改后端、数据库结构或 migration。
+completed ExplorationPlan
+└── JourneyRecord
+```
 
-## 第 4C-1 阶段记录
+`Route`、`RouteDay` 与 `RouteStop` 是账号/家庭共享的行程结构：`Route` 只绑定 `user_id`，不绑定 `child_id`。`ExplorationPlan` 通过 `routeStopId` 关联一个景点站点，并绑定 `child_id`；`Task`、完成进度、`TaskSubmission` 和 `JourneyRecord` 随该计划隔离。
 
-- 前端已新增真实 Tasks API 模块，对接 `GET /plans/{id}/tasks`、`POST /plans/{id}/tasks/generate` 和 `GET /plans/{id}/tasks/{taskId}`，全部复用统一 request 层并携带 JWT。
-- `taskStore` 的任务内容来源已切换为真实后端 Tasks，使用真实 MySQL 数字 Task id，不再从 `mockTasks` 创建业务任务数组。
-- `localTaskSessions` 不再作为任务主数据；第 4C-1 使用 `tasksByPlanId` 保存远程任务，并用 `localTaskDrafts[planId][taskId]` 暂存本地 `status`、`note`、`imagePath`。
-- 展示任务由 Remote Task + Local Draft Overlay 合并生成，远程 Task 对象保持服务器事实，不直接写入本地完成状态、文字或图片临时路径。
-- 进入计划页、任务页或记录页时会恢复真实 Plan 并确保 Tasks；当真实任务为空且 Plan 为 `ready` 或 `in-progress` 时显式调用 generate，同 Plan 共享请求链避免重复生成。
-- `taskCount` 通过 `planStore.syncTaskCount()` 同步到 `plans` 和 `currentPlan` 缓存，计划页显示真实任务数。
-- 任务详情页支持数字 Task id 与路由字符串 id 匹配；列表中找不到时使用真实 Task Detail API 作为刷新兜底。
-- 记录页继续读取 `taskStore.currentPlanTasks` 的合并展示结果，临时 completed、note、imagePath 仍可形成探索相册；`sourceTaskId` 去重已统一字符串化。
-- 本阶段未接 TaskSubmission 写入 API，未调用 start、PATCH note 或 complete；4C-2 将删除本地 `status/note` Draft 并接入真实 Submission。
-- 本阶段未接 Task Image 上传或认证下载；4C-3 将删除本地 `imagePath` 作为最终记录来源并接入真实图片缓存。
-- 本阶段没有修改后端、没有新 migration。
+因此，同一账号下的不同孩子可以看到同一条共享路线，但不能互相看到对方的探索计划、任务进度、任务成果或探索记录。
 
-## 第 4B-3 阶段记录
+## 当前已实现功能
 
-- 后端已新增真实任务图片上传 API：`POST /api/v1/plans/{plan_id}/tasks/{task_id}/submission/image`，字段名固定为 `image`，必须携带 JWT。
-- 后端已新增受 JWT 保护的图片读取 API：`GET /api/v1/plans/{plan_id}/tasks/{task_id}/submission/image`，会继续校验当前用户拥有 Plan 且 Task 属于该 Plan。
-- 当前图片使用服务器本地文件系统存储，默认目录为 `backend/var/uploads/task-images`；该运行时目录被忽略，不进入版本控制。
-- `task_submissions.image_url` 只保存内部 storage key，例如 `task-images/<uuid>.png`，不保存 HTTP URL、客户端本地路径、blob/wxfile 路径或服务器绝对路径。
-- 上传只允许 PNG、JPEG、WebP，并按文件签名字节识别真实格式；SVG、GIF 和其他文件会被拒绝。
-- 上传大小默认限制为 10 MiB；文件名由 UUID4 hex 生成，不使用用户原始文件名。
-- 首次上传会自动创建 `in-progress` TaskSubmission；替换图片只更新同一条 Submission，并在数据库提交成功后删除旧文件。
-- completed 任务允许替换图片，但保持 `status`、`note` 和 `completed_at` 不变。
-- Task list/detail 的 `record.imageUrl` 不返回内部 storage key，而返回认证下载路径 `/api/v1/plans/{planId}/tasks/{taskId}/submission/image`。
-- 前端尚未接真实图片 API，当前仍保留本地临时图片流程；未来生产环境可迁移对象存储和签名 URL。
-- 本阶段没有新 migration，没有修改前端。
+- 认证：JWT 会话恢复、退出登录、私有页面登录保护；开发环境支持手机号验证码和 Mock 微信登录，生产认证使用真实微信授权。
+- 孩子：孩子列表、创建、编辑、默认孩子与 `activeChild` 切换。
+- 路线：路线、天、景点站点与景点目录查询；支持创建、编辑、排序和删除保护。
+- 探索：从 `RouteStop` 为当前孩子生成 `ExplorationPlan`，查看计划状态与进度，开始和完成探索。
+- 讲解：计划级 `GuideCard` 读取与缺失时生成；讲解音频具备异步任务、播放界面和服务端领域代码。
+- 任务：服务端任务集、开始任务、文字笔记、完成任务、受认证保护的图片上传与读取。
+- 记录：`JourneyRecord` 创建、编辑、封存、完成任务成果、照片和笔记的详情查看；已封存记录使用稳定快照和受认证保护的记录图片。
 
-## 第 4B-2 阶段记录
+GuideCard 与 Task 的内容生成目前是服务端固定模板/规则生成，不是 OpenAI 或其他 LLM 功能。
 
-- 后端已新增 TaskSubmission 写入 API：`POST /api/v1/plans/{plan_id}/tasks/{task_id}/submission/start`、`PATCH /api/v1/plans/{plan_id}/tasks/{task_id}/submission`、`POST /api/v1/plans/{plan_id}/tasks/{task_id}/submission/complete`。
-- Task start 会在 `in-progress` Plan 下创建 `in-progress` submission；重复 start 幂等返回同一 Task；已完成任务不允许重新 start。
-- PATCH 当前只允许更新 `note`，会 trim 外围空白、允许空字符串、限制 2000 字符；首次 PATCH 会自动创建 `in-progress` submission，已完成任务仍可修正 note 且不改变 `completed_at`。
-- complete 可从未开始或进行中直接进入 `completed`，首次完成写入 UTC `completed_at`；重复 complete 幂等，不重写完成时间。
-- 写入接口继续使用 Task 序列化，GET list / detail 会立即反映 `status`、`record.note` 和 `completedAt`。
-- 用户隔离继续通过当前 JWT 用户拥有的 Plan 校验；跨用户 Plan 返回 `PLAN_NOT_FOUND`，Task 不属于该 Plan 返回 `TASK_NOT_FOUND`。
-- `image_url` 当前仍保持为空，客户端提交 `imagePath` / `imageUrl` / `image_url` 会被拒绝；图片上传留到第 4B-3。
-- 全部 Task 完成后不会自动 complete ExplorationPlan；前端仍未接真实 Submission，仍保留当前本地任务记录兼容。
-- 本阶段没有新 migration，没有修改前端。
+## 技术栈
 
-## 第 4B-1 阶段记录
+前端：经典 uni-app、Vue 3、JavaScript、Pinia、SCSS、Vite、Vitest。
 
-- 后端已新增服务端 Mock Task Generator；当前不是 AI，不接 OpenAI 或任何外部 AI API。
-- 新增任务 API：`GET /api/v1/plans/{plan_id}/tasks`、`POST /api/v1/plans/{plan_id}/tasks/generate`、`GET /api/v1/plans/{plan_id}/tasks/{task_id}`。
-- `GET tasks` 只读取，不自动生成；只有 `POST tasks/generate` 会为 `ready` 或 `in-progress` Plan 生成 3 个任务。
-- 任务生成保持幂等：已有完整 3 条任务时直接返回现有任务；异常的部分任务集返回 `TASK_SET_INCOMPLETE`。
-- Task API 按当前 JWT 用户校验 Plan，实现用户隔离；Task status 和 record 由 `task_submissions` 动态序列化，`tasks` 表不保存状态和记录。
-- Plan API 的 `taskCount` 已改为根据真实 `tasks` 数量动态计算，`exploration_plans` 仍不保存 `task_count`。
-- 当前仍未开发 TaskSubmission 写入 API、任务完成 API、图片上传 API；前端仍然使用 `localTaskSessions`，未接真实 Tasks API。
+后端：Flask、SQLAlchemy、Flask-Migrate（Alembic）、MySQL、PyMySQL、Pytest。
 
-## 第 4A 阶段记录
+## 项目目录
 
-- 后端已新增任务内容表 `tasks` 与任务完成状态表 `task_submissions`，第三个正式 migration 为 `c795c3738e73_create_tasks_and_task_submissions.py`。
-- `tasks` 只保存任务内容；不保存 `status`、`record`、`image_path`、`note`，也不重复保存 `user_id`、`child_id`。
-- `task_submissions` 保存单个任务当前提交状态和用户记录；无 Submission 行表示未来 API 应计算为 `not-started`，数据库中的 `status` 只允许 `in-progress`、`completed`。
-- `taskCount` 未来由 `tasks` 实际数量动态计算；当前没有任务 Seed，没有任务 API，没有修改前端。
+```text
+frontend/                 classic uni-app 前端、Pinia Store、API 和会话测试
+backend/
+  app/                    Flask API、模型、服务与 worker
+  migrations/             Flask-Migrate / Alembic 迁移
+  scripts/seed_attractions.py
+docs/                     产品说明、设计规范与参考资料
+```
 
-`frontend/src/package.json` 仅用于 Node 阶段检查脚本按 ESM 导入 src 下源码。
+## 本地开发
 
-## 第 3C-2 阶段记录
+前端：
 
-- 前端已接入真实 Guide API：读取 Flask GuideCard，缺失时自动调用服务端 generate。
-- 刷新 Guide 页会优先读取已存在 Guide，同一 Plan 不重复创建 GuideCard。
-- Plan 间 Guide 会话隔离，切换 Plan 时先清旧 Guide 再加载新 Guide。
-- 当前 Guide Generator 仍是服务端 Mock Generator，不是真实 AI；真实 AI 留到后续阶段。
+```powershell
+Set-Location frontend
+npm install
+npm run dev:h5
+```
 
-童旅记是一个亲子旅行学习 App，帮助家长把普通旅行变成孩子能够观察、发现、提问、表达和成长的探索过程。
+常用前端命令：
 
-当前阶段：第 3C-1 阶段，前端真实 Plan 联调已完成，Guide 仍留到第 3C-2。
+```powershell
+npm run build:h5
+npm run test:session
+```
 
-## 目录
+后端（Windows PowerShell 示例）：
 
-- frontend/：经典 uni-app Vue 3 + Vite 前端项目。
-- backend/：Flask 后端工程，当前包含 MySQL 本地开发连接、健康检查、认证 API、孩子档案 API、探索计划 API、探索计划模型和讲解卡模型。
-- docs/：产品说明、实施计划和设计参考。
+```powershell
+Set-Location backend
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe run.py
+```
 
-## 当前约束
+后端从 `backend/.env` 读取环境变量；请配置自己的 development MySQL 连接与必要密钥，绝不把密码或真实第三方凭据写入仓库。
 
-- 前端第 0-6 阶段已完成。
-- 后端第 1A 阶段已完成。
-- 后端第 1B 阶段已完成。
-- 后端第 2A 阶段已完成。
-- 后端第 2B-1 阶段已完成。
-- 后端第 2C-2 阶段已完成。
-- 后端第 3A 阶段已完成。
-- 后端第 3A.1 阶段已完成。
-- 后端第 3B-2 阶段已完成。
-- 前端当前处于第 3C-1 阶段。
-- MySQL 已连接本地开发数据库 `tonglvji`。
-- 已建立 `users`、`children`、`exploration_plans` 和 `guide_cards` 业务表。
-- 已建立第二个正式 migration：`0a9cec9dc9f8_create_exploration_plans_and_guide_cards.py`。
-- 已建立手机号登录、Mock 微信登录、`/auth/me` 和客户端式 logout。
-- 已建立孩子档案列表、创建、详情和更新 API。
-- 已建立 ExplorationPlan 和 GuideCard ORM 模型。
-- 已建立探索计划创建、列表、详情、更新和开始探索 API。
-- 已建立服务端 Mock Guide Generator、讲解卡生成 API 和讲解卡读取 API。
-- 讲解卡生成保持幂等；同一个探索计划最多持久化一张 GuideCard。
-- 讲解卡 API 按当前 JWT 用户隔离计划，不泄露其他用户计划是否存在。
-- 前端已建立统一 API 配置、`uni.request` 请求层和 auth API 模块。
-- 前端登录页已接入真实 `send-code`、手机号登录、Mock 微信登录、JWT 保存、`/auth/me` session 恢复和客户端 logout。
-- 前端已建立 children API 模块，`childStore` 已接入真实 `GET /children`、`POST /children` 和 `PATCH /children/{id}`。
-- 我的页已接入真实 `currentChild`、无孩子空状态、孩子档案创建/更新、刷新恢复和退出登录孩子会话清理。
-- 前端已建立 plans API 模块，`planStore` 已接入真实 `GET /plans`、`POST /plans`、`GET /plans/{id}`、`PATCH /plans/{id}` 和 `POST /plans/{id}/start`。
-- `currentPlan` 使用真实后端 Plan id，并通过 `tonglvji_current_plan_selection` 按 `userId + planId` 恢复。
-- 首页创建探索计划会校验登录状态、真实孩子档案和孩子年龄组；未登录或无真实孩子时不会创建本地假计划。
-- 当前 tasks 仍未后端化；每个真实 Plan 暂时使用独立本地任务模板会话，避免不同计划之间串任务状态、照片和文字。
-- 任务临时兼容会在真实 tasks API、task_submissions API 和 taskStore 后端联调完成后删除。
-- 不开发孩子删除、任务、记录、收藏等业务 API。
-- `exploration_plans` 不保存 `task_count`，任务数未来由 tasks 表动态计算。
-- 计划 API 当前返回 `taskCount = 0`，但不落库。
-- `guide_cards` 不保存 `destination`，目的地统一来自关联计划。
-- 当前创建 Plan 不自动创建 GuideCard；只有 `POST /plans/{id}/guide/generate` 会创建 GuideCard。
-- 当前讲解卡生成不是真实 AI，不接 OpenAI 或任何外部 AI API。
-- `guide_cards` 不保存 `destination`，API 返回的 destination 来自关联 Plan。
-- 第 3C-1 不接 Guide API；Guide 页面只读取真实 Plan 的 destination，讲解内容仍保持本地过渡，真实 Guide 接入留到第 3C-2。
+## 数据库初始化
+
+Development 使用 MySQL。新开发数据库必须先配置好连接，再正常执行全部 migration，并运行项目标准的 Attraction 基础目录 seed：
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\python.exe -m flask --app app:create_app db upgrade
+.\.venv\Scripts\python.exe scripts\seed_attractions.py
+```
+
+`Attraction` 是系统基础目录数据；没有运行 seed 时，路线编辑中的景点列表会为空。它不负责创建 User、Child、Route、Plan、Task 或 Record。开发/QA 业务数据应通过正常产品流程建立。
+
+不要在空数据库上只手工把 `alembic_version` 标记为 `head`（例如 `stamp head`）就开始运行。那会造成 revision 表存在、而 `users`、`children`、`routes` 等真实业务表缺失的错误状态。
+
+## 测试与构建
+
+前端：
+
+```powershell
+Set-Location frontend
+npm run test:session
+npm run build:h5
+```
+
+后端：
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\python.exe -m pytest
+```
+
+当前自动化验证基线（2026-10-12）：前端 56 个测试文件、460 项测试通过；后端 725 项测试通过；H5 构建成功。测试和构建不替代 Flask、MySQL、登录或真实浏览器/真机验收。
+
+## 当前状态
+
+- P10.2：探索工作台完成，路线、天、站点、计划和任务收敛到探索执行流。
+- P10.3：首页完成，面向当前孩子展示继续探索、路线入口和景点发现。
+- P10.4：记录页完成，围绕真实 JourneyRecord、任务成果、照片和笔记呈现。
+- P10.5：我的页完成，支持当前孩子、快速切换、孩子管理、账号与设置入口。
+- P10.6：全局 E2E/QA 已完成。已覆盖 development DB/Flask/auth、Attraction seed、Route 账号级共享与 Plan/Task/Record 孩子级隔离、activeChild A→B→A、登录/退出、手机/桌面基础布局，以及普通浏览器的真实照片上传与预览。
+
+## 当前限制
+
+- GuideCard 和 Task Generator 仍是服务端固定模板生成，不是已上线的 LLM/AI 服务。
+- 真实讲解音频需要可用的微信、Edge TTS、私有 R2 存储、worker 和相应环境配置；代码存在不等于生产外部链路已验收。
+- 当前 Attraction seed 以北京景点目录为主，部分 `coverImage` 为空。
+- 设置页中的账号信息编辑尚未提供，当前只展示轻提示。
+
+## 产品原则
+
+- 真实数据优先；不使用静态 Demo 冒充动态业务。
+- 不伪造热度、消息、孩子、用户照片或探索记录。
+- 缺少能力时展示真实空状态、隐藏入口或明确说明“准备中”。
+- AI 功能不得伪装成已经上线的产品能力。

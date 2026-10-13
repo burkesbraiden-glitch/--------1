@@ -115,7 +115,7 @@
       </view>
 
       <view class="detail-actions">
-        <button class="detail-actions__back" @click="goTaskList">返回任务列表</button>
+        <button class="detail-actions__back" @click="goBack">返回探索工作台</button>
         <button
           class="detail-actions__complete"
           :class="{ 'detail-actions__complete--done': currentTask.status === 'completed' }"
@@ -690,8 +690,9 @@ export default {
       })
     },
     goTaskList() {
+      const suffix = this.routePlanId ? `?planId=${encodeURIComponent(String(this.routePlanId))}` : ''
       uni.reLaunch({
-        url: '/pages/tasks/index',
+        url: `/pages/explore/index${suffix}`,
       })
     },
   },

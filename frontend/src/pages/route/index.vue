@@ -94,7 +94,7 @@
       </view>
     </view>
 
-    <AppTabbar active="route" />
+    <AppTabbar active="explore" />
   </view>
 </template>
 

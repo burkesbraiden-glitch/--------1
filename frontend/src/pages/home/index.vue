@@ -2,1739 +2,304 @@
   <view class="home-page">
     <view class="home-page__paper">
       <view class="home-header">
-        <view class="home-header__brand">
-          <text class="home-header__title">童旅记</text>
-          <text class="home-header__subtitle">在旅行中学习，在故事里成长</text>
+        <view v-if="brandLogoPath" class="home-header__brand">
+          <image class="home-header__logo" :src="brandLogoPath" mode="heightFix" />
         </view>
-
         <view class="home-header__tools">
-          <view class="home-header__city" @click="noop">
-            <view class="home-header__pin" aria-hidden="true"></view>
-            <text>北京</text>
-            <view class="home-header__arrow" aria-hidden="true"></view>
-          </view>
-          <view class="home-header__notice" @click="noop">
-            <view class="home-header__notice-icon" aria-hidden="true"></view>
-            <view class="home-header__dot"></view>
-          </view>
+          <button class="home-tool" aria-label="搜索" @click="showToast('搜索功能正在准备中')"><view class="home-tool__search" aria-hidden="true"></view></button>
+          <button class="home-tool" aria-label="消息" @click="showToast('暂无消息功能')"><view class="home-tool__notice" aria-hidden="true"></view></button>
         </view>
       </view>
 
-      <view v-if="hasAuthenticatedUser" class="home-child-context">
-        <view v-if="isHomeChildLoading" class="home-child-context__state">
-          <text class="home-child-context__label">当前孩子</text>
-          <text class="home-child-context__copy">正在同步孩子档案…</text>
-        </view>
-
-        <view v-else-if="showHomeChildError" class="home-child-context__state home-child-context__state--error">
-          <text class="home-child-context__label">当前孩子</text>
-          <text class="home-child-context__copy">孩子资料暂时无法加载</text>
-          <text class="home-child-context__action" @click="retryHomeChildren">重试 ›</text>
-        </view>
-
-        <view v-else-if="activeChild" class="home-child-context__active">
-          <view class="home-child-context__head">
-            <text class="home-child-context__label">当前孩子</text>
-            <text v-if="canSwitchActiveChild" class="home-child-context__action" @click="goToProfile">切换孩子 ›</text>
-          </view>
-          <view class="home-child-context__identity">
-            <text>{{ activeChild.name }} · {{ activeChild.age }}岁</text>
-            <text v-if="activeChild.city"> · {{ activeChild.city }}</text>
-          </view>
-          <text class="home-child-context__copy">接下来为 {{ activeChild.name }} 规划这次亲子探索</text>
-        </view>
-
-        <view v-else-if="showHomeNoChild" class="home-child-context__state">
-          <text class="home-child-context__label">当前孩子</text>
-          <text class="home-child-context__copy">还没有孩子档案</text>
-          <text class="home-child-context__action" @click="goToProfile">完善孩子档案 ›</text>
-        </view>
+      <view v-if="isHomeLoading" class="home-state"><text class="home-state__title">正在整理这次旅程…</text></view>
+      <view v-else-if="homeError" class="home-state home-state--error">
+        <text class="home-state__title">首页暂时无法加载</text>
+        <text class="home-state__copy">{{ homeError }}</text>
+        <button class="home-state__action" @click="loadHome(true)">重新加载</button>
       </view>
 
-      <view class="home-search-row">
-        <view class="home-search">
-          <view class="home-search__icon" aria-hidden="true"></view>
-          <input v-model="searchKeyword" placeholder="输入这次要去的地方" />
-          <view class="home-search__send" aria-hidden="true"></view>
-        </view>
-
-        <view class="home-age">
-          <view
-            v-for="option in ageOptions"
-            :key="option.value"
-            class="home-age__item"
-            :class="{ 'home-age__item--active': displayAgeGroup === option.value, 'home-age__item--context': activeChild }"
-            @click="selectAge(option.value)"
-          >
-            {{ option.label }}
+      <template v-else>
+        <view class="home-section-heading home-section-heading--first"><text class="home-section-heading__title">继续探索</text></view>
+        <view class="current-exploration" :class="{ 'current-exploration--with-image': Boolean(heroImage) }">
+          <image v-if="heroImage" class="current-exploration__image" :src="heroImage" mode="aspectFill" />
+          <view v-if="heroImage" class="current-exploration__shade"></view>
+          <view class="current-exploration__content">
+            <text class="current-exploration__route">{{ heroRouteTitle }}</text>
+            <text class="current-exploration__stop">{{ heroStopLabel }}</text>
+            <text v-if="heroProgressLabel" class="current-exploration__progress">{{ heroProgressLabel }}</text>
+            <text v-else class="current-exploration__description">{{ heroDescription }}</text>
+            <button class="current-exploration__action" @click="openCurrentExploration"><text>{{ heroActionLabel }}</text><text aria-hidden="true">›</text></button>
           </view>
         </view>
-      </view>
 
-      <view class="home-hero">
-        <view class="home-hero__book">
-          <view class="home-hero__content">
-            <text class="home-hero__eyebrow">故宫文化探索</text>
-            <text class="home-hero__title">故宫亲子探索</text>
-            <view class="home-hero__underline"></view>
-            <text class="home-hero__desc">认识古代皇宫，边看边学</text>
-
-            <view class="home-hero__tags">
-              <view class="home-hero__tag home-hero__tag--orange">
-                <view class="home-hero__tag-icon home-hero__tag-icon--age" aria-hidden="true"></view>
-                <text>{{ heroAgeLabel }}</text>
-              </view>
-              <view class="home-hero__tag home-hero__tag--blue">
-                <view class="home-hero__tag-icon home-hero__tag-icon--time" aria-hidden="true"></view>
-                <text>约3小时</text>
+        <view v-if="destinationCities.length" class="home-section">
+          <view class="home-section-heading"><text class="home-section-heading__title">推荐目的地</text></view>
+          <scroll-view class="destination-list" scroll-x :show-scrollbar="false">
+            <view class="destination-list__inner">
+              <view v-for="destination in destinationCities" :key="destination.city" class="destination-item">
+                <image v-if="destination.image" class="destination-item__image" :src="destination.image" mode="aspectFill" />
+                <view v-else class="destination-item__image destination-item__image--blank"></view>
+                <text class="destination-item__name">{{ destination.city }}</text>
               </view>
             </view>
+          </scroll-view>
+        </view>
 
-            <view class="home-hero__cta" @click="goToRoutePlanning">
-              <text>规划亲子路线</text>
-              <view class="home-hero__cta-arrow" aria-hidden="true"></view>
+        <view v-if="featuredAttraction" class="home-section">
+          <view class="home-section-heading"><text class="home-section-heading__title">本期推荐</text></view>
+          <button class="featured-attraction" @click="openAttraction(featuredAttraction)">
+            <image v-if="attractionImage(featuredAttraction)" class="featured-attraction__image" :src="attractionImage(featuredAttraction)" mode="aspectFill" />
+            <view v-else class="featured-attraction__image featured-attraction__image--blank"></view>
+            <view class="featured-attraction__copy">
+              <text class="featured-attraction__name">{{ featuredAttraction.name }}</text>
+              <text v-if="featuredAttraction.summary" class="featured-attraction__summary">{{ featuredAttraction.summary }}</text>
+              <text v-if="durationLabel(featuredAttraction)" class="featured-attraction__meta">{{ durationLabel(featuredAttraction) }}</text>
             </view>
-          </view>
-
-          <view class="home-hero__illustration" aria-hidden="true">
-            <image
-              class="home-hero__image"
-              src="../../assets/home/home-hero-watercolor.webp"
-              mode="aspectFill"
-            />
-          </view>
-        </view>
-      </view>
-
-      <view class="home-entry-grid">
-        <view
-          v-for="entry in entries"
-          :key="entry.title"
-          class="home-entry"
-          :class="`home-entry--${entry.theme}`"
-          @click="goEntry(entry)"
-        >
-          <text class="home-entry__title">{{ entry.title }}</text>
-          <text class="home-entry__desc">{{ entry.desc }}</text>
-          <image
-            class="home-entry__art"
-            :class="`home-entry__art--${entry.theme}`"
-            :src="entry.art"
-            mode="aspectFit"
-            aria-hidden="true"
-          />
-        </view>
-      </view>
-
-      <view class="home-learn">
-        <view class="home-section-title">
-          <view class="home-section-title__star" aria-hidden="true"></view>
-          <text>这次孩子能学什么</text>
+            <text class="featured-attraction__arrow" aria-hidden="true">›</text>
+          </button>
         </view>
 
-        <view class="home-learn__grid">
-          <view
-            v-for="item in learningItems"
-            :key="item.title"
-            class="home-learn-card"
-            :class="`home-learn-card--${item.theme}`"
-          >
-            <text class="home-learn-card__title">{{ item.title }}</text>
-            <text class="home-learn-card__desc">{{ item.desc }}</text>
-            <image
-              class="home-learn-card__art"
-              :class="`home-learn-card__art--${item.theme}`"
-              :src="item.art"
-              mode="aspectFit"
-              aria-hidden="true"
-            />
+        <view v-if="inspirationAttractions.length" class="home-section home-section--last">
+          <view class="home-section-heading"><text class="home-section-heading__title">更多探索灵感</text></view>
+          <view class="inspiration-list">
+            <button v-for="attraction in inspirationAttractions" :key="attraction.id" class="inspiration-item" @click="openAttraction(attraction)">
+              <image v-if="attractionImage(attraction)" class="inspiration-item__image" :src="attractionImage(attraction)" mode="aspectFill" />
+              <view v-else class="inspiration-item__image inspiration-item__image--blank"></view>
+              <view class="inspiration-item__copy">
+                <text class="inspiration-item__name">{{ attraction.name }}</text>
+                <text class="inspiration-item__meta">{{ attraction.city }}<template v-if="durationLabel(attraction)"> · {{ durationLabel(attraction) }}</template></text>
+              </view>
+              <text class="inspiration-item__arrow" aria-hidden="true">›</text>
+            </button>
           </view>
         </view>
-      </view>
+      </template>
     </view>
-
-    <AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />
     <AppTabbar active="home" />
   </view>
 </template>
 
 <script>
-import AudioGuideSheet from '../../components/AudioGuideSheet.vue'
 import AppTabbar from '../../components/AppTabbar.vue'
+import { getAttractions } from '../../api/attractions.js'
 import { useChildStore } from '../../stores/child'
+import { usePlanStore } from '../../stores/plan'
+import { useRouteStore } from '../../stores/route'
 import { useUserStore } from '../../stores/user'
-import { ensureCurrentPlanReady } from '../../utils/planRecovery'
-import { endUserSession } from '../../utils/sessionBoundary'
-import entryPlanMap from '../../assets/home/home-entry-plan-map.webp'
-import entryGuideCards from '../../assets/home/home-entry-guide-cards.webp'
-import entryObservationNotebook from '../../assets/home/home-entry-observation-notebook.webp'
-import learningAncientLife from '../../assets/home/home-learning-ancient-life.webp'
-import learningArchitectureRitual from '../../assets/home/home-learning-architecture-ritual.webp'
-import learningObservationExpression from '../../assets/home/home-learning-observation-expression.webp'
+import { isAuthenticationError } from '../../utils/request.js'
+import { resolveBackendResourceUrl } from '../../utils/authenticatedFile.js'
+import { endUserSession } from '../../utils/sessionBoundary.js'
 
-function isAuthenticationError(error) {
-  return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
+const brandLogoModules = import.meta.glob('../../assets/brand/tonglvji-logo.png', { eager: true, import: 'default' })
+const brandLogoPath = Object.values(brandLogoModules)[0] || ''
+
+function hasId(value) {
+  return value !== null && value !== undefined && String(value).trim() !== ''
+}
+
+function sameId(left, right) {
+  return hasId(left) && hasId(right) && String(left) === String(right)
+}
+
+function planRouteId(plan) {
+  return plan?.sourceSnapshot?.route?.id || null
+}
+
+function firstRouteStop(route, plans) {
+  for (const day of route?.days || []) {
+    for (const stop of day?.stops || []) {
+      const plan = plans.find((item) => sameId(item.routeStopId, stop.id)) || null
+      if (plan?.status !== 'completed') return { day, stop, plan }
+    }
+  }
+  return null
 }
 
 export default {
-  components: {
-    AudioGuideSheet,
-    AppTabbar,
-  },
+  components: { AppTabbar },
   data() {
-    return {
-      searchKeyword: '',
-      selectedAgeGroup: '7-12',
-      audioGuideOpen: false,
-      audioGuidePlanId: null,
-      isOpeningAudioGuide: false,
-      ageOptions: [
-        { value: '3-6', label: '3-6岁' },
-        { value: '7-12', label: '7-12岁' },
-      ],
-      entries: [
-        {
-          title: '路线规划',
-          desc: '安排景点与行程',
-          theme: 'green',
-          art: entryPlanMap,
-          path: '/pages/route/index',
-          method: 'reLaunch',
-        },
-        {
-          title: '景点讲解',
-          desc: '家长轻松讲',
-          theme: 'yellow',
-          art: entryGuideCards,
-          action: 'audio-guide',
-        },
-        {
-          title: '观察任务',
-          desc: '边看边完成',
-          theme: 'blue',
-          art: entryObservationNotebook,
-          path: '/pages/tasks/index',
-          method: 'reLaunch',
-        },
-      ],
-      learningItems: [
-        {
-          title: '古代生活',
-          desc: '了解皇宫里的衣食住行',
-          theme: 'orange',
-          art: learningAncientLife,
-        },
-        {
-          title: '建筑礼仪',
-          desc: '发现古建筑的智慧与礼仪',
-          theme: 'yellow',
-          art: learningArchitectureRitual,
-        },
-        {
-          title: '观察表达',
-          desc: '学会观察，勇敢表达',
-          theme: 'blue',
-          art: learningObservationExpression,
-        },
-      ],
-    }
+    return { brandLogoPath, homeRoute: null, attractions: [], homeError: '', isHomeLoading: true }
   },
   computed: {
-    activeChild() {
-      if (!this.hasAuthenticatedUser) {
-        return null
+    childStore() { return useChildStore() },
+    planStore() { return usePlanStore() },
+    routeStore() { return useRouteStore() },
+    userStore() { return useUserStore() },
+    hasAuthenticatedUser() { return Boolean(this.userStore.isLoggedIn && this.userStore.userInfo?.id) },
+    activeChild() { return this.hasAuthenticatedUser ? this.childStore.activeChild : null },
+    activeChildPlans() {
+      if (!this.activeChild?.id) return []
+      return this.planStore.plans.filter((plan) => sameId(plan.childId, this.activeChild.id))
+    },
+    inProgressPlan() {
+      return this.activeChildPlans.find(
+        (plan) => plan.status === 'in-progress' && hasId(plan.routeStopId) && hasId(planRouteId(plan)),
+      ) || null
+    },
+    currentExploration() {
+      if (this.inProgressPlan) return this.contextFromPlan(this.inProgressPlan, 'in-progress')
+      const nextStop = firstRouteStop(this.homeRoute, this.activeChildPlans)
+      if (nextStop?.plan?.status === 'ready') return this.contextFromPlan(nextStop.plan, 'ready', nextStop.day, nextStop.stop)
+      if (nextStop?.stop) return this.contextFromRouteStop(nextStop.day, nextStop.stop)
+      if (this.homeRoute) return { kind: 'route', route: this.homeRoute, routeId: this.homeRoute.id }
+      return { kind: 'empty' }
+    },
+    heroImage() { return this.attractionImage(this.currentExploration.attraction) },
+    heroRouteTitle() {
+      if (this.currentExploration.kind === 'empty') return '开始一次新的亲子旅程'
+      return this.currentExploration.route?.title || '这次亲子旅程'
+    },
+    heroStopLabel() {
+      const context = this.currentExploration
+      if (context.kind === 'empty') return '从路线开始，和孩子一起边走边发现'
+      if (context.kind === 'route') return '路线已经准备好'
+      const dayNumber = context.day?.dayNumber ? `第${context.day.dayNumber}天` : '今日行程'
+      return context.attraction?.name ? `${dayNumber} · ${context.attraction.name}` : dayNumber
+    },
+    heroProgressLabel() {
+      const plan = this.currentExploration.plan
+      if (!plan) return ''
+      const total = Number(plan.progress?.total) || Number(plan.taskCount) || 0
+      const completed = Number(plan.progress?.completed) || 0
+      return total > 0 ? `已完成 ${completed} / ${total} 个任务` : ''
+    },
+    heroDescription() {
+      const context = this.currentExploration
+      if (context.kind === 'route') return '前往探索页，为今天的景点准备探索内容'
+      if (context.kind === 'empty') return '先安排想去的地方，再为每一站准备探索内容'
+      if (context.kind === 'ready') return '探索内容已准备'
+      return context.attraction?.summary || '继续完成这次探索'
+    },
+    heroActionLabel() {
+      return { 'in-progress': '继续探索', ready: '开始探索', route: '查看今日行程', empty: '规划第一条路线' }[this.currentExploration.kind] || '前往探索'
+    },
+    destinationCities() {
+      const cities = new Map()
+      for (const attraction of this.attractions) {
+        const city = String(attraction?.city || '').trim()
+        if (city && !cities.has(city)) cities.set(city, { city, image: this.attractionImage(attraction) })
       }
-      return this.childStore.activeChild
+      return [...cities.values()].slice(0, 3)
     },
-    activeChildAgeGroup() {
-      const declaredAgeGroup = this.activeChild?.ageGroup
-      if (this.ageOptions.some((option) => option.value === declaredAgeGroup)) {
-        return declaredAgeGroup
-      }
-
-      const age = Number(this.activeChild?.age)
-      if (age >= 3 && age <= 6) {
-        return '3-6'
-      }
-      if (age >= 7 && age <= 12) {
-        return '7-12'
-      }
-      return ''
-    },
-    canSwitchActiveChild() {
-      return Boolean(this.activeChild) && this.childStore.children.length > 1
-    },
-    childStore() {
-      return useChildStore()
-    },
-    displayAgeGroup() {
-      return this.activeChildAgeGroup || this.selectedAgeGroup
-    },
-    hasAuthenticatedUser() {
-      return Boolean(this.userStore.isLoggedIn && this.userStore.userInfo?.id)
-    },
-    heroAgeLabel() {
-      return `${this.displayAgeGroup}岁`
-    },
-    isHomeChildLoading() {
-      return this.hasAuthenticatedUser && (this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error))
-    },
-    showHomeChildError() {
-      return this.hasAuthenticatedUser && !this.isHomeChildLoading && Boolean(this.childStore.error)
-    },
-    showHomeNoChild() {
-      return this.hasAuthenticatedUser && this.childStore.isLoaded && !this.childStore.error && !this.activeChild
-    },
-    userStore() {
-      return useUserStore()
+    featuredAttraction() { return this.attractions[0] || null },
+    inspirationAttractions() {
+      return this.attractions.filter((attraction) => !sameId(attraction.id, this.featuredAttraction?.id)).slice(0, 3)
     },
   },
   async onShow() {
-    await this.loadHomeChildContext()
+    await this.loadHome()
   },
   methods: {
-    noop() {},
-    selectAge(ageGroup) {
-      if (this.activeChild) {
-        this.syncSelectedAgeGroup()
-        return
+    contextFromPlan(plan, kind, fallbackDay = null, fallbackStop = null) {
+      const snapshot = plan.sourceSnapshot || {}
+      const route = snapshot.route || this.homeRoute || null
+      const day = snapshot.day || fallbackDay || null
+      const stop = snapshot.stop || fallbackStop || null
+      return {
+        kind,
+        plan,
+        route,
+        day,
+        stop,
+        attraction: snapshot.attraction || stop?.attraction || null,
+        routeId: planRouteId(plan) || route?.id || null,
+        dayId: day?.id || null,
+        stopId: plan.routeStopId || stop?.id || null,
+        planId: plan.id,
       }
-      this.selectedAgeGroup = ageGroup
     },
-    goToRoutePlanning() {
-      uni.reLaunch({ url: '/pages/route/index' })
-    },
-    showToast(title) {
-      uni.showToast({
-        title,
-        icon: 'none',
-      })
-    },
-    async handleAuthExpired() {
-      await endUserSession()
-    },
-    async loadHomeChildContext() {
-      if (!this.userStore.isAuthReady || this.userStore.isRestoring) {
-        await this.userStore.restoreSession()
+    contextFromRouteStop(day, stop) {
+      return {
+        kind: 'route',
+        route: this.homeRoute,
+        day,
+        stop,
+        attraction: stop.attraction || null,
+        routeId: this.homeRoute?.id || null,
+        dayId: day?.id || null,
+        stopId: stop?.id || null,
       }
-      if (!this.hasAuthenticatedUser) {
-        return
-      }
-
+    },
+    routeIdForHome() {
+      return planRouteId(this.inProgressPlan) || this.routeStore.routes[0]?.id || null
+    },
+    async loadHome(force = false) {
+      this.homeError = ''
+      this.isHomeLoading = true
+      this.homeRoute = null
+      this.attractions = []
       try {
-        await this.childStore.fetchChildren(this.userStore.userInfo.id)
-        this.syncSelectedAgeGroup()
-      } catch (error) {
-        if (isAuthenticationError(error)) {
-          await this.handleAuthExpired()
-        }
-      }
-    },
-    goToProfile() {
-      uni.reLaunch({
-        url: '/pages/profile/index',
-      })
-    },
-    async openAudioGuide() {
-      if (this.isOpeningAudioGuide) {
-        return
-      }
-
-      this.isOpeningAudioGuide = true
-      try {
-        const result = await ensureCurrentPlanReady({ withTasks: false })
-        if (result.currentPlan?.id !== null && result.currentPlan?.id !== undefined) {
-          this.audioGuidePlanId = result.currentPlan.id
-          this.audioGuideOpen = true
-        } else {
-          this.audioGuidePlanId = null
-          this.audioGuideOpen = false
-        }
-      } catch (error) {
-        if (['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401) {
-          await this.handleAuthExpired()
+        if (!this.userStore.isAuthReady || this.userStore.isRestoring) await this.userStore.restoreSession()
+        if (!this.hasAuthenticatedUser) {
+          uni.reLaunch({ url: '/pages/login/index' })
           return
         }
-        this.audioGuidePlanId = null
-        this.audioGuideOpen = false
-        this.showToast('探索计划加载失败，请重试')
+        const userId = this.userStore.userInfo.id
+        await this.childStore.fetchChildren(userId)
+        await Promise.all([
+          this.routeStore.fetchRoutes(userId, { force }),
+          this.planStore.fetchPlans(userId, { selectionPolicy: 'none' }),
+          this.loadAttractions(),
+        ])
+        const routeId = this.routeIdForHome()
+        if (hasId(routeId)) this.homeRoute = await this.routeStore.fetchRoute(routeId)
+      } catch (error) {
+        if (isAuthenticationError(error)) {
+          await endUserSession()
+          return
+        }
+        this.homeError = error?.message || '请检查网络后再试一次。'
       } finally {
-        this.isOpeningAudioGuide = false
+        this.isHomeLoading = false
       }
     },
-    async retryHomeChildren() {
-      await this.loadHomeChildContext()
-    },
-    syncSelectedAgeGroup() {
-      if (this.activeChildAgeGroup) {
-        this.selectedAgeGroup = this.activeChildAgeGroup
+    async loadAttractions() {
+      try {
+        const data = await getAttractions({ limit: 20 })
+        this.attractions = Array.isArray(data?.items) ? data.items : []
+      } catch (error) {
+        if (isAuthenticationError(error)) throw error
+        this.attractions = []
       }
     },
-    goEntry(entry) {
-      if (entry.action === 'audio-guide') {
-        this.openAudioGuide()
-        return
-      }
-      uni[entry.method]({
-        url: entry.path,
-      })
+    attractionImage(attraction) {
+      return attraction?.coverImage ? resolveBackendResourceUrl(attraction.coverImage) : ''
     },
+    durationLabel(attraction) {
+      const minutes = Number(attraction?.recommendedDurationMinutes)
+      return Number.isFinite(minutes) && minutes > 0 ? `约${minutes}分钟` : ''
+    },
+    buildExploreUrl(context = this.currentExploration) {
+      const params = [
+        ['routeId', context?.routeId], ['dayId', context?.dayId],
+        ['stopId', context?.stopId], ['planId', context?.planId],
+      ].filter(([, value]) => hasId(value))
+      if (!params.length) return '/pages/explore/index'
+      return `/pages/explore/index?${params.map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`).join('&')}`
+    },
+    openCurrentExploration() {
+      uni.reLaunch({ url: this.buildExploreUrl() })
+    },
+    openAttraction(attraction) {
+      if (!hasId(attraction?.id)) return
+      uni.navigateTo({ url: `/pages/attraction-detail/index?attractionId=${encodeURIComponent(String(attraction.id))}` })
+    },
+    showToast(title) { uni.showToast({ title, icon: 'none' }) },
   },
 }
 </script>
 
 <style scoped>
-.home-page {
-  min-height: 100vh;
-  overflow-x: hidden;
-  color: #4a2f1b;
-  background:
-    radial-gradient(circle at 14% 8%, rgba(255, 238, 181, 0.6) 0, rgba(255, 238, 181, 0) 110rpx),
-    linear-gradient(135deg, rgba(148, 104, 48, 0.05) 0 1rpx, transparent 1rpx 22rpx),
-    #f8efd9;
-}
-
-.home-page__paper {
-  width: 100%;
-  max-width: 430px;
-  min-height: 100vh;
-  margin: 0 auto;
-  padding: calc(32rpx + env(safe-area-inset-top)) 34rpx calc(220rpx + env(safe-area-inset-bottom));
-}
-
-.home-header {
-  display: flex;
-  gap: 20rpx;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 34rpx;
-}
-
-.home-header__brand {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-}
-
-.home-header__title {
-  display: block;
-  padding-top: 20rpx;
-  font-size: 72rpx;
-  font-weight: 900;
-  line-height: 1;
-  color: #4a2f1b;
-  letter-spacing: 0;
-}
-
-.home-header__subtitle {
-  display: block;
-  margin-top: 20rpx;
-  font-size: 29rpx;
-  line-height: 1.35;
-  color: #5e3c22;
-}
-
-.home-header__tools {
-  display: flex;
-  gap: 18rpx;
-  align-items: center;
-  padding-top: 38rpx;
-}
-
-.home-header__city {
-  display: flex;
-  gap: 8rpx;
-  align-items: center;
-  justify-content: center;
-  height: 60rpx;
-  padding: 0 6rpx;
-  font-size: 29rpx;
-  font-weight: 700;
-  color: #4a2f1b;
-}
-
-.home-header__pin {
-  font-size: 20rpx;
-  color: #7f4a20;
-}
-
-.home-header__arrow {
-  font-size: 28rpx;
-}
-
-.home-header__notice {
-  position: relative;
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 58rpx;
-  height: 58rpx;
-  font-size: 24rpx;
-  font-weight: 800;
-  color: #4a2f1b;
-  border: 3rpx solid #4a2f1b;
-  border-radius: 28rpx 28rpx 22rpx 22rpx;
-}
-
-.home-header__dot {
-  position: absolute;
-  top: -4rpx;
-  right: -2rpx;
-  width: 16rpx;
-  height: 16rpx;
-  background: #f26a21;
-  border-radius: 50%;
-}
-
-.home-search-row {
-  display: flex;
-  gap: 20rpx;
-  align-items: center;
-  margin-bottom: 28rpx;
-}
-
-.home-search {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  min-width: 0;
-  height: 86rpx;
-  padding: 0 22rpx;
-  background: rgba(255, 250, 240, 0.92);
-  border: 4rpx solid rgba(220, 163, 75, 0.72);
-  border-radius: 28rpx;
-  box-shadow: 0 8rpx 18rpx rgba(97, 63, 28, 0.06);
-}
-
-.home-search__icon {
-  margin-right: 14rpx;
-  font-size: 48rpx;
-  line-height: 1;
-  color: #6e4b34;
-}
-
-.home-search input {
-  flex: 1;
-  min-width: 0;
-  height: 78rpx;
-  font-size: 29rpx;
-  color: #4a2f1b;
-}
-
-.home-search__send {
-  font-size: 56rpx;
-  color: #e7a83d;
-  transform: rotate(-28deg);
-}
-
-.home-age {
-  display: flex;
-  flex-shrink: 0;
-  gap: 14rpx;
-  align-items: center;
-}
-
-.home-age__item {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  min-width: 116rpx;
-  height: 64rpx;
-  padding: 0 24rpx;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #6b482d;
-  background: #f6dfaf;
-  border: 2rpx solid rgba(222, 172, 87, 0.3);
-  border-radius: 24rpx;
-}
-
-.home-age__item--active {
-  color: #fffaf0;
-  background: #f26a21;
-  border-color: #e65b17;
-  box-shadow: 0 8rpx 14rpx rgba(242, 106, 33, 0.22);
-}
-
-.home-entry-grid {
-  display: flex;
-  gap: 20rpx;
-  margin-bottom: 32rpx;
-}
-
-.home-entry {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 232rpx;
-  padding: 28rpx 20rpx 18rpx;
-  overflow: hidden;
-  text-align: left;
-  border: 3rpx solid rgba(190, 142, 78, 0.34);
-  border-radius: 26rpx;
-  box-shadow: 0 12rpx 22rpx rgba(97, 63, 28, 0.09);
-}
-
-.home-entry--green {
-  background: #dceecb;
-}
-
-.home-entry--yellow {
-  background: #fff0bd;
-}
-
-.home-entry--blue {
-  background: #cfe7f5;
-}
-
-.home-entry__title {
-  display: block;
-  margin-bottom: 12rpx;
-  font-size: 31rpx;
-  font-weight: 900;
-  color: #214b32;
-}
-
-.home-entry--yellow .home-entry__title {
-  color: #5e3c22;
-}
-
-.home-entry--blue .home-entry__title {
-  color: #17496e;
-}
-
-.home-entry__desc {
-  display: block;
-  font-size: 24rpx;
-  line-height: 1.35;
-  color: #4f3b28;
-}
-
-.home-entry__art {
-  position: absolute;
-  right: 18rpx;
-  bottom: 16rpx;
-  width: 122rpx;
-  height: 84rpx;
-}
-
-.home-section-title {
-  display: flex;
-  gap: 12rpx;
-  align-items: center;
-  margin-bottom: 18rpx;
-  font-size: 34rpx;
-  font-weight: 900;
-  color: #4a2f1b;
-}
-
-.home-section-title__star {
-  font-size: 20rpx;
-  font-weight: 800;
-  color: #f4aa23;
-  transform: rotate(-18deg);
-}
-
-.home-learn__grid {
-  display: flex;
-  gap: 18rpx;
-}
-
-.home-learn-card {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 206rpx;
-  padding: 22rpx 16rpx;
-  overflow: hidden;
-  background: #fff7e8;
-  border: 3rpx solid rgba(190, 142, 78, 0.24);
-  border-radius: 24rpx;
-}
-
-.home-learn-card--orange {
-  background: #fff1d8;
-}
-
-.home-learn-card--yellow {
-  background: #fff0bd;
-}
-
-.home-learn-card--blue {
-  background: #dceef8;
-}
-
-.home-learn-card__title {
-  display: block;
-  margin-bottom: 10rpx;
-  font-size: 26rpx;
-  font-weight: 900;
-  color: #4a2f1b;
-}
-
-.home-learn-card__desc {
-  position: relative;
-  z-index: 2;
-  display: block;
-  font-size: 21rpx;
-  line-height: 1.4;
-  color: #5f4937;
-}
-
-@media (max-width: 360px) {
-  .home-page__paper {
-    padding-right: 24rpx;
-    padding-left: 24rpx;
-  }
-
-  .home-header__title {
-    font-size: 62rpx;
-  }
-
-  .home-search-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .home-age {
-    justify-content: flex-end;
-  }
-}
-
-@media (min-width: 431px) {
-  .home-page__paper {
-    padding: calc(18px + env(safe-area-inset-top)) 18px calc(122px + env(safe-area-inset-bottom));
-  }
-
-  .home-header {
-    gap: 10px;
-    margin-bottom: 18px;
-  }
-
-  .home-header__title {
-    padding-top: 10px;
-    font-size: 42px;
-  }
-
-  .home-header__subtitle {
-    margin-top: 10px;
-    font-size: 17px;
-  }
-
-  .home-header__tools {
-    gap: 8px;
-    padding-top: 24px;
-  }
-
-  .home-header__city {
-    height: 34px;
-    font-size: 16px;
-  }
-
-  .home-header__notice {
-    width: 34px;
-    height: 34px;
-    font-size: 13px;
-    border-width: 2px;
-  }
-
-  .home-search-row {
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-
-  .home-search {
-    height: 48px;
-    padding: 0 13px;
-    border-width: 2px;
-    border-radius: 16px;
-  }
-
-  .home-search__icon {
-    margin-right: 8px;
-    font-size: 24px;
-  }
-
-  .home-search input {
-    height: 44px;
-    font-size: 16px;
-  }
-
-  .home-search__send {
-    font-size: 28px;
-  }
-
-  .home-age {
-    gap: 8px;
-  }
-
-  .home-age__item {
-    min-width: 64px;
-    height: 36px;
-    padding: 0 12px;
-    font-size: 15px;
-    border-radius: 14px;
-  }
-
-  .home-entry-grid {
-    gap: 11px;
-    margin-bottom: 18px;
-  }
-
-  .home-entry {
-    min-height: 132px;
-    padding: 16px 11px 10px;
-    border-width: 2px;
-    border-radius: 15px;
-  }
-
-  .home-entry__title {
-    font-size: 18px;
-  }
-
-  .home-entry__desc {
-    font-size: 13px;
-  }
-
-  .home-section-title {
-    margin-bottom: 10px;
-    font-size: 20px;
-  }
-
-  .home-learn__grid {
-    gap: 10px;
-  }
-
-  .home-learn-card {
-    min-height: 118px;
-    padding: 13px 9px;
-    border-width: 2px;
-    border-radius: 14px;
-  }
-
-  .home-learn-card__title {
-    font-size: 15px;
-  }
-
-  .home-learn-card__desc {
-    font-size: 12px;
-  }
-
-}
-
-/* FE-R5B Stage A: local picture-book visual layer. */
-.home-page {
-  color: var(--tl-text-main);
-  background:
-    radial-gradient(circle at 12% 7%, rgba(255, 238, 181, 0.54) 0, rgba(255, 238, 181, 0) 116rpx),
-    linear-gradient(135deg, rgba(148, 104, 48, 0.045) 0 1rpx, transparent 1rpx 24rpx),
-    var(--tl-bg);
-}
-
-.home-page__paper {
-  max-width: var(--tl-content-max-width);
-  padding: calc(var(--tl-page-padding) + var(--tl-safe-top)) var(--tl-page-padding) calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 72rpx);
-}
-
-.home-header {
-  position: relative;
-  gap: 16rpx;
-  margin-bottom: 30rpx;
-}
-
-.home-header__title {
-  padding-top: 16rpx;
-  font-size: 74rpx;
-  letter-spacing: 2rpx;
-  color: var(--tl-text-main);
-  text-shadow: 1rpx 2rpx 0 rgba(255, 255, 255, 0.78);
-}
-
-.home-header__title::after {
-  display: inline-block;
-  width: 18rpx;
-  height: 18rpx;
-  margin: 0 0 18rpx 10rpx;
-  content: '';
-  background: var(--tl-yellow);
-  border: 3rpx solid var(--tl-primary);
-  border-radius: 4rpx 12rpx;
-  transform: rotate(28deg);
-}
-
-.home-header__subtitle {
-  margin-top: 16rpx;
-  font-size: 27rpx;
-  color: var(--tl-text-secondary);
-  letter-spacing: 1rpx;
-}
-
-.home-header__tools {
-  gap: 10rpx;
-  padding-top: 34rpx;
-}
-
-.home-header__city {
-  gap: 7rpx;
-  height: 54rpx;
-  font-size: 26rpx;
-  color: var(--tl-text-secondary);
-}
-
-.home-header__pin {
-  position: relative;
-  width: 23rpx;
-  height: 29rpx;
-  border: 4rpx solid var(--tl-primary-deep);
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-}
-
-.home-header__pin::after {
-  position: absolute;
-  top: 6rpx;
-  left: 6rpx;
-  width: 7rpx;
-  height: 7rpx;
-  content: '';
-  background: var(--tl-paper);
-  border-radius: 50%;
-}
-
-.home-header__arrow {
-  width: 12rpx;
-  height: 12rpx;
-  margin: 0 4rpx 7rpx 2rpx;
-  border-right: 3rpx solid var(--tl-text-secondary);
-  border-bottom: 3rpx solid var(--tl-text-secondary);
-  transform: rotate(45deg);
-}
-
-.home-header__notice {
-  width: 54rpx;
-  height: 54rpx;
-  color: var(--tl-text-main);
-  background: var(--tl-paper);
-  border: 2rpx solid rgba(190, 142, 78, 0.52);
-  border-radius: 20rpx 20rpx 16rpx 16rpx;
-  box-shadow: 0 6rpx 12rpx rgba(97, 63, 28, 0.08);
-}
-
-.home-header__notice-icon {
-  position: relative;
-  width: 24rpx;
-  height: 26rpx;
-  border: 3rpx solid currentColor;
-  border-bottom: 0;
-  border-radius: 15rpx 15rpx 8rpx 8rpx;
-}
-
-.home-header__notice-icon::before,
-.home-header__notice-icon::after {
-  position: absolute;
-  left: 50%;
-  content: '';
-  transform: translateX(-50%);
-}
-
-.home-header__notice-icon::before {
-  bottom: -5rpx;
-  width: 32rpx;
-  border-bottom: 3rpx solid currentColor;
-}
-
-.home-header__notice-icon::after {
-  bottom: -10rpx;
-  width: 6rpx;
-  height: 6rpx;
-  background: currentColor;
-  border-radius: 50%;
-}
-
-.home-header__dot {
-  background: var(--tl-primary);
-}
-
-.home-search-row {
-  gap: 16rpx;
-  margin-bottom: 34rpx;
-}
-
-.home-search {
-  height: 88rpx;
-  padding: 0 24rpx;
-  background: var(--tl-paper);
-  border: 3rpx solid rgba(190, 142, 78, 0.64);
-  border-radius: var(--tl-radius-md);
-  box-shadow: 0 8rpx 16rpx rgba(97, 63, 28, 0.055);
-}
-
-.home-search__icon {
-  position: relative;
-  flex: 0 0 auto;
-  width: 29rpx;
-  height: 29rpx;
-  margin-right: 18rpx;
-  border: 4rpx solid var(--tl-text-secondary);
-  border-radius: 50%;
-}
-
-.home-search__icon::after {
-  position: absolute;
-  right: -12rpx;
-  bottom: -8rpx;
-  width: 15rpx;
-  content: '';
-  border-bottom: 4rpx solid var(--tl-text-secondary);
-  transform: rotate(48deg);
-  transform-origin: left center;
-}
-
-.home-search input {
-  color: var(--tl-text-main);
-}
-
-.home-search__send {
-  width: 18rpx;
-  height: 18rpx;
-  margin-left: 12rpx;
-  border-top: 4rpx solid #e7a83d;
-  border-right: 4rpx solid #e7a83d;
-  transform: rotate(45deg);
-}
-
-.home-age {
-  gap: 10rpx;
-}
-
-.home-age__item {
-  min-width: 108rpx;
-  height: 60rpx;
-  padding: 0 20rpx;
-  color: var(--tl-text-secondary);
-  background: var(--tl-yellow);
-  border: 2rpx solid rgba(190, 142, 78, 0.24);
-  border-radius: var(--tl-radius-sm);
-  transition: transform 160ms ease, box-shadow 160ms ease;
-}
-
-.home-age__item--active {
-  color: var(--tl-paper);
-  background: var(--tl-primary);
-  border-color: var(--tl-primary-deep);
-  box-shadow: 0 8rpx 14rpx rgba(242, 106, 33, 0.2);
-}
-
-.home-age__item:active,
-.home-hero__cta:active,
-.home-entry:active {
-  transform: translateY(2rpx);
-}
-
-.home-hero {
-  position: relative;
-  margin-bottom: 36rpx;
-}
-
-.home-hero__book {
-  position: relative;
-  display: flex;
-  width: 100%;
-  min-height: 416rpx;
-  overflow: hidden;
-  background: var(--tl-paper-deep);
-  border: 4rpx solid rgba(126, 82, 35, 0.54);
-  border-radius: 34rpx 40rpx 32rpx 38rpx;
-  box-shadow: 0 18rpx 28rpx rgba(97, 63, 28, 0.14);
-}
-
-.home-hero__illustration {
-  position: relative;
-  box-sizing: border-box;
-  width: calc(50% - 26rpx);
-  min-height: 376rpx;
-  margin: 18rpx 8rpx 18rpx 18rpx;
-  overflow: hidden;
-  background: #f1e0b8;
-  border-radius: 24rpx 10rpx 12rpx 24rpx;
-}
-
-.home-hero__image {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.home-hero__content {
-  position: relative;
-  box-sizing: border-box;
-  width: 50%;
-  padding: 30rpx 24rpx 24rpx 28rpx;
-  background: var(--tl-paper);
-  box-shadow: inset 16rpx 0 24rpx rgba(97, 63, 28, 0.045);
-}
-
-.home-hero__eyebrow {
-  display: block;
-  margin-bottom: 10rpx;
-  font-size: 20rpx;
-  font-weight: 800;
-  color: var(--tl-primary-deep);
-  letter-spacing: 2rpx;
-}
-
-.home-hero__title {
-  display: block;
-  font-size: 44rpx;
-  font-weight: 900;
-  line-height: 1.1;
-  color: var(--tl-text-main);
-}
-
-.home-hero__title-line {
-  display: block;
-}
-
-.home-hero__underline {
-  width: 68rpx;
-  height: 7rpx;
-  margin: 14rpx 0;
-  background: var(--tl-primary);
-  border-radius: 999rpx;
-  transform: rotate(-3deg);
-}
-
-.home-hero__desc {
-  display: block;
-  min-height: 74rpx;
-  margin-bottom: 16rpx;
-  font-size: 24rpx;
-  line-height: 1.5;
-  color: var(--tl-text-secondary);
-}
-
-.home-hero__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-  margin-bottom: 18rpx;
-}
-
-.home-hero__tag {
-  display: flex;
-  gap: 7rpx;
-  align-items: center;
-  height: 46rpx;
-  padding: 0 13rpx;
-  font-size: 22rpx;
-  font-weight: 700;
-  border-radius: 999rpx;
-}
-
-.home-hero__tag--orange {
-  color: var(--tl-primary-deep);
-  background: #fff1d8;
-  border: 2rpx solid rgba(242, 106, 33, 0.2);
-}
-
-.home-hero__tag--blue {
-  color: #235b83;
-  background: #dfeff8;
-  border: 2rpx solid rgba(47, 111, 148, 0.18);
-}
-
-.home-hero__tag-icon {
-  position: relative;
-  width: 22rpx;
-  height: 22rpx;
-  flex: 0 0 auto;
-}
-
-.home-hero__tag-icon--age {
-  border: 3rpx solid currentColor;
-  border-radius: 6rpx;
-}
-
-.home-hero__tag-icon--age::after {
-  position: absolute;
-  right: 2rpx;
-  bottom: 3rpx;
-  width: 9rpx;
-  height: 5rpx;
-  content: '';
-  border-bottom: 3rpx solid currentColor;
-  border-left: 3rpx solid currentColor;
-  transform: rotate(-45deg);
-}
-
-.home-hero__tag-icon--time {
-  border: 3rpx solid currentColor;
-  border-radius: 50%;
-}
-
-.home-hero__tag-icon--time::after {
-  position: absolute;
-  top: 3rpx;
-  left: 9rpx;
-  width: 6rpx;
-  height: 8rpx;
-  content: '';
-  border-bottom: 3rpx solid currentColor;
-  border-left: 3rpx solid currentColor;
-}
-
-.home-hero__cta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 70rpx;
-  font-size: 26rpx;
-  font-weight: 900;
-  color: var(--tl-paper);
-  background: var(--tl-primary);
-  border: 2rpx solid var(--tl-primary-deep);
-  border-radius: var(--tl-radius-md);
-  box-shadow: 0 10rpx 16rpx rgba(217, 75, 18, 0.2);
-  transition: transform 160ms ease;
-}
-
-.home-hero__cta-arrow,
-.home-entry__arrow {
-  width: 12rpx;
-  height: 12rpx;
-  border-top: 3rpx solid currentColor;
-  border-right: 3rpx solid currentColor;
-  transform: rotate(45deg);
-}
-
-.home-hero__cta-arrow {
-  margin-left: 14rpx;
-  color: var(--tl-primary);
-  background: var(--tl-paper);
-  border: 9rpx solid var(--tl-paper);
-  border-left-width: 7rpx;
-  border-bottom-width: 7rpx;
-  border-radius: 50%;
-}
-
-.home-entry-grid,
-.home-learn__grid {
-  gap: 16rpx;
-}
-
-.home-entry {
-  min-height: 242rpx;
-  padding: 26rpx 18rpx 20rpx;
-  border: 2rpx solid rgba(190, 142, 78, 0.4);
-  border-radius: var(--tl-radius-md);
-  box-shadow: 0 10rpx 18rpx rgba(97, 63, 28, 0.075);
-  transition: transform 160ms ease;
-}
-
-.home-entry--green { background: var(--tl-green); }
-.home-entry--yellow { background: var(--tl-yellow); }
-.home-entry--blue { background: var(--tl-blue); }
-
-.home-entry__title {
-  position: relative;
-  z-index: 2;
-  margin-bottom: 10rpx;
-  font-size: 30rpx;
-  color: var(--tl-text-main);
-}
-
-.home-entry__desc {
-  position: relative;
-  z-index: 2;
-  font-size: 22rpx;
-  color: var(--tl-text-secondary);
-}
-
-.home-entry__art {
-  right: 12rpx;
-  bottom: 14rpx;
-  width: 96rpx;
-  height: 76rpx;
-  pointer-events: none;
-}
-
-.home-section-title {
-  gap: 14rpx;
-  color: var(--tl-text-main);
-}
-
-.home-section-title__star {
-  width: 22rpx;
-  height: 22rpx;
-  background: #f4aa23;
-  border-radius: 7rpx;
-  transform: rotate(-18deg);
-}
-
-.home-learn-card {
-  min-height: 218rpx;
-  padding: 22rpx 16rpx;
-  background: var(--tl-paper);
-  border: 2rpx solid rgba(190, 142, 78, 0.3);
-  border-radius: var(--tl-radius-md);
-  box-shadow: 0 8rpx 14rpx rgba(97, 63, 28, 0.055);
-}
-
-.home-learn-card--orange { background: #fff1d8; }
-.home-learn-card--yellow { background: var(--tl-yellow); }
-.home-learn-card--blue { background: var(--tl-blue); }
-
-.home-learn-card__title { color: var(--tl-text-main); }
-.home-learn-card__desc { color: var(--tl-text-secondary); }
-
-@media (max-width: 360px) {
-  .home-page__paper {
-    padding-right: 24rpx;
-    padding-left: 24rpx;
-  }
-
-  .home-header__title { font-size: 62rpx; }
-  .home-search-row { flex-direction: column; align-items: stretch; }
-  .home-age { justify-content: flex-end; }
-  .home-hero__book { min-height: 0; }
-  .home-hero__content { padding: 24rpx 18rpx 20rpx 22rpx; }
-  .home-hero__title { font-size: 38rpx; }
-  .home-hero__desc { font-size: 22rpx; }
-  .home-hero__cta { font-size: 23rpx; }
-  .home-entry { min-height: 220rpx; padding: 22rpx 14rpx 18rpx; }
-  .home-entry__title { font-size: 27rpx; }
-  .home-entry__desc { font-size: 20rpx; }
-  .home-entry__art { transform: scale(0.84); transform-origin: right bottom; }
-  .home-learn-card { min-height: 202rpx; }
-}
-
-@media (min-width: 431px) {
-  .home-page__paper {
-    padding: calc(18px + var(--tl-safe-top)) 18px calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 34px);
-  }
-
-  .home-hero__book { min-height: 252px; }
-  .home-hero__illustration { min-height: 230px; margin: 10px 4px 10px 10px; }
-  .home-hero__content { padding: 18px 14px 14px 18px; }
-  .home-hero__eyebrow { font-size: 12px; margin-bottom: 5px; }
-  .home-hero__title { font-size: 26px; }
-  .home-hero__underline { width: 40px; height: 4px; margin: 8px 0; }
-  .home-hero__desc { min-height: 42px; margin-bottom: 9px; font-size: 14px; }
-  .home-hero__tags { gap: 5px; margin-bottom: 9px; }
-  .home-hero__tag { height: 28px; padding: 0 8px; font-size: 12px; }
-  .home-hero__tag-icon { width: 13px; height: 13px; }
-  .home-hero__cta { height: 42px; font-size: 16px; }
-  .home-entry { min-height: 142px; padding: 15px 11px 10px; }
-  .home-entry__title { font-size: 18px; }
-  .home-entry__desc { font-size: 13px; }
-  .home-entry__art { transform: scale(0.75); transform-origin: right bottom; }
-  .home-learn-card { min-height: 126px; padding: 13px 9px; }
-}
-
-/* Home Visual Implementation: real watercolor illustrations and restrained paper texture. */
-.home-page {
-  position: relative;
-  isolation: isolate;
-  background: #f8efd9;
-}
-
-.home-page::before {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  content: '';
-  background-image: url('../../assets/home/home-paper-fiber.webp');
-  background-repeat: repeat;
-  background-size: 512rpx 512rpx;
-  opacity: 0.13;
-}
-
-.home-page__paper {
-  position: relative;
-  z-index: 1;
-}
-
-.home-hero__book {
-  min-height: 500rpx;
-  border-color: rgba(126, 82, 35, 0.58);
-  border-radius: 38rpx 44rpx 36rpx 42rpx;
-}
-
-.home-hero__book::after {
-  position: absolute;
-  top: 18rpx;
-  bottom: 18rpx;
-  left: 55%;
-  z-index: 3;
-  width: 2rpx;
-  pointer-events: none;
-  content: '';
-  background: rgba(126, 82, 35, 0.24);
-  box-shadow: 8rpx 0 14rpx rgba(97, 63, 28, 0.08);
-}
-
-.home-hero__content {
-  order: 1;
-  width: 55%;
-  padding: 28rpx 20rpx 24rpx 28rpx;
-  background: var(--tl-paper);
-  box-shadow: inset -10rpx 0 22rpx rgba(97, 63, 28, 0.035);
-}
-
-.home-hero__illustration {
-  order: 2;
-  width: 45%;
-  min-height: 0;
-  margin: 0;
-  background: #d9edf5;
-  border-radius: 0 38rpx 32rpx 0;
-}
-
-.home-hero__title {
-  font-size: 46rpx;
-  line-height: 1.12;
-  white-space: normal;
-  word-break: normal;
-}
-
-.home-hero__desc {
-  min-height: 0;
-  margin-bottom: 14rpx;
-}
-
-.home-entry-grid,
-.home-learn__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16rpx;
-}
-
-.home-entry {
-  min-height: 306rpx;
-  padding: 24rpx 18rpx 18rpx;
-}
-
-.home-entry__title,
-.home-entry__desc,
-.home-learn-card__title,
-.home-learn-card__desc {
-  position: relative;
-  z-index: 2;
-}
-
-.home-entry__desc {
-  max-width: 88%;
-}
-
-.home-entry__art {
-  position: absolute;
-  z-index: 1;
-  display: block;
-  pointer-events: none;
-}
-
-.home-entry__art--green {
-  right: -18rpx;
-  bottom: -12rpx;
-  width: 182rpx;
-  height: 162rpx;
-}
-
-.home-entry__art--yellow {
-  right: -30rpx;
-  bottom: -24rpx;
-  width: 188rpx;
-  height: 190rpx;
-}
-
-.home-entry__art--blue {
-  right: -22rpx;
-  bottom: -20rpx;
-  width: 188rpx;
-  height: 184rpx;
-}
-
-.home-learn-card {
-  min-height: 278rpx;
-  padding: 18rpx 16rpx;
-}
-
-.home-learn-card__title {
-  margin-bottom: 7rpx;
-  font-size: 26rpx;
-}
-
-.home-learn-card__desc {
-  font-size: 19rpx;
-  line-height: 1.38;
-}
-
-.home-learn-card__art {
-  position: absolute;
-  z-index: 1;
-  display: block;
-  pointer-events: none;
-}
-
-.home-learn-card__art--orange {
-  right: -18rpx;
-  bottom: -14rpx;
-  width: 140rpx;
-  height: 138rpx;
-}
-
-.home-learn-card__art--yellow {
-  bottom: -18rpx;
-  left: -20rpx;
-  width: 182rpx;
-  height: 126rpx;
-}
-
-.home-learn-card__art--blue {
-  right: -15rpx;
-  bottom: -17rpx;
-  width: 146rpx;
-  height: 134rpx;
-}
-
-@media (max-width: 360px) {
-  .home-hero__book {
-    min-height: 460rpx;
-  }
-
-  .home-hero__content {
-    padding: 24rpx 16rpx 20rpx 22rpx;
-  }
-
-  .home-hero__title {
-    font-size: 42rpx;
-  }
-
-  .home-entry-grid,
-  .home-learn__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18rpx;
-  }
-
-  .home-entry {
-    min-height: 310rpx;
-  }
-
-  .home-entry:last-child,
-  .home-learn-card:last-child {
-    grid-column: span 2;
-  }
-
-  .home-learn-card {
-    min-height: 286rpx;
-  }
-
-  .home-entry__art--green,
-  .home-entry__art--yellow,
-  .home-entry__art--blue {
-    width: 210rpx;
-    height: 194rpx;
-  }
-
-  .home-learn-card__art--orange,
-  .home-learn-card__art--blue {
-    width: 176rpx;
-    height: 160rpx;
-  }
-
-  .home-learn-card__art--yellow {
-    width: 208rpx;
-    height: 150rpx;
-  }
-}
-
-@media (min-width: 431px) {
-  .home-page::before {
-    background-size: 320px 320px;
-  }
-
-  .home-hero__book {
-    min-height: 278px;
-  }
-
-  .home-hero__book::after {
-    top: 10px;
-    bottom: 10px;
-    left: 55%;
-    width: 1px;
-  }
-
-  .home-hero__content {
-    padding: 18px 12px 14px 17px;
-  }
-
-  .home-hero__title {
-    font-size: 26px;
-  }
-
-  .home-entry-grid,
-  .home-learn__grid {
-    gap: 11px;
-  }
-
-  .home-entry {
-    min-height: 164px;
-    padding: 14px 11px 10px;
-  }
-
-  .home-entry__title {
-    font-size: 18px;
-  }
-
-  .home-entry__desc {
-    font-size: 13px;
-  }
-
-  .home-entry__art--green {
-    right: -10px;
-    bottom: -7px;
-    width: 98px;
-    height: 88px;
-  }
-
-  .home-entry__art--yellow,
-  .home-entry__art--blue {
-    right: -16px;
-    bottom: -12px;
-    width: 102px;
-    height: 102px;
-  }
-
-  .home-learn-card {
-    min-height: 148px;
-    padding: 11px 9px;
-  }
-
-  .home-learn-card__title {
-    font-size: 15px;
-  }
-
-  .home-learn-card__desc {
-    font-size: 11px;
-  }
-
-  .home-learn-card__art--orange,
-  .home-learn-card__art--blue {
-    width: 76px;
-    height: 74px;
-  }
-
-  .home-learn-card__art--yellow {
-    width: 96px;
-    height: 66px;
-  }
-}
-.home-child-context {
-  position: relative;
-  box-sizing: border-box;
-  min-height: 112rpx;
-  padding: 18rpx 22rpx;
-  margin: -8rpx 0 24rpx;
-  overflow: hidden;
-  background:
-    linear-gradient(90deg, transparent 0 18rpx, rgba(216, 171, 105, 0.14) 18rpx 20rpx, transparent 20rpx),
-    rgba(255, 250, 238, 0.88);
-  border: 2rpx solid rgba(190, 142, 78, 0.36);
-  border-radius: var(--tl-radius-md);
-  box-shadow: 0 8rpx 16rpx rgba(97, 63, 28, 0.055);
-}
-
-.home-child-context::before {
-  position: absolute;
-  top: -10rpx;
-  left: 34rpx;
-  width: 56rpx;
-  height: 18rpx;
-  content: '';
-  background: rgba(214, 196, 126, 0.56);
-  border: 1rpx solid rgba(130, 116, 57, 0.14);
-  border-radius: 4rpx;
-  transform: rotate(-7deg);
-}
-
-.home-child-context__head,
-.home-child-context__state {
-  display: flex;
-  gap: 14rpx;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.home-child-context__label {
-  display: block;
-  font-size: 21rpx;
-  font-weight: 900;
-  color: var(--tl-primary-deep);
-  letter-spacing: 2rpx;
-}
-
-.home-child-context__identity {
-  display: block;
-  margin-top: 6rpx;
-  font-size: 29rpx;
-  font-weight: 900;
-  color: var(--tl-text-main);
-}
-
-.home-child-context__copy {
-  display: block;
-  min-width: 0;
-  margin-top: 6rpx;
-  font-size: 22rpx;
-  line-height: 1.45;
-  color: var(--tl-text-secondary);
-}
-
-.home-child-context__state .home-child-context__copy {
-  flex: 1;
-  margin-top: 0;
-}
-
-.home-child-context__state--error .home-child-context__copy {
-  color: #a44722;
-}
-
-.home-child-context__action {
-  flex: 0 0 auto;
-  font-size: 22rpx;
-  font-weight: 900;
-  color: #55753c;
-}
-
-.home-age__item--context {
-  cursor: default;
-}
-
-@media (min-width: 431px) {
-  .home-child-context {
-    min-height: 66px;
-    padding: 11px 14px;
-    margin: -5px 0 15px;
-  }
-
-  .home-child-context__label {
-    font-size: 12px;
-  }
-
-  .home-child-context__identity {
-    font-size: 17px;
-  }
-
-  .home-child-context__copy,
-  .home-child-context__action {
-    font-size: 13px;
-  }
-}
+.home-page { min-height: 100vh; overflow-x: hidden; color: var(--tl-text-main); background: var(--tl-bg); }
+.home-page__paper { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; margin: 0 auto; padding: calc(var(--tl-page-padding) + var(--tl-safe-top)) var(--tl-page-padding) calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 42rpx); }
+.home-header { display: flex; align-items: center; justify-content: space-between; min-height: 88rpx; margin-bottom: 38rpx; }.home-header__brand { display: flex; min-width: 0; align-items: center; }.home-header__logo { display: block; width: auto; height: 72rpx; max-width: 264rpx; }.home-header__tools { display: flex; flex-shrink: 0; gap: 12rpx; align-items: center; }
+.home-tool { display: flex; align-items: center; justify-content: center; width: 64rpx; min-width: 64rpx; height: 64rpx; min-height: 64rpx; padding: 0; background: transparent; }.home-tool__search { position: relative; width: 29rpx; height: 29rpx; border: 3rpx solid var(--tl-text-main); border-radius: 50%; }.home-tool__search::after { position: absolute; right: -9rpx; bottom: -6rpx; width: 12rpx; height: 3rpx; content: ''; background: var(--tl-text-main); border-radius: 3rpx; transform: rotate(48deg); transform-origin: left center; }.home-tool__notice { position: relative; width: 28rpx; height: 32rpx; border: 3rpx solid var(--tl-text-main); border-radius: 15rpx 15rpx 10rpx 10rpx; }.home-tool__notice::before { position: absolute; bottom: -7rpx; left: 8rpx; width: 7rpx; height: 7rpx; content: ''; background: var(--tl-text-main); border-radius: 50%; }.home-tool__notice::after { position: absolute; bottom: -10rpx; left: 4rpx; width: 15rpx; height: 3rpx; content: ''; background: var(--tl-text-main); border-radius: 3rpx; }
+.home-state { padding: 74rpx 32rpx; margin-top: 54rpx; text-align: center; background: rgba(255, 253, 247, .62); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-sheet); }.home-state__title,.home-state__copy { display: block; }.home-state__title { font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); }.home-state__copy { margin-top: 15rpx; font-size: var(--tl-type-body); line-height: var(--tl-line-height-body); color: var(--tl-text-secondary); }.home-state__action { min-height: 72rpx; margin-top: 24rpx; padding: 0 26rpx; font-size: var(--tl-type-body); color: #1f7b47; background: transparent; border: 1rpx solid #1f7b47; border-radius: var(--tl-radius-control); }
+.home-section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }.home-section-heading--first { margin-bottom: 18rpx; }.home-section-heading__title { display: block; font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); }
+.current-exploration { position: relative; min-height: 286rpx; overflow: hidden; background: linear-gradient(135deg, #347551, #205b3c); border-radius: var(--tl-radius-media); }.current-exploration--with-image { background: #285f43; }.current-exploration__image,.current-exploration__shade { position: absolute; inset: 0; width: 100%; height: 100%; }.current-exploration__image { z-index: 0; }.current-exploration__shade { z-index: 1; background: linear-gradient(180deg, rgba(18, 43, 29, .08), rgba(18, 43, 29, .76)); }.current-exploration__content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; min-height: 286rpx; padding: 28rpx; color: #fff; }.current-exploration__route,.current-exploration__stop,.current-exploration__progress,.current-exploration__description { display: block; }.current-exploration__route { font-size: 38rpx; font-weight: 700; line-height: 1.28; }.current-exploration__stop { margin-top: 8rpx; font-size: 26rpx; line-height: 1.45; color: rgba(255,255,255,.88); }.current-exploration__progress,.current-exploration__description { margin-top: 14rpx; font-size: 23rpx; line-height: 1.45; color: rgba(255,255,255,.84); }.current-exploration__action { display: flex; gap: 11rpx; align-items: center; min-height: 64rpx; margin: 20rpx -14rpx -10rpx; padding: 0 14rpx; font-size: 27rpx; font-weight: 600; line-height: 1; color: #fff; background: transparent; border: 1rpx solid rgba(255,255,255,.64); border-radius: var(--tl-radius-control); }.current-exploration__action text:last-child { font-size: 34rpx; font-weight: 400; }
+.home-section { margin-top: 52rpx; }.home-section--last { padding-bottom: 18rpx; }.destination-list { width: calc(100% + var(--tl-page-padding)); white-space: nowrap; }.destination-list__inner { display: flex; gap: 16rpx; width: max-content; padding-right: var(--tl-page-padding); }.destination-item { width: 182rpx; }.destination-item__image { display: block; width: 182rpx; height: 128rpx; background: var(--tl-blue); border-radius: var(--tl-radius-media); }.destination-item__image--blank { background: linear-gradient(135deg, #e7eddd, #cce0d2); }.destination-item__name { display: block; margin-top: 12rpx; font-size: 26rpx; font-weight: 600; }
+.featured-attraction { display: flex; gap: 18rpx; align-items: center; width: 100%; padding: 0 0 22rpx; color: var(--tl-text-main); text-align: left; background: transparent; border-bottom: 1rpx solid var(--tl-divider); }.featured-attraction__image { flex: 0 0 196rpx; width: 196rpx; height: 148rpx; background: var(--tl-blue); border-radius: var(--tl-radius-media); }.featured-attraction__image--blank { background: linear-gradient(135deg, #e7eddd, #cce0d2); }.featured-attraction__copy { flex: 1; min-width: 0; }.featured-attraction__name,.featured-attraction__summary,.featured-attraction__meta { display: block; }.featured-attraction__name { font-size: 30rpx; font-weight: 700; line-height: 1.35; }.featured-attraction__summary { display: -webkit-box; margin-top: 7rpx; overflow: hidden; font-size: 23rpx; line-height: 1.45; color: var(--tl-text-secondary); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.featured-attraction__meta { margin-top: 10rpx; font-size: 22rpx; color: #1f7b47; }.featured-attraction__arrow,.inspiration-item__arrow { flex: 0 0 auto; font-size: 34rpx; color: var(--tl-text-secondary); }
+.inspiration-list { border-top: 1rpx solid var(--tl-divider); }.inspiration-item { display: flex; gap: 16rpx; align-items: center; width: 100%; min-height: 116rpx; padding: 16rpx 0; color: var(--tl-text-main); text-align: left; background: transparent; border-bottom: 1rpx solid var(--tl-divider); }.inspiration-item__image { flex: 0 0 98rpx; width: 98rpx; height: 82rpx; background: var(--tl-blue); border-radius: var(--tl-radius-small); }.inspiration-item__image--blank { background: linear-gradient(135deg, #e7eddd, #cce0d2); }.inspiration-item__copy { flex: 1; min-width: 0; }.inspiration-item__name,.inspiration-item__meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.inspiration-item__name { font-size: 27rpx; font-weight: 600; }.inspiration-item__meta { margin-top: 7rpx; font-size: 22rpx; color: var(--tl-text-secondary); }
+@media (max-width: 360px) { .home-page__paper { padding-right: 24rpx; padding-left: 24rpx; }.destination-list { width: calc(100% + 24rpx); }.destination-list__inner { padding-right: 24rpx; }.featured-attraction__image { flex-basis: 166rpx; width: 166rpx; height: 132rpx; }.current-exploration__route { font-size: 35rpx; } }
+@media (min-width: 431px) { .home-page__paper { padding: calc(18px + var(--tl-safe-top)) 18px calc(var(--tl-tabbar-height) + var(--tl-safe-bottom) + 26px); }.home-header { min-height: 44px; margin-bottom: 22px; }.home-header__logo { height: 36px; max-width: 132px; }.home-header__tools { gap: 6px; }.home-tool { width: 36px; min-width: 36px; height: 36px; min-height: 36px; }.home-tool__search { width: 15px; height: 15px; border-width: 2px; }.home-tool__search::after { right: -5px; bottom: -3px; width: 6px; height: 2px; }.home-tool__notice { width: 14px; height: 16px; border-width: 2px; }.home-tool__notice::before { bottom: -4px; left: 4px; width: 4px; height: 4px; }.home-tool__notice::after { bottom: -5px; left: 2px; width: 8px; height: 2px; }.home-state { padding: 37px 16px; margin-top: 27px; }.home-state__action { min-height: 36px; margin-top: 12px; padding: 0 13px; }.home-section-heading { margin-bottom: 10px; }.home-section-heading--first { margin-bottom: 9px; }.current-exploration,.current-exploration__content { min-height: 164px; }.current-exploration__content { padding: 16px; }.current-exploration__route { font-size: 25px; }.current-exploration__stop { margin-top: 4px; font-size: 16px; }.current-exploration__progress,.current-exploration__description { margin-top: 7px; font-size: 14px; }.current-exploration__action { min-height: 36px; margin: 10px -7px -5px; padding: 0 7px; font-size: 16px; }.current-exploration__action text:last-child { font-size: 20px; }.home-section { margin-top: 29px; }.destination-list { width: calc(100% + 18px); }.destination-list__inner { gap: 8px; padding-right: 18px; }.destination-item { width: 91px; }.destination-item__image { width: 91px; height: 64px; }.destination-item__name { margin-top: 6px; font-size: 15px; }.featured-attraction { gap: 9px; padding-bottom: 11px; }.featured-attraction__image { flex-basis: 98px; width: 98px; height: 74px; }.featured-attraction__name { font-size: 18px; }.featured-attraction__summary { margin-top: 4px; font-size: 14px; }.featured-attraction__meta { margin-top: 5px; font-size: 13px; }.featured-attraction__arrow,.inspiration-item__arrow { font-size: 20px; }.inspiration-item { gap: 8px; min-height: 58px; padding: 8px 0; }.inspiration-item__image { flex-basis: 49px; width: 49px; height: 41px; }.inspiration-item__name { font-size: 16px; }.inspiration-item__meta { margin-top: 4px; font-size: 13px; } }
 </style>

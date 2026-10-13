@@ -42,7 +42,6 @@ const recordLoadRecords = methodFrom(recordSource, 'loadRecords', {
   isAuthenticationError: () => false,
 })
 const recordRetryRecords = methodFrom(recordSource, 'retryRecords')
-const goToRoutePlanning = methodFrom(homeSource, 'goToRoutePlanning')
 const openPlanGenerationSheet = methodFrom(routeDetailSource, 'openPlanGenerationSheet')
 const submitPlanGeneration = methodFrom(routeDetailSource, 'submitPlanGeneration', {
   isAuthenticationError: () => false,
@@ -102,8 +101,9 @@ describe('P8.3C3 active-child safe consumers', () => {
     expect(context.recordStore.loadJourneyRecords).toHaveBeenCalledWith({ childId: childB.id, limit: 20, offset: 0 })
   })
 
-  test('Records title is sourced from active Child', () => {
-    expect(recordSource).toContain('childStore.activeChild.name')
+  test('Records keeps active Child in its data query without placing it in the product header', () => {
+    expect(recordSource).toContain('childId: this.childStore.activeChild.id')
+    expect(recordSource).toContain('探索记录')
     expect(recordSource).not.toContain('childStore.currentChild.name')
   })
 
@@ -123,25 +123,18 @@ describe('P8.3C3 active-child safe consumers', () => {
     expect(context.recordStore.loadJourneyRecords).not.toHaveBeenCalled()
   })
 
-  test('Home sends its primary flow to Route planning instead of creating a Plan from child context', () => {
-    const originalUni = globalThis.uni
-    const reLaunch = vi.fn()
-    globalThis.uni = { reLaunch }
-    try {
-      goToRoutePlanning.call({})
-      expect(reLaunch).toHaveBeenCalledWith({ url: '/pages/route/index' })
-    } finally {
-      globalThis.uni = originalUni
-    }
+  test('Home sends its active-child summary to the Explore workbench instead of creating a Plan', () => {
+    expect(homeSource).toContain('openCurrentExploration()')
+    expect(homeSource).toContain('buildExploreUrl(context = this.currentExploration)')
+    expect(homeSource).toContain('sameId(plan.childId, this.activeChild.id)')
     expect(homeSource).not.toContain('createPlan(')
     expect(homeSource).not.toContain('planForm')
   })
 
-  test('Home AudioGuideSheet stays bound to its explicit existing plan ID', () => {
-    const openAudioGuideSource = homeSource.match(/async openAudioGuide\(\) \{[\s\S]*?\n    \},/)?.[0] || ''
-
-    expect(openAudioGuideSource).toContain('result.currentPlan.id')
-    expect(openAudioGuideSource).not.toContain('activeChild')
+  test('Home leaves AudioGuideSheet opening to the focused Explore workbench', () => {
+    expect(homeSource).not.toContain('AudioGuideSheet')
+    expect(homeSource).not.toContain('ensureCurrentPlanReady')
+    expect(homeSource).not.toContain('ensureTasks(')
   })
 
   test('Route generation Sheet defaults to active Child when backend current differs', () => {

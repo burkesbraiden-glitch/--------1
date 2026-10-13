@@ -6,8 +6,6 @@ const root = resolve(process.cwd(), '..')
 const readFrontendFile = (path) => readFileSync(resolve(root, 'frontend', path), 'utf8')
 const homeSource = readFrontendFile('src/pages/home/index.vue')
 const tabbarSource = readFrontendFile('src/components/AppTabbar.vue')
-const planStoreSource = readFrontendFile('src/stores/plan.js')
-const plansApiSource = readFrontendFile('src/api/plans.js')
 
 function blockSource(source, tag) {
   const match = source.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`))
@@ -18,145 +16,77 @@ function blockSource(source, tag) {
 const templateSource = blockSource(homeSource, 'template')
 const scriptSource = blockSource(homeSource, 'script')
 const styleSource = blockSource(homeSource, 'style')
-const tabbarTemplateSource = blockSource(tabbarSource, 'template')
-const tabbarScriptSource = blockSource(tabbarSource, 'script')
 
-describe('FE-R5B home visual and business contract', () => {
-  test('preserves Home business bindings while moving its primary entry to Route planning', () => {
-    expect(scriptSource).toContain("import { endUserSession } from '../../utils/sessionBoundary'")
-    expect(scriptSource).toContain("searchKeyword: ''")
-    expect(scriptSource).toContain('selectAge(ageGroup)')
-    expect(scriptSource).toContain('this.selectedAgeGroup = ageGroup')
-    expect(scriptSource).toContain('goToRoutePlanning()')
-    expect(scriptSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
-    expect(scriptSource).not.toContain('usePlanStore')
+describe('FE-R5B Home visual and business contract', () => {
+  test('uses the Home shell as a read-only Route and Plan summary', () => {
+    for (const store of ['useChildStore', 'useRouteStore', 'usePlanStore', 'useUserStore']) {
+      expect(scriptSource).toContain(store)
+    }
+    expect(scriptSource).toContain("selectionPolicy: 'none'")
+    expect(scriptSource).not.toContain('ensureTasks(')
+    expect(scriptSource).not.toContain('generateExplorationPlans(')
     expect(scriptSource).not.toContain('createPlan(')
     expect(scriptSource).toContain('await endUserSession()')
-    expect(scriptSource).toContain('goEntry(entry)')
-    expect(planStoreSource).toContain('plansApi.createPlan(payload)')
-    expect(plansApiSource).toContain("path: '/plans'")
-    expect(plansApiSource).toContain("method: 'POST'")
   })
 
-  test('preserves the formal Home routes, upgrades Guide entry to the shared Sheet, and keeps the shared tabbar', () => {
-    expect(scriptSource).toContain("path: '/pages/route/index'")
-    expect(scriptSource).toContain("path: '/pages/tasks/index'")
-    expect(scriptSource).toContain("action: 'audio-guide'")
-    expect(scriptSource).toContain("import AudioGuideSheet from '../../components/AudioGuideSheet.vue'")
-    expect(templateSource).toContain('<AudioGuideSheet v-model:open="audioGuideOpen" :plan-id="audioGuidePlanId" />')
-    expect(scriptSource).not.toContain("path: '/pages/guide/index'")
-    expect(templateSource).toContain('<AppTabbar active="home" />')
-    expect(templateSource).toContain("displayAgeGroup === option.value")
-    expect(templateSource).toContain('@click="selectAge(option.value)"')
-    expect(templateSource).toContain('class="home-hero__cta" @click="goToRoutePlanning"')
-  })
-
-  test('renders the Hero as a left text page and a right watercolor illustration page', () => {
+  test('uses current Route data rather than the retired child toolbar and static palace Hero', () => {
     for (const marker of [
-      'class="home-hero"',
-      'class="home-hero__book"',
-      'class="home-hero__illustration"',
-      'class="home-hero__content"',
+      'home-child-context', '切换孩子', 'home-search-row', 'home-age',
+      'home-hero-watercolor.webp', '故宫文化探索', '故宫亲子探索', 'home-entry-grid',
     ]) {
-      expect(templateSource).toContain(marker)
+      expect(homeSource).not.toContain(marker)
     }
-    expect(templateSource).toMatch(
-      /class="home-hero"[\s\S]*?class="home-hero__book"[\s\S]*?home-hero__content[\s\S]*?home-hero__tags[\s\S]*?home-hero__cta[\s\S]*?home-hero__illustration/
-    )
-    expect(templateSource).toContain('src="../../assets/home/home-hero-watercolor.webp"')
-    expect(templateSource).toContain('mode="aspectFill"')
-    expect(templateSource).not.toContain('home-hero__title-line')
+    expect(templateSource).toContain('class="current-exploration"')
+    expect(templateSource).toContain('@click="openCurrentExploration"')
+    expect(scriptSource).toContain('plan.sourceSnapshot')
+    expect(scriptSource).toContain('attraction?.coverImage')
   })
 
-  test('uses the approved home illustrations instead of CSS geometric placeholders', () => {
-    const homeAssets = [
-      'home-paper-fiber.webp',
-      'home-entry-plan-map.webp',
-      'home-entry-guide-cards.webp',
-      'home-entry-observation-notebook.webp',
-      'home-learning-ancient-life.webp',
-      'home-learning-architecture-ritual.webp',
-      'home-learning-observation-expression.webp',
-    ]
+  test('keeps the supplied Home-only Logo safe when its image is unavailable', () => {
+    expect(existsSync(resolve(root, 'frontend/src/assets/brand/tonglvji-logo.png'))).toBe(true)
+    expect(scriptSource).toContain("import.meta.glob('../../assets/brand/tonglvji-logo.png'")
+    expect(templateSource).toContain('v-if="brandLogoPath"')
+    expect(templateSource).not.toContain('童旅记')
+  })
 
-    for (const asset of homeAssets) {
-      expect(existsSync(resolve(root, 'frontend', 'src', 'assets', 'home', asset))).toBe(true)
-    }
-
-    for (const asset of homeAssets.slice(1)) {
-      expect(homeSource).toContain(asset)
-    }
-
-    for (const placeholder of [
-      'home-entry__art-paper',
-      'home-entry__art-mark',
-      'home-learn-card__shape',
-      'home-learn-card__tape',
-      'home-learn-card__badge',
-    ]) {
-      expect(homeSource).not.toContain(placeholder)
+  test('uses real attractions for recommendations without popularity claims', () => {
+    expect(scriptSource).toContain('getAttractions({ limit: 20 })')
+    expect(templateSource).toContain('推荐目的地')
+    expect(templateSource).toContain('本期推荐')
+    expect(templateSource).toContain('更多探索灵感')
+    for (const marker of ['大家都在看', '人看过', '本周Top', '热门']) {
+      expect(homeSource).not.toContain(marker)
     }
   })
 
-  test('keeps visual card density responsive for 360, 390, and 430 widths', () => {
-    expect(styleSource).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));')
+  test('keeps recommendation links on the existing Attraction Detail route', () => {
+    expect(scriptSource).toContain('/pages/attraction-detail/index?attractionId=')
+    expect(scriptSource).not.toContain('/pages/search/index')
+    expect(scriptSource).not.toContain('/pages/message/index')
+  })
+
+  test('keeps visual density responsive without restoring old visual cards', () => {
     expect(styleSource).toContain('@media (max-width: 360px)')
-    expect(styleSource).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));')
-    expect(styleSource).toContain('grid-column: span 2;')
-    expect(styleSource).toContain('home-paper-fiber.webp')
+    expect(styleSource).toContain('@media (min-width: 431px)')
+    expect(styleSource).toContain('var(--tl-content-max-width)')
+    expect(styleSource).toContain('var(--tl-divider)')
+    expect(styleSource).not.toContain('box-shadow')
   })
 
-  test('replaces only the Tabbar icon artwork while preserving its formal navigation contract', () => {
-    const tabIcons = [
-      'tab-home-idle.svg', 'tab-home-active.svg',
-      'tab-route-idle.svg', 'tab-route-active.svg',
-      'tab-explore-idle.svg', 'tab-explore-active.svg',
-      'tab-record-idle.svg', 'tab-record-active.svg',
-      'tab-profile-idle.svg', 'tab-profile-active.svg',
-    ]
-
-    for (const asset of tabIcons) {
-      expect(existsSync(resolve(root, 'frontend', 'src', 'assets', 'navigation', asset))).toBe(true)
-      expect(tabbarSource).toContain(asset)
-    }
-
+  test('preserves the four-item AppTabbar navigation contract', () => {
     for (const item of [
       "{ key: 'home', label: '首页', icon: 'home', path: '/pages/home/index' }",
-      "{ key: 'route', label: '路线', icon: 'plan', path: '/pages/route/index' }",
-      "{ key: 'explore', label: '探索', icon: 'tasks', path: '/pages/plan/index' }",
+      "{ key: 'explore', label: '探索', icon: 'explore', path: '/pages/explore/index' }",
       "{ key: 'record', label: '记录', icon: 'record', path: '/pages/record/index' }",
       "{ key: 'profile', label: '我的', icon: 'profile', path: '/pages/profile/index' }",
     ]) {
-      expect(tabbarScriptSource).toContain(item)
+      expect(tabbarSource).toContain(item)
     }
-
-    expect(tabbarTemplateSource).toContain('class="app-tabbar__icon-image"')
-  })
-
-  test('consumes the FE-R5A foundation bridge for the home shell', () => {
-    for (const token of [
-      'var(--tl-content-max-width)',
-      'var(--tl-bg)',
-      'var(--tl-paper)',
-      'var(--tl-text-main)',
-      'var(--tl-text-secondary)',
-      'var(--tl-primary)',
-      'var(--tl-tabbar-height)',
-      'var(--tl-safe-bottom)',
-    ]) {
-      expect(styleSource).toContain(token)
-    }
+    expect(homeSource).toContain('<AppTabbar active="home" />')
   })
 
   test('does not restore removed AI-pet runtime references', () => {
-    for (const forbiddenReference of [
-      'AiPet',
-      'AiChatSheet',
-      'usePetStore',
-      'stores/pet',
-      'mock/ai',
-      '小旅',
-    ]) {
+    for (const forbiddenReference of ['AiPet', 'AiChatSheet', 'usePetStore', 'stores/pet', 'mock/ai', '小旅']) {
       expect(homeSource).not.toContain(forbiddenReference)
     }
   })

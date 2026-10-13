@@ -8,6 +8,13 @@
       }
     },
     {
+      "path": "pages/explore/index",
+      "style": {
+        "navigationBarTitleText": "探索",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/plan/index",
       "style": {
         "navigationBarTitleText": "计划",
@@ -59,6 +66,20 @@
       "path": "pages/profile/index",
       "style": {
         "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/child-switch/index",
+      "style": {
+        "navigationBarTitleText": "切换孩子",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationBarTitleText": "账号与设置",
         "navigationStyle": "custom"
       }
     },

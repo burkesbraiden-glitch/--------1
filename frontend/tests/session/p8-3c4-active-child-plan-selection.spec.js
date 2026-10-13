@@ -190,13 +190,13 @@ describe('P8.3C4 active-child-aware default Plan selection', () => {
     expect(result.currentPlan).toBeNull()
   })
 
-  test('14. Home Audio takes only the shared resolved Plan ID', () => {
+  test('14. Home summary uses only the active Child Plan projections', () => {
     const source = readSource('src', 'pages', 'home', 'index.vue')
-    const openAudioGuide = source.match(/async openAudioGuide\(\) \{[\s\S]*?\n    \},/)?.[0] || ''
 
-    expect(openAudioGuide).toContain('ensureCurrentPlanReady({ withTasks: false })')
-    expect(openAudioGuide).toMatch(/audioGuidePlanId\s*=\s*result\.currentPlan\.id/)
-    expect(openAudioGuide).not.toContain('plans[0]')
+    expect(source).toContain('sameId(plan.childId, this.activeChild.id)')
+    expect(source).toContain("plan.status === 'in-progress'")
+    expect(source).toContain("selectionPolicy: 'none'")
+    expect(source).not.toContain('plans[0]')
   })
 
   test('15. Home Audio with no active-child Plan cannot open another child Guide', async () => {

@@ -1,103 +1,94 @@
 <template>
   <view class="record-page">
-    <view class="record-page__paper">
+    <view class="record-page__content">
       <view class="record-header">
-        <view class="record-header__title-wrap">
-          <view class="record-header__spark" aria-hidden="true"></view>
-          <text class="record-header__title">记录</text>
-          <view class="record-header__star" aria-hidden="true"></view>
-        </view>
-      </view>
-
-      <view class="record-intro">
-        <view class="record-intro__tape" aria-hidden="true"></view>
-        <text class="record-intro__title">探索相册</text>
-        <text v-if="hasActiveChild" class="record-intro__context">{{ childStore.activeChild.name }}的成长记录</text>
-        <text class="record-intro__desc">每一次观察和发现，都会慢慢收藏在这里。</text>
+        <text class="record-header__title">探索记录</text>
+        <text class="record-header__subtitle">记录孩子的每一次探索与成长</text>
       </view>
 
       <view v-if="isChildLoading" class="record-state">
-        <view class="record-state__spinner"></view>
-        <text class="record-state__title">正在加载孩子资料……</text>
-        <text class="record-state__desc">确认孩子档案后，再为你整理成长记录。</text>
+        <view class="record-state__spinner" aria-hidden="true"></view>
+        <text class="record-state__title">正在加载孩子资料</text>
       </view>
-
       <view v-else-if="showChildError" class="record-state record-state--error">
-        <view class="record-state__icon" aria-hidden="true"></view>
         <text class="record-state__title">孩子资料加载失败</text>
         <text class="record-state__desc">{{ childErrorMessage }}</text>
-        <button class="record-state__retry" @click="retryRecords">重新加载</button>
+        <button class="record-state__action" @click="retryRecords">重新加载</button>
       </view>
-
-      <view v-else-if="showNoChild" class="record-state record-state--empty">
-        <view class="record-state__album"></view>
-        <text class="record-state__title">尚未添加孩子</text>
-        <text class="record-state__desc">添加孩子档案后，就能查看属于 TA 的成长记录。</text>
+      <view v-else-if="showNoChild" class="record-state">
+        <text class="record-state__title">还没有选择孩子</text>
+        <text class="record-state__desc">请前往“我的”添加或选择孩子档案。</text>
       </view>
-
       <view v-else-if="isInitialLoading" class="record-state">
-        <view class="record-state__spinner"></view>
-        <text class="record-state__title">正在整理旅行记录……</text>
-        <text class="record-state__desc">正在整理这次探索的珍贵回忆</text>
+        <view class="record-state__spinner" aria-hidden="true"></view>
+        <text class="record-state__title">正在加载探索记录</text>
       </view>
-
       <view v-else-if="showFullError" class="record-state record-state--error">
-        <view class="record-state__icon" aria-hidden="true"></view>
-        <text class="record-state__title">旅行记录暂时加载失败</text>
+        <text class="record-state__title">记录暂时加载失败</text>
         <text class="record-state__desc">{{ errorMessage }}</text>
-        <button class="record-state__retry" @click="retryRecords">重新加载</button>
+        <button class="record-state__action" @click="retryRecords">重新加载</button>
       </view>
-
       <view v-else-if="isEmpty" class="record-state record-state--empty">
-        <view class="record-state__album"></view>
-        <text class="record-state__title">还没有旅行记录</text>
-        <text class="record-state__desc">完成观察任务后，旅途中的发现会慢慢收藏在这里。</text>
-        <button class="record-state__explore" @click="goExplore">去探索</button>
+        <view class="record-state__album-mark" aria-hidden="true"></view>
+        <text class="record-state__title">还没有留下探索记录</text>
+        <text class="record-state__desc">完成一次探索后，这里会保存孩子的任务、照片和发现。</text>
+        <button class="record-state__action" @click="goExplore">去探索</button>
       </view>
 
       <template v-else>
         <view v-if="error" class="record-refresh-error">
           <text>{{ errorMessage }}</text>
-          <text class="record-refresh-error__retry" @click="retryRecords">重试</text>
+          <text class="record-refresh-error__retry" @click="retryRecords">重新加载</text>
         </view>
 
-        <view class="section-title">
-          <view class="section-title__camera"></view>
-          <text>旅行记录</text>
-          <view class="section-title__line"></view>
-          <view class="section-title__star" aria-hidden="true"></view>
-        </view>
-
-        <view class="record-list">
-          <view
-            v-for="(record, index) in records"
-            :key="record.id"
-            class="record-card"
-            :class="{ 'record-card--reverse': index % 2 === 1 }"
-            hover-class="record-card--pressed"
-            @click="openRecordDetail(record)"
-          >
-            <PolaroidCard
-              class="record-card__photo"
-              :image-path="record.displayCoverImage || recordWatercolorFallback"
-              :rotation="index % 2 === 0 ? -2 : 2"
-              :placeholder-theme="index % 2 === 0 ? 'roof' : 'gate'"
-              :tape-theme="tapeTheme(index)"
-            />
-
-            <view class="record-card__note">
-              <view class="record-card__head">
-                <text class="record-card__title">{{ record.displayTitle }}</text>
-                <text class="record-card__status" :class="`record-card__status--${record.status}`">
-                  {{ recordStatusText(record) }}
-                </text>
+        <view v-for="yearGroup in recordsByYear" :key="yearGroup.recordYear" class="record-year-group">
+          <text class="record-year-group__title">{{ yearGroup.recordYear }}年</text>
+          <view class="record-list">
+            <view
+              v-for="record in yearGroup.records"
+              :key="record.id"
+              class="record-card"
+              hover-class="record-card--pressed"
+              @click="openRecordDetail(record)"
+            >
+              <view class="record-card__media">
+                <image
+                  v-if="record.displayCoverImage"
+                  class="record-card__image"
+                  :src="record.displayCoverImage"
+                  mode="aspectFill"
+                />
+                <view v-else class="record-card__media-placeholder" aria-hidden="true">
+                  <view class="record-card__media-placeholder-mark"></view>
+                  <text>探索瞬间</text>
+                </view>
               </view>
-              <text class="record-card__destination">{{ record.destination || '目的地待补充' }}</text>
-              <view class="record-card__dash"></view>
-              <view class="record-card__stats">
-                <text class="record-card__summary">任务 {{ record.completedTaskCount }}/{{ record.taskCount }} · 照片 {{ record.photoCount }} · 笔记 {{ record.noteCount }}</text>
+
+              <view class="record-card__body">
+                <view class="record-card__route-row">
+                  <text class="record-card__title">{{ recordRouteLabel(record) }}</text>
+                  <text class="record-card__arrow" aria-hidden="true">›</text>
+                </view>
+                <text v-if="record.recordDateLabel" class="record-card__date">{{ record.recordDateLabel }}</text>
+                <text v-if="record.taskCount" class="record-card__progress">{{ taskProgressText(record) }}</text>
+                <view v-if="record.taskCount" class="record-card__progress-track" aria-hidden="true">
+                  <view class="record-card__progress-value" :style="{ width: taskCompletionWidth(record) }"></view>
+                </view>
+                <view v-if="record.taskCount || record.photoCount || record.noteCount" class="record-card__stats">
+                  <view v-if="record.taskCount" class="record-card__stat">
+                    <text class="record-card__stat-icon" aria-hidden="true">✓</text>
+                    <text>{{ record.taskCount }} 个任务</text>
+                  </view>
+                  <view v-if="record.photoCount" class="record-card__stat">
+                    <text class="record-card__stat-icon" aria-hidden="true">▣</text>
+                    <text>{{ record.photoCount }} 张照片</text>
+                  </view>
+                  <view v-if="record.noteCount" class="record-card__stat">
+                    <text class="record-card__stat-icon" aria-hidden="true">✎</text>
+                    <text>{{ record.noteCount }} 条笔记</text>
+                  </view>
+                </view>
               </view>
-              <text v-if="record.displayDateLabel" class="record-card__updated">{{ record.displayDateLabel }}</text>
             </view>
           </view>
         </view>
@@ -110,8 +101,6 @@
 
 <script>
 import AppTabbar from '../../components/AppTabbar.vue'
-import PolaroidCard from '../../components/PolaroidCard.vue'
-import recordWatercolorFallback from '../../assets/record/record-watercolor-fallback.webp'
 import { useChildStore } from '../../stores/child'
 import { useRecordStore } from '../../stores/record'
 import { useUserStore } from '../../stores/user'
@@ -121,567 +110,152 @@ function isAuthenticationError(error) {
   return ['UNAUTHORIZED', 'TOKEN_EXPIRED', 'INVALID_TOKEN'].includes(error?.code) || error?.statusCode === 401
 }
 
+function recordDate(record) {
+  const value = record?.finalizedAt || record?.updatedAt || record?.createdAt
+  if (typeof value !== 'string' || !value.trim()) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function formatRecordDate(value) {
+  return value ? `${value.getFullYear()}年${value.getMonth() + 1}月${value.getDate()}日` : ''
+}
+
 export default {
-  components: {
-    AppTabbar,
-    PolaroidCard,
-  },
+  components: { AppTabbar },
   computed: {
-    childStore() {
-      return useChildStore()
-    },
-    childErrorMessage() {
-      return this.childStore.error?.message || '请检查网络后重新加载孩子资料'
-    },
-    error() {
-      return this.recordStore.error
-    },
-    errorMessage() {
-      return this.error?.message || '请检查网络后再试一次'
-    },
-    hasLoaded() {
-      return this.recordStore.hasLoaded
-    },
+    childStore() { return useChildStore() },
+    childErrorMessage() { return this.childStore.error?.message || '请检查网络后重新加载孩子资料' },
+    error() { return this.recordStore.error },
+    errorMessage() { return this.error?.message || '请检查网络后再试一次' },
     hasActiveChild() {
       const childId = Number(this.childStore.activeChild?.id)
-      return (
-        this.childStore.isLoaded
+      return this.childStore.isLoaded
         && !this.childStore.error
         && this.childStore.hasRemoteChild
         && String(this.childStore.loadedForUserId) === String(this.userStore.userInfo?.id)
         && Number.isInteger(childId)
         && childId > 0
-      )
     },
-    isChildLoading() {
-      return this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error)
+    isChildLoading() { return this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error) },
+    isEmpty() { return this.recordStore.hasLoaded && !this.loading && !this.error && this.records.length === 0 },
+    isInitialLoading() { return this.loading && this.records.length === 0 && !this.recordStore.hasLoaded },
+    loading() { return this.recordStore.loading },
+    records() { return this.recordStore.records },
+    recordsByYear() {
+      const groups = new Map()
+      this.records.forEach((record) => {
+        const date = recordDate(record)
+        const recordYear = date ? String(date.getFullYear()) : '未标注日期'
+        const datedRecord = { ...record, recordDateLabel: formatRecordDate(date), recordSortTime: date?.getTime() || 0 }
+        if (!groups.has(recordYear)) groups.set(recordYear, [])
+        groups.get(recordYear).push(datedRecord)
+      })
+      return [...groups.entries()]
+        .map(([recordYear, records]) => ({ recordYear, records: records.sort((left, right) => right.recordSortTime - left.recordSortTime) }))
+        .sort((left, right) => {
+          if (left.recordYear === '未标注日期') return 1
+          if (right.recordYear === '未标注日期') return -1
+          return Number(right.recordYear) - Number(left.recordYear)
+        })
     },
-    isEmpty() {
-      return this.hasLoaded && !this.loading && !this.error && this.records.length === 0
-    },
-    isInitialLoading() {
-      return this.loading && this.records.length === 0 && !this.hasLoaded
-    },
-    loading() {
-      return this.recordStore.loading
-    },
-    records() {
-      return this.recordStore.records
-    },
-    recordStore() {
-      return useRecordStore()
-    },
-    showFullError() {
-      return Boolean(this.error) && this.records.length === 0
-    },
-    showChildError() {
-      return !this.isChildLoading && Boolean(this.childStore.error)
-    },
-    showNoChild() {
-      return !this.isChildLoading && !this.childStore.error && this.childStore.isLoaded && !this.hasActiveChild
-    },
-    userStore() {
-      return useUserStore()
-    },
+    recordStore() { return useRecordStore() },
+    showChildError() { return !this.isChildLoading && Boolean(this.childStore.error) },
+    showFullError() { return Boolean(this.error) && this.records.length === 0 },
+    showNoChild() { return !this.isChildLoading && !this.childStore.error && this.childStore.isLoaded && !this.hasActiveChild },
+    userStore() { return useUserStore() },
   },
   async onShow() {
     await this.loadRecords()
   },
   methods: {
-    async handleAuthExpired() {
-      await endUserSession()
-    },
+    async handleAuthExpired() { await endUserSession() },
     async loadRecords() {
-      if (!this.userStore.isAuthReady || this.userStore.isRestoring) {
-        await this.userStore.restoreSession()
-      }
+      if (!this.userStore.isAuthReady || this.userStore.isRestoring) await this.userStore.restoreSession()
       if (!this.userStore.isLoggedIn || !this.userStore.userInfo?.id) {
         this.recordStore.resetRecordState()
-        uni.reLaunch({
-          url: '/pages/login/index',
-        })
+        uni.reLaunch({ url: '/pages/login/index' })
         return
       }
-
       try {
         await this.childStore.fetchChildren(this.userStore.userInfo.id)
       } catch (error) {
-        if (isAuthenticationError(error)) {
-          await this.handleAuthExpired()
-        }
+        if (isAuthenticationError(error)) await this.handleAuthExpired()
         return
       }
-
-      if (!this.hasActiveChild) {
-        return
-      }
-
+      if (!this.hasActiveChild) return
       try {
-        await this.recordStore.loadJourneyRecords({
-          childId: this.childStore.activeChild.id,
-          limit: 20,
-          offset: 0,
-        })
+        await this.recordStore.loadJourneyRecords({ childId: this.childStore.activeChild.id, limit: 20, offset: 0 })
       } catch (error) {
-        if (isAuthenticationError(error)) {
-          await this.handleAuthExpired()
-        }
+        if (isAuthenticationError(error)) await this.handleAuthExpired()
       }
     },
     goExplore() {
-      uni.reLaunch({
-        url: '/pages/plan/index',
-      })
+      uni.reLaunch({ url: '/pages/explore/index' })
     },
     openRecordDetail(record) {
       const planId = Number(record?.planId)
-      if (!(Number.isInteger(planId) && planId > 0)) {
-        return
-      }
-      uni.navigateTo({
-        url: `/pages/record-detail/index?planId=${planId}`,
-      })
+      if (Number.isInteger(planId) && planId > 0) uni.navigateTo({ url: `/pages/record-detail/index?planId=${planId}` })
     },
-    recordStatusText(record) {
-      if (record.status === 'finalized') {
-        return '已封存'
-      }
-      if (record.status === 'draft') {
-        return '整理中'
-      }
-      return '整理中'
+    recordRouteLabel(record) {
+      const title = record?.displayTitle || '一次探索'
+      return record?.destination ? `${title} · ${record.destination}` : title
     },
     async retryRecords() {
       await this.loadRecords()
     },
-    tapeTheme(index) {
-      return ['green', 'pink', 'blue'][index % 3]
+    taskCompletionWidth(record) {
+      const total = Number(record?.taskCount) || 0
+      const completed = Math.min(Number(record?.completedTaskCount) || 0, total)
+      return total ? `${Math.round((completed / total) * 100)}%` : '0%'
+    },
+    taskProgressText(record) {
+      const total = Number(record?.taskCount) || 0
+      const completed = Math.min(Number(record?.completedTaskCount) || 0, total)
+      if (!total) return ''
+      return `${completed} / ${total} 个任务已完成`
     },
   },
 }
 </script>
 
 <style scoped>
-.record-page {
-  min-height: 100vh;
-  overflow-x: hidden;
-  color: #4a2f1b;
-  background:
-    radial-gradient(circle at 14% 10%, rgba(255, 240, 189, 0.44) 0, rgba(255, 240, 189, 0) 126rpx),
-    linear-gradient(135deg, rgba(148, 104, 48, 0.05) 0 1rpx, transparent 1rpx 22rpx),
-    #f8efd9;
-}
-
-.record-page__paper {
-  width: 100%;
-  max-width: 430px;
-  min-height: 100vh;
-  padding: calc(30rpx + env(safe-area-inset-top)) 30rpx calc(190rpx + env(safe-area-inset-bottom));
-  margin: 0 auto;
-}
-
-.record-header {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 88rpx;
-  margin-bottom: 22rpx;
-}
-
-.record-header__title-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.record-header__title {
-  font-size: 50rpx;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.record-header__spark,
-.record-header__star {
-  position: absolute;
-  width: 19rpx;
-  height: 19rpx;
-  color: #f4aa23;
-}
-
-.record-header__spark::after,
-.record-header__star::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  background: currentColor;
-  border-radius: 5rpx;
-  transform: rotate(45deg);
-}
-
-.record-header__spark {
-  left: -44rpx;
-  transform: rotate(-22deg);
-}
-
-.record-header__star {
-  right: -48rpx;
-  transform: rotate(16deg);
-}
-
-.record-intro,
-.record-state,
-.record-card__note {
-  position: relative;
-  background: rgba(255, 247, 232, 0.9);
-  border: 3rpx solid rgba(223, 189, 131, 0.72);
-  box-shadow: 8rpx 10rpx 0 rgba(223, 189, 131, 0.14);
-}
-
-.record-intro {
-  padding: 40rpx 30rpx 28rpx;
-  margin-bottom: 32rpx;
-  border-radius: 28rpx;
-}
-
-.record-intro__tape {
-  position: absolute;
-  top: 12rpx;
-  left: 18rpx;
-  width: 48rpx;
-  height: 18rpx;
-  pointer-events: none;
-  background: rgba(225, 171, 94, 0.48);
-  border: 1rpx solid rgba(190, 142, 78, 0.2);
-  border-radius: 5rpx;
-  transform: rotate(10deg);
-}
-
-.record-intro__title,
-.record-state__title,
-.record-card__title {
-  display: block;
-  font-size: 38rpx;
-  font-weight: 900;
-}
-
-.record-intro__context {
-  display: block;
-  margin-top: 12rpx;
-  font-size: 29rpx;
-  font-weight: 900;
-  color: #8a4a21;
-}
-
-.record-intro__desc,
-.record-state__desc {
-  display: block;
-  margin-top: 14rpx;
-  font-size: 25rpx;
-  line-height: 1.55;
-  color: #6b482d;
-}
-
-.record-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 76rpx 42rpx;
-  text-align: center;
-  border-radius: 30rpx;
-}
-
-.record-state--error {
-  border-color: rgba(217, 75, 18, 0.45);
-}
-
-.record-state__spinner,
-.record-state__album,
-.record-state__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 86rpx;
-  height: 86rpx;
-  margin-bottom: 24rpx;
-  border-radius: 50%;
-}
-
-.record-state__spinner {
-  border: 8rpx solid #fff0bd;
-  border-top-color: #f26a21;
-}
-
-.record-state__album {
-  background: #dfeff8;
-  border: 5rpx solid #73acd3;
-  border-radius: 18rpx;
-  transform: rotate(-7deg);
-}
-
-.record-state__icon {
-  position: relative;
-  box-sizing: border-box;
-  color: #fff;
-  background: #f26a21;
-  border: 4rpx solid currentColor;
-}
-
-.record-state__icon::before,
-.record-state__icon::after {
-  position: absolute;
-  right: 0;
-  left: 0;
-  margin: auto;
-  content: '';
-  background: currentColor;
-  border-radius: 999rpx;
-}
-
-.record-state__icon::before {
-  top: 15rpx;
-  width: 4rpx;
-  height: 19rpx;
-}
-
-.record-state__icon::after {
-  bottom: 11rpx;
-  width: 5rpx;
-  height: 5rpx;
-}
-
-.record-state__retry,
-.record-state__explore {
-  min-width: 180rpx;
-  margin-top: 30rpx;
-  font-size: 28rpx;
-  font-weight: 900;
-  color: #fff;
-  background: #f26a21;
-  border-radius: 999rpx;
-}
-
-.record-refresh-error {
-  display: flex;
-  justify-content: space-between;
-  gap: 16rpx;
-  padding: 16rpx 22rpx;
-  margin-bottom: 22rpx;
-  font-size: 23rpx;
-  color: #9a421b;
-  background: #fff1d8;
-  border: 2rpx dashed rgba(217, 75, 18, 0.42);
-  border-radius: 18rpx;
-}
-
-.record-refresh-error__retry {
-  flex-shrink: 0;
-  font-weight: 900;
-  text-decoration: underline;
-}
-
-.section-title {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin: 28rpx 0 24rpx;
-  font-size: 34rpx;
-  font-weight: 900;
-}
-
-.section-title__camera {
-  width: 54rpx;
-  height: 38rpx;
-  margin-right: 14rpx;
-  background: #8a6d54;
-  border: 4rpx solid #fff0bd;
-  border-radius: 10rpx;
-  box-shadow: 0 -8rpx 0 -2rpx #8a6d54;
-}
-
-.section-title__line {
-  flex: 1;
-  height: 2rpx;
-  margin: 0 18rpx;
-  border-top: 3rpx dashed rgba(244, 170, 35, 0.52);
-}
-
-.section-title__star {
-  flex: 0 0 auto;
-  width: 12rpx;
-  height: 12rpx;
-  color: #f4aa23;
-  pointer-events: none;
-  background: currentColor;
-  border-radius: 3rpx;
-  transform: rotate(45deg);
-}
-
-.record-list {
-  display: flex;
-  flex-direction: column;
-  gap: 28rpx;
-}
-
-.record-card {
-  display: grid;
-  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1fr);
-  gap: 22rpx;
-  align-items: center;
-}
-
-.record-card--pressed {
-  opacity: 0.78;
-  transform: scale(0.985);
-}
-
-.record-card--reverse {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.98fr);
-}
-
-.record-card--reverse .record-card__photo {
-  order: 2;
-}
-
-.record-card--reverse .record-card__note {
-  order: 1;
-}
-
-.record-card__note {
-  min-width: 0;
-  min-height: 238rpx;
-  padding: 28rpx 22rpx 22rpx;
-  border-width: 2rpx;
-  border-radius: 18rpx;
-}
-
-.record-card__head {
-  display: flex;
-  gap: 10rpx;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.record-card__title {
-  min-width: 0;
-  font-size: 31rpx;
-  line-height: 1.26;
-}
-
-.record-card__status {
-  flex-shrink: 0;
-  padding: 6rpx 12rpx;
-  font-size: 20rpx;
-  font-weight: 900;
-  color: #8a4a21;
-  background: #fff0bd;
-  border-radius: 999rpx;
-}
-
-.record-card__status--finalized {
-  color: #55753c;
-  background: #dceecb;
-}
-
-.record-card__destination,
-.record-card__updated {
-  display: block;
-  margin-top: 14rpx;
-  font-size: 23rpx;
-  color: #6b482d;
-}
-
-.record-card__dash {
-  height: 2rpx;
-  margin: 16rpx 0;
-  border-top: 3rpx dashed rgba(223, 189, 131, 0.55);
-}
-
-.record-card__stats {
-  font-size: 22rpx;
-  line-height: 1.5;
-  color: #5e3c22;
-}
-
-@media (min-width: 431px) {
-  .record-page__paper {
-    padding: calc(18px + env(safe-area-inset-top)) 18px calc(116px + env(safe-area-inset-bottom));
-  }
-
-  .record-header__title {
-    font-size: 28px;
-  }
-
-  .record-intro__title {
-    font-size: 25px;
-  }
-
-  .record-card__title,
-  .section-title {
-    font-size: 19px;
-  }
-
-  .record-card__stats,
-  .record-card__destination,
-  .record-card__updated {
-    font-size: 13px;
-  }
-}
-
-.record-page__paper {
-  max-width: var(--tl-content-max-width, 430px);
-}
-
-.record-intro,
-.record-card__note {
-  overflow: hidden;
-  background:
-    linear-gradient(90deg, transparent 0 24rpx, rgba(216, 171, 105, 0.13) 24rpx 26rpx, transparent 26rpx),
-    rgba(255, 250, 238, 0.94);
-}
-
-.record-intro::after,
-.record-card__note::after {
-  position: absolute;
-  top: 14rpx;
-  right: 14rpx;
-  width: 32rpx;
-  height: 32rpx;
-  content: '';
-  pointer-events: none;
-  border-top: 3rpx solid rgba(244, 170, 35, 0.34);
-  border-right: 3rpx solid rgba(244, 170, 35, 0.34);
-  border-radius: 0 8rpx 0 0;
-}
-
-.record-card {
-  padding: 12rpx 4rpx;
-  border-bottom: 2rpx dashed rgba(190, 142, 78, 0.24);
-}
-
-.record-card__note {
-  box-shadow: 10rpx 12rpx 0 rgba(190, 142, 78, 0.12);
-}
-
-.record-card__photo {
-  filter: saturate(0.96);
-}
-
-@media (max-width: 370px) {
-  .record-page__paper {
-    padding-right: 24rpx;
-    padding-left: 24rpx;
-  }
-
-  .record-card,
-  .record-card--reverse {
-    grid-template-columns: 1fr;
-  }
-
-  .record-card--reverse .record-card__photo,
-  .record-card--reverse .record-card__note {
-    order: initial;
-  }
-}
+.record-page { min-height: 100vh; overflow-x: hidden; color: var(--tl-text-main); background: var(--tl-bg); }
+.record-page__content { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; padding: calc(48rpx + var(--tl-safe-top)) var(--tl-page-padding) calc(var(--tl-tabbar-height) + 56rpx + var(--tl-safe-bottom)); margin: 0 auto; }
+.record-header { margin-bottom: 56rpx; }
+.record-header__title, .record-year-group__title, .record-state__title, .record-card__title { display: block; font-weight: var(--tl-weight-section-title); }
+.record-header__title { font-size: 48rpx; font-weight: var(--tl-weight-page-title); line-height: 1.25; letter-spacing: 1rpx; }
+.record-header__subtitle { display: block; margin-top: 10rpx; font-size: var(--tl-type-meta); line-height: 1.5; color: var(--tl-text-secondary); }
+.record-year-group + .record-year-group { margin-top: 64rpx; }
+.record-year-group__title { margin-bottom: 24rpx; font-size: 34rpx; line-height: 1.3; }
+.record-list { display: flex; flex-direction: column; gap: 28rpx; }
+.record-card { overflow: hidden; background: var(--tl-surface); border: 1rpx solid rgba(190, 142, 78, 0.14); border-radius: var(--tl-radius-sheet); box-shadow: var(--tl-shadow-media); transition: opacity 160ms ease, transform 160ms ease; }
+.record-card--pressed { opacity: 0.76; transform: scale(0.988); }
+.record-card__media { height: 316rpx; overflow: hidden; background: var(--tl-surface-muted); }
+.record-card__image { display: block; width: 100%; height: 100%; }
+.record-card__media-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12rpx; width: 100%; height: 100%; font-size: 22rpx; color: var(--tl-text-secondary); background: linear-gradient(145deg, #f3e8d1, #ebe0ca); }
+.record-card__media-placeholder-mark { width: 48rpx; height: 38rpx; border: 3rpx solid rgba(138, 109, 84, 0.52); border-radius: 8rpx; }
+.record-card__body { padding: 28rpx 28rpx 30rpx; }
+.record-card__route-row { display: flex; gap: 16rpx; align-items: center; min-width: 0; }
+.record-card__title { flex: 1; min-width: 0; overflow: hidden; font-size: 31rpx; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.record-card__arrow { flex: 0 0 auto; font-size: 44rpx; line-height: 0.9; color: var(--tl-text-secondary); }
+.record-card__date, .record-card__progress { display: block; margin-top: 14rpx; line-height: 1.4; }
+.record-card__date { font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }
+.record-card__progress { font-size: 27rpx; font-weight: 500; color: var(--tl-green-deep); }
+.record-card__progress-track { height: 12rpx; margin-top: 16rpx; overflow: hidden; background: #e8ecef; border-radius: 99rpx; }
+.record-card__progress-value { height: 100%; min-width: 10rpx; background: #53b988; border-radius: inherit; transition: width 180ms ease; }
+.record-card__stats { display: flex; flex-wrap: wrap; gap: 14rpx 28rpx; margin-top: 24rpx; padding-top: 22rpx; border-top: 1rpx solid var(--tl-divider); }
+.record-card__stat { display: inline-flex; gap: 10rpx; align-items: center; font-size: 24rpx; line-height: 1.3; color: var(--tl-text-secondary); }
+.record-card__stat-icon { display: inline-flex; align-items: center; justify-content: center; width: 28rpx; height: 28rpx; font-size: 20rpx; font-weight: 700; line-height: 1; color: #64748b; border: 2rpx solid currentColor; border-radius: 7rpx; }
+.record-state { display: flex; flex-direction: column; align-items: center; padding: 104rpx var(--tl-space-lg); text-align: center; }
+.record-state--error { color: var(--tl-primary-deep); }
+.record-state__spinner { width: 48rpx; height: 48rpx; margin-bottom: var(--tl-space-md); border: 4rpx solid var(--tl-surface-muted); border-top-color: var(--tl-primary); border-radius: 50%; }
+.record-state__album-mark { width: 58rpx; height: 46rpx; margin-bottom: var(--tl-space-md); border: 3rpx solid var(--tl-green-deep); border-radius: var(--tl-radius-small); }
+.record-state__title { font-size: var(--tl-type-section-title); }
+.record-state__desc { display: block; max-width: 440rpx; margin-top: var(--tl-space-sm); font-size: var(--tl-type-body); line-height: var(--tl-line-height-body); color: var(--tl-text-secondary); }
+.record-state__action { min-width: 184rpx; min-height: var(--tl-control-min-height); margin-top: var(--tl-space-lg); font-size: var(--tl-type-primary-action); font-weight: var(--tl-weight-primary-action); color: var(--tl-paper); background: var(--tl-primary); border-radius: var(--tl-radius-control); }
+.record-refresh-error { display: flex; justify-content: space-between; gap: var(--tl-space-sm); padding: var(--tl-space-sm) 0; margin-bottom: 28rpx; font-size: var(--tl-type-meta); color: var(--tl-primary-deep); border-bottom: 1rpx solid var(--tl-divider); }
+.record-refresh-error__retry { flex-shrink: 0; text-decoration: underline; }
+@media (min-width: 431px) { .record-page__content { padding-right: 18px; padding-left: 18px; } .record-header__title { font-size: 28px; } .record-card__media { height: 188px; } .record-card__body { padding: 16px; } }
+@media (max-width: 350px) { .record-page__content { padding-right: 24rpx; padding-left: 24rpx; } .record-card__stats { gap: 12rpx 18rpx; } .record-card__stat { font-size: 22rpx; } }
 </style>

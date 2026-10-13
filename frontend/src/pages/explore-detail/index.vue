@@ -195,10 +195,11 @@ export default {
       }
     },
     goCenter() {
-      uni.reLaunch({ url: '/pages/plan/index' })
+      const suffix = this.planId ? `?planId=${encodeURIComponent(this.planId)}` : ''
+      uni.reLaunch({ url: `/pages/explore/index${suffix}` })
     },
     goTasks() {
-      uni.reLaunch({ url: '/pages/tasks/index' })
+      this.goCenter()
     },
     openGuide() {
       this.audioGuidePlanId = this.displayPlan?.id

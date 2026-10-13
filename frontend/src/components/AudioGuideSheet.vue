@@ -582,7 +582,7 @@ export default {
     },
     goExplore() {
       this.closeSheet()
-      uni.reLaunch({ url: '/pages/plan/index' })
+      uni.reLaunch({ url: '/pages/explore/index' })
     },
   },
 }

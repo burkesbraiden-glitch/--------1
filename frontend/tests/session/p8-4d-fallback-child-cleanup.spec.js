@@ -102,20 +102,21 @@ describe('P8.4D FALLBACK_CHILD cleanup contract', () => {
     expect(child.currentChild).toBeNull()
   })
 
-  test('Home routes into Route planning without a Child fallback or manual Plan creation path', () => {
-    expect(homeSource).toContain('goToRoutePlanning()')
-    expect(homeSource).toContain("uni.reLaunch({ url: '/pages/route/index' })")
+  test('Home routes into the Explore workbench without a Child fallback or manual Plan creation path', () => {
+    expect(homeSource).toContain('openCurrentExploration()')
+    expect(homeSource).toContain('buildExploreUrl(context = this.currentExploration)')
+    expect(homeSource).toContain("return '/pages/explore/index'")
     expect(homeSource).not.toContain('createPlan(')
     expect(homeSource).not.toContain('currentChild.id')
   })
 
-  test('Home reflects only the real active Child age group without writing a Child profile', () => {
-    expect(homeSource).toContain('activeChildAgeGroup')
-    expect(homeSource).toContain('this.activeChild?.ageGroup')
+  test('Home reads only the real active Child when selecting an exploration summary', () => {
+    expect(homeSource).toContain('this.childStore.activeChild')
+    expect(homeSource).toContain('sameId(plan.childId, this.activeChild.id)')
     expect(homeSource).not.toContain('children[0]')
     expect(homeSource).not.toContain('updateChild(')
     expect(homeSource).not.toContain('createChild(')
-    expect(homeSource).toContain('selectedAgeGroup')
+    expect(homeSource).not.toContain('selectedAgeGroup')
   })
 
   test('Route generation requires real children and only accepts a real active child ID', () => {

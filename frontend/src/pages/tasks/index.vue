@@ -362,8 +362,10 @@ export default {
       }
     },
     goPlan() {
+      const planId = this.planStore.currentPlan?.id
+      const suffix = planId ? `?planId=${encodeURIComponent(String(planId))}` : ''
       uni.reLaunch({
-        url: '/pages/plan/index',
+        url: `/pages/explore/index${suffix}`,
       })
     },
     goDetail(item) {
