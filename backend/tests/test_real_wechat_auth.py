@@ -49,11 +49,12 @@ def production_app(monkeypatch):
         "SMS_HTTP_TOKEN": "test-sms-http-token",
         "SMS_TEMPLATE_ID": "tonglvji-login",
         "SMS_VERIFICATION_SECRET": "test-sms-verification-secret-for-auth-0003",
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "TESTING": True,
     }.items():
         monkeypatch.setattr(ProductionConfig, name, value, raising=False)
 
     app = create_app("production")
-    app.config.update(SQLALCHEMY_DATABASE_URI="sqlite:///:memory:", TESTING=True)
     with app.app_context():
         db.create_all()
         yield app
