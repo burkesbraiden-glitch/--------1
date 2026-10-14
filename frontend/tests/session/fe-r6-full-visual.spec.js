@@ -91,7 +91,7 @@ describe('FE-R6 full application visual contract', () => {
 
     expect(profile).not.toContain('profile-page__avatar">\n        <text>探</text>')
     expect(profile).not.toContain("icon: '档'")
-    expect(profile).toContain('active-child-card__name')
+    expect(profile).toContain('active-child__name')
     expect(profile).toContain('activeChild.name')
 
     expect(tabbar).toContain('flex: 1;')
@@ -154,12 +154,13 @@ describe('FE-R6 full application visual contract', () => {
     const recordDetail = readFrontendFile('src/pages/record-detail/index.vue')
     const login = readFrontendFile('src/pages/login/index.vue')
     const profile = readFrontendFile('src/pages/profile/index.vue')
+    const childEdit = readFrontendFile('src/pages/child-edit/index.vue')
 
     for (const sourceAndMarker of [
       [home, 'openCurrentExploration()'], [tasks, 'async completeExploration()'], [detail, 'chooseImage()'],
       [detail, 'async completeTask()'], [detail, 'JOURNEY_RECORD_FINALIZED'],
       [recordDetail, 'previewEntryImage(entry)'], [login, 'submitWechatLogin()'],
-      [profile, 'saveChildProfile()'],
+      [childEdit, 'async saveProfile()'],
       [profile, 'endUserSession()'],
     ]) {
       expect(sourceAndMarker[0]).toContain(sourceAndMarker[1])

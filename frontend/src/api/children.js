@@ -33,3 +33,11 @@ export function updateChild(id, payload) {
     auth: true,
   })
 }
+
+export function deleteChild(id) {
+  return request({
+    path: `/children/${id}`,
+    method: 'DELETE',
+    auth: true,
+  })
+}

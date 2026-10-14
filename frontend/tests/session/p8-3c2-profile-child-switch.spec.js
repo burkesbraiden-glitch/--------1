@@ -7,6 +7,7 @@ const sourceOf = (...parts) => readFileSync(resolve(root, 'frontend', ...parts),
 
 const profile = sourceOf('src/pages/profile/index.vue')
 const childSwitch = sourceOf('src/pages/child-switch/index.vue')
+const childEdit = sourceOf('src/pages/child-edit/index.vue')
 const childB = { id: 102, name: '小安', age: 6 }
 
 function pageMethod(source, name) {
@@ -77,10 +78,12 @@ describe('P8.3C2 active-child switching after P10.5', () => {
     }
   })
 
-  test('Profile retains real create and edit entry points', () => {
-    expect(profile).toContain('this.child.createChild(payload)')
-    expect(profile).toContain('this.child.updateChild(this.activeChild.id, payload)')
-    expect(childSwitch).toContain("openProfile('manage')")
-    expect(childSwitch).toContain("openProfile('create')")
+  test('Profile and child switch route to the unified real create and edit page', () => {
+    expect(profile).toContain('openChildEdit(childId = null)')
+    expect(profile).toContain('/pages/child-edit/index')
+    expect(childSwitch).toContain('openChildEdit(childId = null)')
+    expect(childSwitch).toContain('/pages/child-edit/index')
+    expect(childEdit).toContain('this.child.createChild(this.buildPayload())')
+    expect(childEdit).toContain('this.child.updateChild(this.childId, this.buildPayload())')
   })
 })
