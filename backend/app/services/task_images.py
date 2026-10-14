@@ -1,8 +1,11 @@
 import os
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+import warnings
 
 from flask import current_app
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.extensions import db
@@ -17,10 +20,11 @@ from app.services.tasks import TaskError, serialize_task
 
 
 IMAGE_TYPES = {
-    "png": {"extension": ".png", "content_type": "image/png"},
-    "jpeg": {"extension": ".jpg", "content_type": "image/jpeg"},
-    "webp": {"extension": ".webp", "content_type": "image/webp"},
+    "png": {"extension": ".png", "content_type": "image/png", "pillow_format": "PNG"},
+    "jpeg": {"extension": ".jpg", "content_type": "image/jpeg", "pillow_format": "JPEG"},
+    "webp": {"extension": ".webp", "content_type": "image/webp", "pillow_format": "WEBP"},
 }
+PILLOW_IMAGE_TYPES = {details["pillow_format"]: image_type for image_type, details in IMAGE_TYPES.items()}
 
 
 def upload_dir():
@@ -48,6 +52,87 @@ def detect_image_type(data):
     if len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
         return "webp"
     raise TaskError("UNSUPPORTED_IMAGE_TYPE", "Unsupported image type", 400)
+
+
+def validate_image_dimensions(image):
+    width, height = image.size
+    max_pixels = int(current_app.config["TASK_IMAGE_MAX_PIXELS"])
+    if width <= 0 or height <= 0 or width * height > max_pixels:
+        raise TaskError("IMAGE_DIMENSIONS_TOO_LARGE", "Image dimensions are too large", 413)
+
+
+def image_has_alpha(image):
+    return "A" in image.getbands() or (image.mode == "P" and "transparency" in image.info)
+
+
+def create_clean_image(image, image_type):
+    if image_type == "jpeg":
+        if image_has_alpha(image):
+            rgba = image.convert("RGBA")
+            background = Image.new("RGBA", image.size, (255, 255, 255, 255))
+            try:
+                background.alpha_composite(rgba)
+                return background.convert("RGB")
+            finally:
+                if rgba is not image:
+                    rgba.close()
+                background.close()
+        return image.convert("RGB")
+
+    output_mode = "RGBA" if image_has_alpha(image) else "RGB"
+    converted = image.convert(output_mode)
+    try:
+        clean_image = Image.new(output_mode, image.size)
+        clean_image.paste(converted)
+        return clean_image
+    finally:
+        if converted is not image:
+            converted.close()
+
+
+def encode_clean_image(image, image_type):
+    encoded = BytesIO()
+    save_kwargs = {}
+    if image_type == "jpeg":
+        save_kwargs["quality"] = int(current_app.config["TASK_IMAGE_JPEG_QUALITY"])
+
+    image.save(encoded, format=IMAGE_TYPES[image_type]["pillow_format"], **save_kwargs)
+    data = encoded.getvalue()
+    if len(data) > int(current_app.config["TASK_IMAGE_MAX_BYTES"]):
+        raise TaskError("IMAGE_TOO_LARGE", "Image is too large", 413)
+    return data
+
+
+def decode_and_sanitize_image(data, expected_image_type):
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(data)) as source_image:
+                image_type = PILLOW_IMAGE_TYPES.get(source_image.format)
+                if image_type != expected_image_type:
+                    raise TaskError("INVALID_IMAGE", "Invalid image", 400)
+
+                validate_image_dimensions(source_image)
+                source_image.verify()
+
+            with Image.open(BytesIO(data)) as source_image:
+                source_image.load()
+                oriented_image = ImageOps.exif_transpose(source_image)
+                try:
+                    clean_image = create_clean_image(oriented_image, image_type)
+                    try:
+                        return image_type, encode_clean_image(clean_image, image_type)
+                    finally:
+                        clean_image.close()
+                finally:
+                    if oriented_image is not source_image:
+                        oriented_image.close()
+    except TaskError:
+        raise
+    except (Image.DecompressionBombWarning, Image.DecompressionBombError) as exc:
+        raise TaskError("IMAGE_DIMENSIONS_TOO_LARGE", "Image dimensions are too large", 413) from exc
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as exc:
+        raise TaskError("INVALID_IMAGE", "Invalid image", 400) from exc
 
 
 def new_storage_key(image_type):
@@ -131,13 +216,14 @@ def save_task_image(user, plan_id, task_id, file_storage):
         else get_task_model_for_submission(user, plan_id, task_id, validate_plan_status=True)
     )
     data = read_upload_bytes(file_storage)
-    image_type = detect_image_type(data)
+    expected_image_type = detect_image_type(data)
+    image_type, clean_data = decode_and_sanitize_image(data, expected_image_type)
     storage_key = new_storage_key(image_type)
     new_path = None
     old_path = None
 
     try:
-        new_path = write_image_file(storage_key, data)
+        new_path = write_image_file(storage_key, clean_data)
         submission = task.submission if plan.status == "completed" else get_or_create_submission(task)
         old_key = submission.image_url
         if old_key:

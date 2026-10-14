@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
+from PIL import features
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -52,6 +53,7 @@ def validate_production_config(config):
     validate_production_cors_config(config)
     validate_production_rate_limit_config(config)
     validate_production_request_body_config(config)
+    validate_production_image_config(config)
     validate_production_audio_config(config)
     validate_production_wechat_config(config)
 
@@ -123,6 +125,24 @@ def validate_production_request_body_config(config):
         or max_content_length <= task_image_max_bytes
     ):
         raise RuntimeError("Invalid production configuration: MAX_CONTENT_LENGTH")
+
+
+def validate_production_image_config(config):
+    if config.get("APP_ENV") != "production":
+        return
+
+    max_pixels = config.get("TASK_IMAGE_MAX_PIXELS")
+    jpeg_quality = config.get("TASK_IMAGE_JPEG_QUALITY")
+    if not isinstance(max_pixels, int) or isinstance(max_pixels, bool) or max_pixels <= 0:
+        raise RuntimeError("Invalid production configuration: TASK_IMAGE_MAX_PIXELS")
+    if (
+        not isinstance(jpeg_quality, int)
+        or isinstance(jpeg_quality, bool)
+        or not 1 <= jpeg_quality <= 95
+    ):
+        raise RuntimeError("Invalid production configuration: TASK_IMAGE_JPEG_QUALITY")
+    if not features.check("webp"):
+        raise RuntimeError("Invalid production image configuration: WebP support")
 
 
 def validate_production_audio_config(config):
@@ -201,6 +221,8 @@ class BaseConfig:
         str(BACKEND_DIR / "var" / "uploads" / "task-images"),
     )
     TASK_IMAGE_MAX_BYTES = int(os.getenv("TASK_IMAGE_MAX_BYTES", str(10 * 1024 * 1024)))
+    TASK_IMAGE_MAX_PIXELS = int(os.getenv("TASK_IMAGE_MAX_PIXELS", "25000000"))
+    TASK_IMAGE_JPEG_QUALITY = int(os.getenv("TASK_IMAGE_JPEG_QUALITY", "90"))
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", str(12 * 1024 * 1024)))
     RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
     RATELIMIT_ENABLED = True

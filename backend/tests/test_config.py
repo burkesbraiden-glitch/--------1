@@ -20,6 +20,8 @@ def valid_production_secrets(monkeypatch):
         "RATELIMIT_STORAGE_URI": "rediss://rate-limit.testing.invalid:6379/0",
         "MAX_CONTENT_LENGTH": 12 * 1024 * 1024,
         "TASK_IMAGE_MAX_BYTES": 10 * 1024 * 1024,
+        "TASK_IMAGE_MAX_PIXELS": 25_000_000,
+        "TASK_IMAGE_JPEG_QUALITY": 90,
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",
@@ -124,6 +126,7 @@ def test_production_accepts_explicit_shared_redis_rate_limit_storage(valid_produ
     [
         (0, 10 * 1024 * 1024),
         (10 * 1024 * 1024, 10 * 1024 * 1024),
+        (12 * 1024 * 1024, 0),
     ],
 )
 def test_production_rejects_invalid_request_body_limits(
@@ -133,6 +136,32 @@ def test_production_rejects_invalid_request_body_limits(
     monkeypatch.setattr(ProductionConfig, "TASK_IMAGE_MAX_BYTES", task_image_max_bytes)
 
     with pytest.raises(RuntimeError, match="MAX_CONTENT_LENGTH"):
+        create_app("production")
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("TASK_IMAGE_MAX_PIXELS", 0),
+        ("TASK_IMAGE_MAX_PIXELS", False),
+        ("TASK_IMAGE_JPEG_QUALITY", 0),
+        ("TASK_IMAGE_JPEG_QUALITY", 96),
+        ("TASK_IMAGE_JPEG_QUALITY", True),
+    ],
+)
+def test_production_rejects_invalid_image_processing_configuration(
+    field_name, invalid_value, monkeypatch, valid_production_secrets
+):
+    monkeypatch.setattr(ProductionConfig, field_name, invalid_value)
+
+    with pytest.raises(RuntimeError, match=field_name):
+        create_app("production")
+
+
+def test_production_rejects_missing_webp_codec(monkeypatch, valid_production_secrets):
+    monkeypatch.setattr("app.config.features.check", lambda feature: feature != "webp")
+
+    with pytest.raises(RuntimeError, match="WebP support"):
         create_app("production")
 
 
@@ -257,3 +286,5 @@ def test_testing_configuration_remains_available():
     assert app.config["APP_ENV"] == "testing"
     assert app.config["SQLALCHEMY_DATABASE_URI"] == "sqlite:///:memory:"
     assert app.config["RATELIMIT_STORAGE_URI"] == "memory://"
+    assert app.config["TASK_IMAGE_MAX_PIXELS"] == 25_000_000
+    assert app.config["TASK_IMAGE_JPEG_QUALITY"] == 90
