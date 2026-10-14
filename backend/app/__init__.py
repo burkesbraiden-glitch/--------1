@@ -2,11 +2,11 @@ from importlib import import_module
 import os
 
 from flask import Flask
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 
 from app.api.v1 import v1_bp
 from app.config import config_by_env, validate_production_config
-from app.extensions import cors, db, jwt, migrate
+from app.extensions import cors, db, jwt, limiter, migrate
 from app.services.database import check_database_connection
 from app.utils.responses import error_response
 
@@ -14,7 +14,9 @@ from app.utils.responses import error_response
 def create_app(config_name=None, database_checker=None):
     app = Flask(__name__)
 
-    env_name = config_name if config_name is not None else os.getenv("APP_ENV", "development")
+    env_name = config_name if config_name is not None else os.getenv("APP_ENV")
+    if config_name is None and (not isinstance(env_name, str) or not env_name.strip()):
+        raise RuntimeError("APP_ENV is required")
     if env_name not in config_by_env:
         raise RuntimeError("Invalid application environment")
 
@@ -26,6 +28,7 @@ def create_app(config_name=None, database_checker=None):
     migrate.init_app(app, db)
     jwt.init_app(app)
     cors.init_app(app, origins=app.config["CORS_ORIGINS"])
+    limiter.init_app(app)
 
     import_module("app.models")
 
@@ -37,6 +40,14 @@ def create_app(config_name=None, database_checker=None):
 
 
 def register_error_handlers(app):
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_entity_too_large(error):
+        return error_response("PAYLOAD_TOO_LARGE", "Request payload is too large", status_code=413)
+
+    @app.errorhandler(429)
+    def handle_rate_limited(error):
+        return error_response("RATE_LIMITED", "Too many requests", status_code=429)
+
     @app.errorhandler(404)
     def handle_not_found(error):
         return error_response("NOT_FOUND", "Resource not found", status_code=404)

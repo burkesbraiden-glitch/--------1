@@ -5,17 +5,49 @@ import re
 
 import pytest
 from flask_jwt_extended import create_access_token
+from PIL import Image, features
 
 from app.extensions import db
 from app.models import Child, ExplorationPlan, JourneyRecord, Task, TaskSubmission, User
 from app.utils.time import utc_now
 
 
-PNG_BYTES = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
-PNG_BYTES_2 = b"\x89PNG\r\n\x1a\nsecond-image"
-JPEG_BYTES = b"\xff\xd8\xff\xe0jpeg-body"
-WEBP_BYTES = b"RIFF\x10\x00\x00\x00WEBPVP8 "
-GIF_BYTES = b"GIF89a"
+WEBP_SUPPORTED = features.check("webp")
+
+
+def make_image_bytes(image_format, *, size=(4, 4), color=(40, 120, 200), exif=None, quality=90):
+    image = Image.new("RGB", size, color)
+    encoded = BytesIO()
+    save_kwargs = {"format": image_format}
+    if image_format == "JPEG":
+        save_kwargs["quality"] = quality
+    if exif is not None:
+        save_kwargs["exif"] = exif.tobytes()
+    image.save(encoded, **save_kwargs)
+    image.close()
+    return encoded.getvalue()
+
+
+def make_patterned_jpeg_bytes(*, size=(64, 64), quality=90):
+    image = Image.new("RGB", size)
+    image.putdata(
+        [
+            ((x * 17 + y * 13) % 256, (x * 29 + y * 7) % 256, (x * 5 + y * 31) % 256)
+            for y in range(size[1])
+            for x in range(size[0])
+        ]
+    )
+    encoded = BytesIO()
+    image.save(encoded, format="JPEG", quality=quality)
+    image.close()
+    return encoded.getvalue()
+
+
+PNG_BYTES = make_image_bytes("PNG")
+PNG_BYTES_2 = make_image_bytes("PNG", color=(210, 90, 40))
+JPEG_BYTES = make_image_bytes("JPEG")
+WEBP_BYTES = make_image_bytes("WEBP") if WEBP_SUPPORTED else None
+GIF_BYTES = make_image_bytes("GIF")
 SVG_BYTES = b"<svg xmlns='http://www.w3.org/2000/svg'></svg>"
 
 
@@ -23,7 +55,9 @@ SVG_BYTES = b"<svg xmlns='http://www.w3.org/2000/svg'></svg>"
 def image_db(app, tmp_path):
     upload_root = tmp_path / "task-images"
     app.config["TASK_IMAGE_UPLOAD_DIR"] = str(upload_root)
-    app.config["TASK_IMAGE_MAX_BYTES"] = 64
+    app.config["TASK_IMAGE_MAX_BYTES"] = 8 * 1024
+    app.config["TASK_IMAGE_MAX_PIXELS"] = 25_000_000
+    app.config["TASK_IMAGE_JPEG_QUALITY"] = 90
     with app.app_context():
         db.create_all()
         yield upload_root
@@ -137,6 +171,16 @@ def stored_file(upload_root, storage_key):
     return upload_root / storage_key.removeprefix("task-images/")
 
 
+def assert_decodable_image(path_or_bytes, expected_format, expected_size=None):
+    source = BytesIO(path_or_bytes) if isinstance(path_or_bytes, bytes) else path_or_bytes
+    with Image.open(source) as image:
+        image.load()
+        assert image.format == expected_format
+        if expected_size is not None:
+            assert image.size == expected_size
+        assert not image.getexif()
+
+
 def test_upload_requires_token(client):
     response = client.post(image_path(), data=multipart_image(PNG_BYTES), content_type="multipart/form-data")
 
@@ -201,15 +245,83 @@ def test_upload_rejects_files_over_configured_size(client, app, image_db):
         assert TaskSubmission.query.count() == 0
 
 
+def test_upload_rejects_fake_jpeg_magic_bytes(client, app, image_db):
+    headers = setup_task(app)
+
+    response = post_image(client, headers, b"\xff\xd8\xff\xe0not-a-real-jpeg", "fake.jpg")
+
+    assert_error(response, 400, "INVALID_IMAGE")
+    assert response.get_json()["error"]["message"] == "Invalid image"
+    with app.app_context():
+        assert TaskSubmission.query.count() == 0
+
+
+def test_upload_rejects_truncated_png(client, app, image_db):
+    headers = setup_task(app)
+
+    response = post_image(client, headers, PNG_BYTES[:-10], "truncated.png")
+
+    assert_error(response, 400, "INVALID_IMAGE")
+    assert response.get_json()["error"]["message"] == "Invalid image"
+    with app.app_context():
+        assert TaskSubmission.query.count() == 0
+
+
+def test_upload_rejects_images_over_pixel_limit(client, app, image_db):
+    app.config["TASK_IMAGE_MAX_PIXELS"] = 15
+    headers = setup_task(app)
+
+    response = post_image(client, headers, PNG_BYTES)
+
+    assert_error(response, 413, "IMAGE_DIMENSIONS_TOO_LARGE")
+    assert response.get_json()["error"]["message"] == "Image dimensions are too large"
+    with app.app_context():
+        assert TaskSubmission.query.count() == 0
+
+
+@pytest.mark.parametrize("pillow_pixel_limit", [3, 1])
+def test_upload_converts_pillow_decompression_bombs_to_dimension_errors(
+    client, app, image_db, monkeypatch, pillow_pixel_limit
+):
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", pillow_pixel_limit)
+    headers = setup_task(app)
+
+    response = post_image(client, headers, PNG_BYTES)
+
+    assert_error(response, 413, "IMAGE_DIMENSIONS_TOO_LARGE")
+    with app.app_context():
+        assert TaskSubmission.query.count() == 0
+
+
+def test_upload_rechecks_reencoded_image_size(client, app, image_db):
+    compressed_jpeg = make_patterned_jpeg_bytes(quality=1)
+    app.config["TASK_IMAGE_MAX_BYTES"] = len(compressed_jpeg)
+    headers = setup_task(app)
+
+    response = post_image(client, headers, compressed_jpeg, "compressed.jpg")
+
+    assert_error(response, 413, "IMAGE_TOO_LARGE")
+    with app.app_context():
+        assert TaskSubmission.query.count() == 0
+
+
 @pytest.mark.parametrize(
-    ("content", "filename", "suffix"),
+    ("content", "filename", "suffix", "expected_format"),
     [
-        (PNG_BYTES, "../../原始.jpg", ".png"),
-        (JPEG_BYTES, "fake.png", ".jpg"),
-        (WEBP_BYTES, "fake.gif", ".webp"),
+        (PNG_BYTES, "../../原始.jpg", ".png", "PNG"),
+        (JPEG_BYTES, "fake.png", ".jpg", "JPEG"),
+        pytest.param(
+            WEBP_BYTES,
+            "fake.gif",
+            ".webp",
+            "WEBP",
+            marks=pytest.mark.skipif(not WEBP_SUPPORTED, reason="Pillow was built without WebP support"),
+        ),
     ],
 )
-def test_upload_detects_real_type_and_stores_safe_internal_key(client, app, image_db, content, filename, suffix):
+def test_upload_detects_real_type_and_stores_safe_internal_key(
+    client, app, image_db, content, filename, suffix, expected_format
+):
     headers = setup_task(app)
 
     response = post_image(client, headers, content, filename)
@@ -224,7 +336,62 @@ def test_upload_detects_real_type_and_stores_safe_internal_key(client, app, imag
         assert filename not in submission.image_url
         assert not os.path.isabs(submission.image_url)
         assert ":" not in submission.image_url
-        assert stored_file(image_db, submission.image_url).read_bytes() == content
+        assert_decodable_image(stored_file(image_db, submission.image_url), expected_format)
+
+
+def test_upload_strips_ordinary_exif_metadata(client, app, image_db):
+    exif = Image.Exif()
+    exif[271] = "Test Camera"
+    exif[306] = "2026:10:14 09:30:00"
+    source = make_image_bytes("JPEG", exif=exif)
+    with Image.open(BytesIO(source)) as image:
+        assert image.getexif()[271] == "Test Camera"
+
+    response = post_image(client, setup_task(app), source, "metadata.jpg")
+
+    assert response.status_code == 200
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        assert_decodable_image(stored_file(image_db, submission.image_url), "JPEG")
+
+
+def test_upload_strips_gps_exif_metadata(client, app, image_db):
+    exif = Image.Exif()
+    exif[34853] = {
+        1: "N",
+        2: (39.0, 54.0, 0.0),
+        3: "E",
+        4: (116.0, 24.0, 0.0),
+    }
+    source = make_image_bytes("JPEG", exif=exif)
+    with Image.open(BytesIO(source)) as image:
+        assert image.getexif().get_ifd(34853)
+
+    response = post_image(client, setup_task(app), source, "gps.jpg")
+
+    assert response.status_code == 200
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        with Image.open(stored_file(image_db, submission.image_url)) as image:
+            image.load()
+            assert 34853 not in image.getexif()
+            assert not image.getexif().get_ifd(34853)
+
+
+def test_upload_normalizes_orientation_then_removes_orientation_tag(client, app, image_db):
+    exif = Image.Exif()
+    exif[274] = 6
+    source = make_image_bytes("JPEG", size=(2, 4), exif=exif)
+    with Image.open(BytesIO(source)) as image:
+        assert image.size == (2, 4)
+        assert image.getexif()[274] == 6
+
+    response = post_image(client, setup_task(app), source, "rotated.jpg")
+
+    assert response.status_code == 200
+    with app.app_context():
+        submission = TaskSubmission.query.filter_by(task_id=1000).one()
+        assert_decodable_image(stored_file(image_db, submission.image_url), "JPEG", expected_size=(4, 2))
 
 
 def test_upload_preserves_note_and_completed_state_while_replacing_image(client, app, image_db):
@@ -266,7 +433,7 @@ def test_upload_preserves_note_and_completed_state_while_replacing_image(client,
         assert submission.status == "completed"
         assert submission.completed_at == completed_at
         assert not first_file.exists()
-        assert stored_file(image_db, submission.image_url).read_bytes() == PNG_BYTES_2
+        assert_decodable_image(stored_file(image_db, submission.image_url), "PNG")
 
 
 @pytest.mark.parametrize("record_status", [None, "draft"])
@@ -309,7 +476,7 @@ def test_upload_allows_completed_plan_completed_submission_with_missing_or_draft
         assert submission.completed_at == completed_at
         assert submission.image_url != first_key
         assert not first_file.exists()
-        assert stored_file(image_db, submission.image_url).read_bytes() == PNG_BYTES_2
+        assert_decodable_image(stored_file(image_db, submission.image_url), "PNG")
 
 
 def test_upload_rejects_completed_plan_finalized_record_before_writing_file(client, app, image_db):
@@ -395,6 +562,7 @@ def test_get_image_requires_token_and_enforces_ownership(client, app, image_db):
     assert_error(other_user, 404, "PLAN_NOT_FOUND")
 
 
+@pytest.mark.skipif(not WEBP_SUPPORTED, reason="Pillow was built without WebP support")
 def test_get_image_returns_bytes_content_type_and_private_cache(client, app, image_db):
     headers = setup_task(app)
     assert post_image(client, headers, WEBP_BYTES, "photo.jpg").status_code == 200
@@ -402,10 +570,11 @@ def test_get_image_returns_bytes_content_type_and_private_cache(client, app, ima
     response = client.get(image_path(), headers=headers)
 
     assert response.status_code == 200
-    assert response.data == WEBP_BYTES
+    assert_decodable_image(response.data, "WEBP")
     assert response.headers["Content-Type"].startswith("image/webp")
     assert response.headers["Content-Disposition"].startswith("inline")
     assert response.headers["Cache-Control"] == "private"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
 def test_get_image_returns_not_found_for_missing_submission_file_or_unsafe_key(client, app, image_db):

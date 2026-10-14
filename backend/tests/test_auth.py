@@ -146,6 +146,10 @@ def test_mock_wechat_login_disabled_in_production(monkeypatch):
     from app.config import ProductionConfig
 
     for name, value in {
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "CORS_ORIGINS": ["https://app.example.test"],
+        "RATELIMIT_STORAGE_URI": "rediss://rate-limit.testing.invalid:6379/0",
+        "RATELIMIT_ENABLED": False,
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",
@@ -190,3 +194,19 @@ def test_logout_without_token_is_rejected(client):
     payload = response.get_json()
     assert payload["success"] is False
     assert payload["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_global_request_body_limit_returns_uniform_json(client, app):
+    app.config["MAX_CONTENT_LENGTH"] = 64
+
+    response = client.post("/api/v1/auth/send-code", json={"phone": "1" * 128})
+
+    assert response.status_code == 413
+    assert response.get_json() == {
+        "success": False,
+        "error": {
+            "code": "PAYLOAD_TOO_LARGE",
+            "message": "Request payload is too large",
+            "details": {},
+        },
+    }

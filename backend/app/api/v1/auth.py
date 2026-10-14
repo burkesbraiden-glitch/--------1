@@ -1,6 +1,8 @@
 from flask import Blueprint, current_app, request
+from flask_limiter.util import get_remote_address
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.extensions import limiter
 from app.services.auth import (
     AuthError,
     get_user_by_identity,
@@ -16,6 +18,10 @@ from app.utils.responses import error_response, success_response
 auth_bp = Blueprint("auth", __name__)
 
 
+def unauthenticated_limiter_key():
+    return f"ip:{get_remote_address()}"
+
+
 def get_json_object():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
@@ -28,6 +34,7 @@ def handle_auth_error(error):
 
 
 @auth_bp.post("/send-code")
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_SEND_CODE"], key_func=unauthenticated_limiter_key)
 def send_code():
     try:
         payload = get_json_object()
@@ -38,6 +45,7 @@ def send_code():
 
 
 @auth_bp.post("/login")
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_LOGIN"], key_func=unauthenticated_limiter_key)
 def login():
     try:
         payload = get_json_object()
@@ -48,6 +56,7 @@ def login():
 
 
 @auth_bp.post("/mock-wechat-login")
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_MOCK_WECHAT_LOGIN"], key_func=unauthenticated_limiter_key)
 def mock_wechat_login():
     try:
         payload = request.get_json(silent=True)
@@ -62,6 +71,7 @@ def mock_wechat_login():
 
 
 @auth_bp.post("/wechat-login")
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_WECHAT_LOGIN"], key_func=unauthenticated_limiter_key)
 def wechat_login():
     try:
         payload = get_json_object()

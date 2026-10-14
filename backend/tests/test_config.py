@@ -15,6 +15,13 @@ def valid_production_secrets(monkeypatch):
     monkeypatch.setattr(ProductionConfig, "SECRET_KEY", VALID_SECRET_KEY)
     monkeypatch.setattr(ProductionConfig, "JWT_SECRET_KEY", VALID_JWT_SECRET_KEY)
     for name, value in {
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "CORS_ORIGINS": ["https://app.example.test"],
+        "RATELIMIT_STORAGE_URI": "rediss://rate-limit.testing.invalid:6379/0",
+        "MAX_CONTENT_LENGTH": 12 * 1024 * 1024,
+        "TASK_IMAGE_MAX_BYTES": 10 * 1024 * 1024,
+        "TASK_IMAGE_MAX_PIXELS": 25_000_000,
+        "TASK_IMAGE_JPEG_QUALITY": 90,
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",
@@ -42,6 +49,21 @@ def test_create_app_uses_production_from_app_env(monkeypatch, valid_production_s
 
     assert app.config["APP_ENV"] == "production"
     assert app.config["DEV_FIXED_CODE"] is None
+
+
+def test_create_app_rejects_missing_app_env(monkeypatch):
+    monkeypatch.delenv("APP_ENV", raising=False)
+
+    with pytest.raises(RuntimeError, match="APP_ENV is required"):
+        create_app()
+
+
+@pytest.mark.parametrize("invalid_value", ["", "   "])
+def test_create_app_rejects_blank_app_env(monkeypatch, invalid_value):
+    monkeypatch.setenv("APP_ENV", invalid_value)
+
+    with pytest.raises(RuntimeError, match="APP_ENV is required"):
+        create_app()
 
 
 def test_create_app_rejects_unknown_app_env(monkeypatch):
@@ -80,6 +102,106 @@ def test_production_accepts_valid_test_only_secrets(valid_production_secrets):
 
     assert app.config["APP_ENV"] == "production"
     assert app.config["DEV_FIXED_CODE"] is None
+    assert app.config["RATELIMIT_STORAGE_URI"] == "rediss://rate-limit.testing.invalid:6379/0"
+
+
+@pytest.mark.parametrize("storage_uri", ["", "   ", "memory://"])
+def test_production_rejects_missing_or_memory_rate_limit_storage(
+    storage_uri, monkeypatch, valid_production_secrets
+):
+    monkeypatch.setattr(ProductionConfig, "RATELIMIT_STORAGE_URI", storage_uri)
+
+    with pytest.raises(RuntimeError, match="RATELIMIT_STORAGE_URI"):
+        create_app("production")
+
+
+def test_production_accepts_explicit_shared_redis_rate_limit_storage(valid_production_secrets):
+    app = create_app("production")
+
+    assert app.config["RATELIMIT_STORAGE_URI"].startswith("rediss://")
+
+
+@pytest.mark.parametrize(
+    ("max_content_length", "task_image_max_bytes"),
+    [
+        (0, 10 * 1024 * 1024),
+        (10 * 1024 * 1024, 10 * 1024 * 1024),
+        (12 * 1024 * 1024, 0),
+    ],
+)
+def test_production_rejects_invalid_request_body_limits(
+    max_content_length, task_image_max_bytes, monkeypatch, valid_production_secrets
+):
+    monkeypatch.setattr(ProductionConfig, "MAX_CONTENT_LENGTH", max_content_length)
+    monkeypatch.setattr(ProductionConfig, "TASK_IMAGE_MAX_BYTES", task_image_max_bytes)
+
+    with pytest.raises(RuntimeError, match="MAX_CONTENT_LENGTH"):
+        create_app("production")
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("TASK_IMAGE_MAX_PIXELS", 0),
+        ("TASK_IMAGE_MAX_PIXELS", False),
+        ("TASK_IMAGE_JPEG_QUALITY", 0),
+        ("TASK_IMAGE_JPEG_QUALITY", 96),
+        ("TASK_IMAGE_JPEG_QUALITY", True),
+    ],
+)
+def test_production_rejects_invalid_image_processing_configuration(
+    field_name, invalid_value, monkeypatch, valid_production_secrets
+):
+    monkeypatch.setattr(ProductionConfig, field_name, invalid_value)
+
+    with pytest.raises(RuntimeError, match=field_name):
+        create_app("production")
+
+
+def test_production_rejects_missing_webp_codec(monkeypatch, valid_production_secrets):
+    monkeypatch.setattr("app.config.features.check", lambda feature: feature != "webp")
+
+    with pytest.raises(RuntimeError, match="WebP support"):
+        create_app("production")
+
+
+@pytest.mark.parametrize(
+    "database_url",
+    [
+        "mysql+pymysql://username:password@db.example.test:3306/tonglvji",
+        "mysql+pymysql://real-user:replace-me@db.example.test:3306/tonglvji",
+        "mysql+pymysql://real-user:changeme@db.example.test:3306/tonglvji",
+    ],
+)
+def test_production_rejects_placeholder_database_url(database_url, monkeypatch, valid_production_secrets):
+    monkeypatch.setattr(ProductionConfig, "SQLALCHEMY_DATABASE_URI", database_url)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        create_app("production")
+
+
+def test_production_rejects_empty_database_url(monkeypatch, valid_production_secrets):
+    monkeypatch.setattr(ProductionConfig, "SQLALCHEMY_DATABASE_URI", "")
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        create_app("production")
+
+
+@pytest.mark.parametrize(
+    "origins",
+    [
+        [],
+        ["http://localhost:5173"],
+        ["http://127.0.0.1:5173"],
+        ["http://localhost:5174"],
+        ["http://127.0.0.1:5174"],
+    ],
+)
+def test_production_rejects_empty_or_development_cors_origins(origins, monkeypatch, valid_production_secrets):
+    monkeypatch.setattr(ProductionConfig, "CORS_ORIGINS", origins)
+
+    with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
+        create_app("production")
 
 
 @pytest.mark.parametrize(
@@ -155,6 +277,7 @@ def test_development_configuration_remains_available(monkeypatch):
     app = create_app("development")
 
     assert app.config["APP_ENV"] == "development"
+    assert app.config["RATELIMIT_STORAGE_URI"] == "memory://"
 
 
 def test_testing_configuration_remains_available():
@@ -162,3 +285,6 @@ def test_testing_configuration_remains_available():
 
     assert app.config["APP_ENV"] == "testing"
     assert app.config["SQLALCHEMY_DATABASE_URI"] == "sqlite:///:memory:"
+    assert app.config["RATELIMIT_STORAGE_URI"] == "memory://"
+    assert app.config["TASK_IMAGE_MAX_PIXELS"] == 25_000_000
+    assert app.config["TASK_IMAGE_JPEG_QUALITY"] == 90

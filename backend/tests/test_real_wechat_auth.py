@@ -50,6 +50,9 @@ def production_app(monkeypatch):
         "SMS_TEMPLATE_ID": "tonglvji-login",
         "SMS_VERIFICATION_SECRET": "test-sms-verification-secret-for-auth-0003",
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "CORS_ORIGINS": ["https://app.example.test"],
+        "RATELIMIT_STORAGE_URI": "rediss://rate-limit.testing.invalid:6379/0",
+        "RATELIMIT_ENABLED": False,
         "TESTING": True,
     }.items():
         monkeypatch.setattr(ProductionConfig, name, value, raising=False)
@@ -272,6 +275,9 @@ def test_production_keeps_mock_wechat_disabled(client):
 def test_production_configuration_requires_wechat_but_not_sms(monkeypatch):
     monkeypatch.setattr(ProductionConfig, "SECRET_KEY", VALID_SECRET_KEY)
     monkeypatch.setattr(ProductionConfig, "JWT_SECRET_KEY", VALID_JWT_SECRET_KEY)
+    monkeypatch.setattr(ProductionConfig, "SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+    monkeypatch.setattr(ProductionConfig, "CORS_ORIGINS", ["https://app.example.test"])
+    monkeypatch.setattr(ProductionConfig, "RATELIMIT_STORAGE_URI", "rediss://rate-limit.testing.invalid:6379/0")
     monkeypatch.setattr(ProductionConfig, "TTS_PROVIDER", "edge")
     monkeypatch.setattr(ProductionConfig, "EDGE_TTS_BASE_URL", "https://edge-worker.example.test")
     monkeypatch.setattr(ProductionConfig, "AUDIO_STORAGE_PROVIDER", "r2")
@@ -298,6 +304,9 @@ def test_production_configuration_requires_wechat_but_not_sms(monkeypatch):
 def test_production_configuration_rejects_missing_wechat_credentials(monkeypatch, field_name):
     monkeypatch.setattr(ProductionConfig, "SECRET_KEY", VALID_SECRET_KEY)
     monkeypatch.setattr(ProductionConfig, "JWT_SECRET_KEY", VALID_JWT_SECRET_KEY)
+    monkeypatch.setattr(ProductionConfig, "SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+    monkeypatch.setattr(ProductionConfig, "CORS_ORIGINS", ["https://app.example.test"])
+    monkeypatch.setattr(ProductionConfig, "RATELIMIT_STORAGE_URI", "rediss://rate-limit.testing.invalid:6379/0")
     monkeypatch.setattr(ProductionConfig, "TTS_PROVIDER", "edge")
     monkeypatch.setattr(ProductionConfig, "EDGE_TTS_BASE_URL", "https://edge-worker.example.test")
     monkeypatch.setattr(ProductionConfig, "AUDIO_STORAGE_PROVIDER", "r2")
