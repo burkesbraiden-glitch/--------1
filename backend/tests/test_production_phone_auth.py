@@ -51,6 +51,7 @@ def configure_production(monkeypatch):
         "SECRET_KEY": VALID_SECRET_KEY,
         "JWT_SECRET_KEY": VALID_JWT_SECRET_KEY,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "CORS_ORIGINS": ["https://app.example.test"],
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",

@@ -1,6 +1,7 @@
 from datetime import timedelta
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -16,6 +17,13 @@ def _split_origins(value):
 _PRODUCTION_SECRET_FIELDS = ("SECRET_KEY", "JWT_SECRET_KEY")
 _PRODUCTION_SECRET_PLACEHOLDERS = {"replace-me", "changeme"}
 _MINIMUM_PRODUCTION_SECRET_LENGTH = 32
+_PRODUCTION_DATABASE_URL_PLACEHOLDER_TOKENS = ("username", "password", "replace-me", "changeme")
+_DEVELOPMENT_CORS_ORIGINS = {
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+}
 
 
 def validate_production_config(config):
@@ -33,8 +41,43 @@ def validate_production_config(config):
         ):
             raise RuntimeError(f"Invalid production configuration: {field_name}")
 
+    validate_production_database_config(config)
+    validate_production_cors_config(config)
     validate_production_audio_config(config)
     validate_production_wechat_config(config)
+
+
+def validate_production_database_config(config):
+    if config.get("APP_ENV") != "production":
+        return
+
+    database_url = config.get("SQLALCHEMY_DATABASE_URI")
+    normalized_url = database_url.strip() if isinstance(database_url, str) else ""
+    if (
+        not normalized_url
+        or any(token in normalized_url.casefold() for token in _PRODUCTION_DATABASE_URL_PLACEHOLDER_TOKENS)
+    ):
+        raise RuntimeError("Invalid production configuration: DATABASE_URL")
+
+
+def validate_production_cors_config(config):
+    if config.get("APP_ENV") != "production":
+        return
+
+    origins = config.get("CORS_ORIGINS")
+    if not isinstance(origins, (list, tuple)) or not origins:
+        raise RuntimeError("Invalid production configuration: CORS_ORIGINS")
+
+    for origin in origins:
+        normalized_origin = origin.strip() if isinstance(origin, str) else ""
+        parsed_origin = urlparse(normalized_origin)
+        if (
+            not normalized_origin
+            or normalized_origin.casefold() in _DEVELOPMENT_CORS_ORIGINS
+            or parsed_origin.scheme != "https"
+            or not parsed_origin.netloc
+        ):
+            raise RuntimeError("Invalid production configuration: CORS_ORIGINS")
 
 
 def validate_production_audio_config(config):
@@ -93,7 +136,7 @@ def validate_production_wechat_config(config):
 
 
 class BaseConfig:
-    APP_ENV = os.getenv("APP_ENV", "development")
+    APP_ENV = os.getenv("APP_ENV")
     SECRET_KEY = os.getenv("SECRET_KEY", "replace-me")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "replace-me")
     SQLALCHEMY_DATABASE_URI = os.getenv(
@@ -165,6 +208,7 @@ class TestingConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     APP_ENV = "production"
     DEV_FIXED_CODE = None
+    CORS_ORIGINS = _split_origins(os.getenv("CORS_ORIGINS", ""))
 
 
 config_by_env = {

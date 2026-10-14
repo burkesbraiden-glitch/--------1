@@ -146,6 +146,8 @@ def test_mock_wechat_login_disabled_in_production(monkeypatch):
     from app.config import ProductionConfig
 
     for name, value in {
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "CORS_ORIGINS": ["https://app.example.test"],
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",

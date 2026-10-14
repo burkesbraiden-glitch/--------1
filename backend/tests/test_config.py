@@ -15,6 +15,8 @@ def valid_production_secrets(monkeypatch):
     monkeypatch.setattr(ProductionConfig, "SECRET_KEY", VALID_SECRET_KEY)
     monkeypatch.setattr(ProductionConfig, "JWT_SECRET_KEY", VALID_JWT_SECRET_KEY)
     for name, value in {
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "CORS_ORIGINS": ["https://app.example.test"],
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",
@@ -42,6 +44,21 @@ def test_create_app_uses_production_from_app_env(monkeypatch, valid_production_s
 
     assert app.config["APP_ENV"] == "production"
     assert app.config["DEV_FIXED_CODE"] is None
+
+
+def test_create_app_rejects_missing_app_env(monkeypatch):
+    monkeypatch.delenv("APP_ENV", raising=False)
+
+    with pytest.raises(RuntimeError, match="APP_ENV is required"):
+        create_app()
+
+
+@pytest.mark.parametrize("invalid_value", ["", "   "])
+def test_create_app_rejects_blank_app_env(monkeypatch, invalid_value):
+    monkeypatch.setenv("APP_ENV", invalid_value)
+
+    with pytest.raises(RuntimeError, match="APP_ENV is required"):
+        create_app()
 
 
 def test_create_app_rejects_unknown_app_env(monkeypatch):
@@ -80,6 +97,45 @@ def test_production_accepts_valid_test_only_secrets(valid_production_secrets):
 
     assert app.config["APP_ENV"] == "production"
     assert app.config["DEV_FIXED_CODE"] is None
+
+
+@pytest.mark.parametrize(
+    "database_url",
+    [
+        "mysql+pymysql://username:password@db.example.test:3306/tonglvji",
+        "mysql+pymysql://real-user:replace-me@db.example.test:3306/tonglvji",
+        "mysql+pymysql://real-user:changeme@db.example.test:3306/tonglvji",
+    ],
+)
+def test_production_rejects_placeholder_database_url(database_url, monkeypatch, valid_production_secrets):
+    monkeypatch.setattr(ProductionConfig, "SQLALCHEMY_DATABASE_URI", database_url)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        create_app("production")
+
+
+def test_production_rejects_empty_database_url(monkeypatch, valid_production_secrets):
+    monkeypatch.setattr(ProductionConfig, "SQLALCHEMY_DATABASE_URI", "")
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        create_app("production")
+
+
+@pytest.mark.parametrize(
+    "origins",
+    [
+        [],
+        ["http://localhost:5173"],
+        ["http://127.0.0.1:5173"],
+        ["http://localhost:5174"],
+        ["http://127.0.0.1:5174"],
+    ],
+)
+def test_production_rejects_empty_or_development_cors_origins(origins, monkeypatch, valid_production_secrets):
+    monkeypatch.setattr(ProductionConfig, "CORS_ORIGINS", origins)
+
+    with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
+        create_app("production")
 
 
 @pytest.mark.parametrize(

@@ -14,7 +14,9 @@ from app.utils.responses import error_response
 def create_app(config_name=None, database_checker=None):
     app = Flask(__name__)
 
-    env_name = config_name if config_name is not None else os.getenv("APP_ENV", "development")
+    env_name = config_name if config_name is not None else os.getenv("APP_ENV")
+    if config_name is None and (not isinstance(env_name, str) or not env_name.strip()):
+        raise RuntimeError("APP_ENV is required")
     if env_name not in config_by_env:
         raise RuntimeError("Invalid application environment")
 
