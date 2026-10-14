@@ -58,9 +58,13 @@ def test_child_columns_and_constraints():
     assert table.c.name.nullable is False
     assert table.c.age.nullable is False
     assert table.c.city.nullable is True
+    assert table.c.avatar_preset.nullable is True
     assert table.c.age_group.nullable is False
     assert table.c.interests.nullable is False
     assert table.c.is_default.nullable is False
+    assert table.c.guardian_consent_at.nullable is True
+    assert table.c.guardian_consent_version.nullable is True
+    assert table.c.guardian_consent_source.nullable is True
     assert table.c.created_at.nullable is False
     assert table.c.updated_at.nullable is False
 

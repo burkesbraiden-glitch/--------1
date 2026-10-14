@@ -5,6 +5,7 @@ from app.services.auth import AuthError, get_user_by_identity
 from app.services.children import (
     ChildError,
     create_child,
+    delete_child,
     get_child_for_user,
     list_children,
     update_child,
@@ -66,5 +67,15 @@ def patch(child_id):
     try:
         child = update_child(current_user(), child_id, get_json_object())
         return success_response(data={"child": child}, message="ok")
+    except (AuthError, ChildError) as error:
+        return handle_error(error)
+
+
+@children_bp.delete("/<int:child_id>")
+@jwt_required()
+def delete(child_id):
+    try:
+        result = delete_child(current_user(), child_id)
+        return success_response(data=result, message="Child deleted")
     except (AuthError, ChildError) as error:
         return handle_error(error)

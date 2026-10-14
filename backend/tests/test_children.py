@@ -48,10 +48,14 @@ def test_post_child_requires_name(client, app, children_db):
     with app.app_context():
         create_user(1, "13800138000")
 
-    response = client.post("/api/v1/children", json={"age": 7}, headers=auth_headers(app, 1))
+    response = client.post(
+        "/api/v1/children",
+        json={"age": 7, "guardianConsent": True},
+        headers=auth_headers(app, 1),
+    )
 
     assert response.status_code == 400
-    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.get_json()["error"]["code"] == "INVALID_CHILD_NAME"
 
 
 def test_post_child_rejects_blank_name(client, app, children_db):
@@ -60,27 +64,27 @@ def test_post_child_rejects_blank_name(client, app, children_db):
 
     response = client.post(
         "/api/v1/children",
-        json={"name": "   ", "age": 7},
+        json={"name": "   ", "age": 7, "guardianConsent": True},
         headers=auth_headers(app, 1),
     )
 
     assert response.status_code == 400
-    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.get_json()["error"]["code"] == "INVALID_CHILD_NAME"
 
 
-@pytest.mark.parametrize("age", [2, 13, True])
+@pytest.mark.parametrize("age", [2, 13, True, False, 7.5, "7"])
 def test_post_child_rejects_invalid_age(client, app, children_db, age):
     with app.app_context():
         create_user(1, "13800138000")
 
     response = client.post(
         "/api/v1/children",
-        json={"name": "小小探索家", "age": age},
+        json={"name": "小小探索家", "age": age, "guardianConsent": True},
         headers=auth_headers(app, 1),
     )
 
     assert response.status_code == 400
-    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.get_json()["error"]["code"] == "INVALID_CHILD_AGE"
 
 
 def test_post_child_rejects_inconsistent_age_group(client, app, children_db):
@@ -89,7 +93,7 @@ def test_post_child_rejects_inconsistent_age_group(client, app, children_db):
 
     response = client.post(
         "/api/v1/children",
-        json={"name": "小小探索家", "age": 7, "ageGroup": "3-6"},
+        json={"name": "小小探索家", "age": 7, "ageGroup": "3-6", "guardianConsent": True},
         headers=auth_headers(app, 1),
     )
 
@@ -103,12 +107,18 @@ def test_post_child_rejects_non_array_interests(client, app, children_db):
 
     response = client.post(
         "/api/v1/children",
-        json={"name": "小小探索家", "age": 7, "interests": "历史"},
+        json={
+            "name": "小小探索家",
+            "age": 7,
+            "avatarPreset": "avatar_01",
+            "interests": "历史",
+            "guardianConsent": True,
+        },
         headers=auth_headers(app, 1),
     )
 
     assert response.status_code == 400
-    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.get_json()["error"]["code"] == "INVALID_CHILD_INTERESTS"
 
 
 def test_post_child_deduplicates_interests(client, app, children_db, monkeypatch):
@@ -125,6 +135,8 @@ def test_post_child_deduplicates_interests(client, app, children_db, monkeypatch
             "ageGroup": "7-12",
             "interests": ["古建筑", "历史故事"],
             "isDefault": True,
+            "avatarPreset": "avatar_01",
+            "guardianConsentGranted": True,
         }
 
     monkeypatch.setattr("app.api.v1.children.create_child", fake_create_child)
@@ -134,7 +146,9 @@ def test_post_child_deduplicates_interests(client, app, children_db, monkeypatch
         json={
             "name": "小小探索家",
             "age": 7,
+            "avatarPreset": "avatar_01",
             "interests": ["古建筑", " 古建筑 ", "历史故事"],
+            "guardianConsent": True,
         },
         headers=auth_headers(app, 1),
     )
@@ -218,7 +232,7 @@ def test_patch_rejects_inconsistent_age_group(client, app, children_db):
     assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-def test_patch_current_default_to_false_is_rejected(client, app, children_db):
+def test_patch_read_only_default_field_is_rejected(client, app, children_db):
     with app.app_context():
         create_user(1, "13800138000")
         child = Child(id=10, user_id=1, name="小小探索家", age=7, age_group="7-12", interests=[], is_default=True)
@@ -231,5 +245,5 @@ def test_patch_current_default_to_false_is_rejected(client, app, children_db):
         headers=auth_headers(app, 1),
     )
 
-    assert response.status_code == 409
-    assert response.get_json()["error"]["code"] == "DEFAULT_CHILD_REQUIRED"
+    assert response.status_code == 400
+    assert response.get_json()["error"]["code"] == "VALIDATION_ERROR"

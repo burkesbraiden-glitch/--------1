@@ -163,7 +163,7 @@ def test_task_relationships_are_configured():
     assert TaskSubmission.task.property.back_populates == "submission"
 
 
-def test_existing_business_model_fields_are_unchanged():
+def test_existing_business_model_fields_keep_expected_contract():
     assert set(User.__table__.c.keys()) == {
         "id",
         "phone",
@@ -180,9 +180,13 @@ def test_existing_business_model_fields_are_unchanged():
         "name",
         "age",
         "city",
+        "avatar_preset",
         "age_group",
         "interests",
         "is_default",
+        "guardian_consent_at",
+        "guardian_consent_version",
+        "guardian_consent_source",
         "created_at",
         "updated_at",
     }

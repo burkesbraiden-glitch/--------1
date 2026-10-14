@@ -19,9 +19,13 @@ class Child(db.Model):
     name = db.Column(db.String(50), nullable=False)
     age = db.Column(db.SmallInteger, nullable=False)
     city = db.Column(db.String(50), nullable=True)
+    avatar_preset = db.Column(db.String(64), nullable=True)
     age_group = db.Column(db.String(16), nullable=False)
     interests = db.Column(db.JSON, nullable=False, default=list)
     is_default = db.Column(db.Boolean, nullable=False, default=True)
+    guardian_consent_at = db.Column(db.DateTime, nullable=True)
+    guardian_consent_version = db.Column(db.String(16), nullable=True)
+    guardian_consent_source = db.Column(db.String(32), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
