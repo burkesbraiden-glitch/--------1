@@ -406,6 +406,7 @@ def test_get_image_returns_bytes_content_type_and_private_cache(client, app, ima
     assert response.headers["Content-Type"].startswith("image/webp")
     assert response.headers["Content-Disposition"].startswith("inline")
     assert response.headers["Cache-Control"] == "private"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
 def test_get_image_returns_not_found_for_missing_submission_file_or_unsafe_key(client, app, image_db):

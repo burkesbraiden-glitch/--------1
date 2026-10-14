@@ -1,6 +1,8 @@
-from flask import Blueprint
+from flask import Blueprint, current_app
+from flask_limiter.util import get_remote_address
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.extensions import limiter
 from app.services.auth import AuthError, get_user_by_identity
 from app.services.guide_audio import (
     GuideAudioError,
@@ -19,6 +21,11 @@ def current_user():
     return get_user_by_identity(get_jwt_identity())
 
 
+def authenticated_limiter_key():
+    identity = get_jwt_identity()
+    return f"user:{identity}" if identity else f"ip:{get_remote_address()}"
+
+
 def handle_error(error):
     return error_response(error.code, error.message, status_code=error.status_code)
 
@@ -34,6 +41,7 @@ def detail(plan_id):
 
 @guides_bp.post("/<int:plan_id>/guide/generate")
 @jwt_required()
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_GENERATION"], key_func=authenticated_limiter_key)
 def generate(plan_id):
     try:
         guide, created = generate_guide(current_user(), plan_id)
@@ -45,6 +53,7 @@ def generate(plan_id):
 
 @guides_bp.post("/<int:plan_id>/guide/audio/retry")
 @jwt_required()
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_AUDIO"], key_func=authenticated_limiter_key)
 def retry_audio(plan_id):
     try:
         request_audio_generation_with_job(user=current_user(), plan_id=plan_id, retry=True)
@@ -55,6 +64,7 @@ def retry_audio(plan_id):
 
 @guides_bp.post("/<int:plan_id>/guide/audio/request")
 @jwt_required()
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_AUDIO"], key_func=authenticated_limiter_key)
 def request_audio(plan_id):
     try:
         _intent, job, job_created = request_audio_generation_with_job(

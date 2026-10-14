@@ -1,6 +1,9 @@
 from flask import Blueprint, request, send_file
+from flask import current_app
+from flask_limiter.util import get_remote_address
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.extensions import limiter
 from app.services.auth import AuthError, get_user_by_identity
 from app.services.plans import PlanError
 from app.services.task_submissions import (
@@ -20,6 +23,11 @@ def current_user():
     return get_user_by_identity(get_jwt_identity())
 
 
+def authenticated_limiter_key():
+    identity = get_jwt_identity()
+    return f"user:{identity}" if identity else f"ip:{get_remote_address()}"
+
+
 def handle_error(error):
     details = getattr(error, "details", {})
     return error_response(error.code, error.message, details=details, status_code=error.status_code)
@@ -36,6 +44,7 @@ def index(plan_id):
 
 @tasks_bp.post("/<int:plan_id>/tasks/generate")
 @jwt_required()
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_GENERATION"], key_func=authenticated_limiter_key)
 def generate(plan_id):
     try:
         data, created = generate_tasks(current_user(), plan_id)
@@ -91,6 +100,7 @@ def complete_submission(plan_id, task_id):
 
 @tasks_bp.post("/<int:plan_id>/tasks/<int:task_id>/submission/image")
 @jwt_required()
+@limiter.limit(lambda: current_app.config["RATE_LIMIT_UPLOAD"], key_func=authenticated_limiter_key)
 def upload_submission_image(plan_id, task_id):
     try:
         task = save_task_image(current_user(), plan_id, task_id, request.files.get("image"))
@@ -106,6 +116,7 @@ def get_submission_image(plan_id, task_id):
         image_path, content_type = get_task_image_file(current_user(), plan_id, task_id)
         response = send_file(image_path, mimetype=content_type, as_attachment=False)
         response.headers["Cache-Control"] = "private"
+        response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Content-Disposition"] = f"inline; filename={image_path.name}"
         return response
     except (AuthError, PlanError, TaskError) as error:

@@ -17,6 +17,9 @@ def valid_production_secrets(monkeypatch):
     for name, value in {
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "CORS_ORIGINS": ["https://app.example.test"],
+        "RATELIMIT_STORAGE_URI": "rediss://rate-limit.testing.invalid:6379/0",
+        "MAX_CONTENT_LENGTH": 12 * 1024 * 1024,
+        "TASK_IMAGE_MAX_BYTES": 10 * 1024 * 1024,
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",
@@ -97,6 +100,40 @@ def test_production_accepts_valid_test_only_secrets(valid_production_secrets):
 
     assert app.config["APP_ENV"] == "production"
     assert app.config["DEV_FIXED_CODE"] is None
+    assert app.config["RATELIMIT_STORAGE_URI"] == "rediss://rate-limit.testing.invalid:6379/0"
+
+
+@pytest.mark.parametrize("storage_uri", ["", "   ", "memory://"])
+def test_production_rejects_missing_or_memory_rate_limit_storage(
+    storage_uri, monkeypatch, valid_production_secrets
+):
+    monkeypatch.setattr(ProductionConfig, "RATELIMIT_STORAGE_URI", storage_uri)
+
+    with pytest.raises(RuntimeError, match="RATELIMIT_STORAGE_URI"):
+        create_app("production")
+
+
+def test_production_accepts_explicit_shared_redis_rate_limit_storage(valid_production_secrets):
+    app = create_app("production")
+
+    assert app.config["RATELIMIT_STORAGE_URI"].startswith("rediss://")
+
+
+@pytest.mark.parametrize(
+    ("max_content_length", "task_image_max_bytes"),
+    [
+        (0, 10 * 1024 * 1024),
+        (10 * 1024 * 1024, 10 * 1024 * 1024),
+    ],
+)
+def test_production_rejects_invalid_request_body_limits(
+    max_content_length, task_image_max_bytes, monkeypatch, valid_production_secrets
+):
+    monkeypatch.setattr(ProductionConfig, "MAX_CONTENT_LENGTH", max_content_length)
+    monkeypatch.setattr(ProductionConfig, "TASK_IMAGE_MAX_BYTES", task_image_max_bytes)
+
+    with pytest.raises(RuntimeError, match="MAX_CONTENT_LENGTH"):
+        create_app("production")
 
 
 @pytest.mark.parametrize(
@@ -211,6 +248,7 @@ def test_development_configuration_remains_available(monkeypatch):
     app = create_app("development")
 
     assert app.config["APP_ENV"] == "development"
+    assert app.config["RATELIMIT_STORAGE_URI"] == "memory://"
 
 
 def test_testing_configuration_remains_available():
@@ -218,3 +256,4 @@ def test_testing_configuration_remains_available():
 
     assert app.config["APP_ENV"] == "testing"
     assert app.config["SQLALCHEMY_DATABASE_URI"] == "sqlite:///:memory:"
+    assert app.config["RATELIMIT_STORAGE_URI"] == "memory://"

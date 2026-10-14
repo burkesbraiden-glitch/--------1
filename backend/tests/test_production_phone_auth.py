@@ -52,6 +52,8 @@ def configure_production(monkeypatch):
         "JWT_SECRET_KEY": VALID_JWT_SECRET_KEY,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "CORS_ORIGINS": ["https://app.example.test"],
+        "RATELIMIT_STORAGE_URI": "rediss://rate-limit.testing.invalid:6379/0",
+        "RATELIMIT_ENABLED": False,
         "TTS_PROVIDER": "edge",
         "EDGE_TTS_BASE_URL": "https://edge-worker.example.test",
         "EDGE_TTS_VOICE": "zh-CN-XiaoxiaoNeural",
