@@ -17,12 +17,12 @@
           </button>
           <button class="settings-row" @click="openNotice('child')">
             <view class="settings-row__icon settings-row__icon--shield" aria-hidden="true"></view>
-            <view class="settings-row__copy"><text>儿童隐私说明</text><text>了解儿童资料的保存与删除范围</text></view>
+            <view class="settings-row__copy"><text>儿童资料与隐私</text><text>了解儿童资料的保存与删除范围</text></view>
             <text class="settings-row__arrow" aria-hidden="true">›</text>
           </button>
           <button class="settings-row" :disabled="isExporting" @click="requestExport">
             <view class="settings-row__icon settings-row__icon--export" aria-hidden="true"></view>
-            <view class="settings-row__copy"><text>{{ isExporting ? '正在生成数据…' : '导出数据' }}</text><text>生成当前账户的结构化数据副本</text></view>
+            <view class="settings-row__copy"><text>{{ isExporting ? '正在生成数据…' : '导出我的数据' }}</text><text>生成当前账户的结构化数据副本</text></view>
             <text class="settings-row__arrow" aria-hidden="true">›</text>
           </button>
           <button class="settings-row" @click="openNotice('privacy')">

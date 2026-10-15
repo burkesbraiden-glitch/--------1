@@ -217,7 +217,7 @@ export default {
     agePickerIndex() { return Math.max(AGE_OPTIONS.indexOf(this.form.age), 0) },
     isCreateMode() { return this.childId === null },
     requiresGuardianConsent() { return !this.isCreateMode && !this.childDetail?.guardianConsentGranted },
-    isDirty() { return !this.isCreateMode && Boolean(this.initialSnapshot) && this.initialSnapshot !== this.snapshotForm() },
+    isDirty() { return Boolean(this.initialSnapshot) && this.initialSnapshot !== this.snapshotForm() },
     isFormValid() { return Object.keys(this.collectValidationErrors()).length === 0 },
     canSave() {
       if (this.isSubmitting || !this.isFormValid) return false
@@ -327,6 +327,7 @@ export default {
         city: this.form.city,
         interests: this.form.interests,
         customInterests: this.form.customInterests,
+        customInterest: this.customInterest,
         guardianConsent: this.form.guardianConsent,
       })
     },

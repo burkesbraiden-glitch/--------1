@@ -27,6 +27,22 @@ function pageMethod(source, name, dependencyNames = []) {
   return Function(...dependencyNames, `return (${functionSource})`)
 }
 
+function nestedPageMethod(source, name) {
+  const methodStart = source.indexOf(`${name}() {`)
+  if (methodStart < 0) throw new Error(`Missing ${name} method`)
+  const bodyStart = source.indexOf('{', methodStart)
+  let depth = 0
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1
+    if (source[index] === '}') depth -= 1
+    if (depth === 0) {
+      const functionSource = `function ${source.slice(methodStart, index + 1)}`
+      return Function(`return (${functionSource})`)()
+    }
+  }
+  throw new Error(`Unclosed ${name} method`)
+}
+
 function respond(options, data, statusCode = 200) {
   options.success({ statusCode, data: { success: true, data } })
 }
@@ -139,6 +155,114 @@ describe('P11.2b Child Edit', () => {
     expect(childEdit).toContain('this.initialSnapshot !== this.snapshotForm()')
     expect(childEdit).toContain("error?.code === 'CHILD_NOT_FOUND'")
     expect(childEdit).toContain('await this.child.fetchChildren(this.user.userInfo.id)')
+  })
+
+  test('keeps a pristine create form clean and protects every unsaved create-field change', () => {
+    const snapshotForm = nestedPageMethod(childEdit, 'snapshotForm')
+    const isDirty = nestedPageMethod(childEdit, 'isDirty')
+    const createContext = () => {
+      const context = {
+        form: {
+          avatarPreset: '',
+          name: '',
+          age: null,
+          city: '',
+          interests: [],
+          customInterests: [],
+          guardianConsent: false,
+        },
+        customInterest: '',
+        initialSnapshot: '',
+        snapshotForm,
+      }
+      context.initialSnapshot = snapshotForm.call(context)
+      return context
+    }
+
+    expect(isDirty.call(createContext())).toBe(false)
+
+    const changes = [
+      ['name', (context) => { context.form.name = '小童' }],
+      ['avatar', (context) => { context.form.avatarPreset = 'avatar_01' }],
+      ['age', (context) => { context.form.age = 7 }],
+      ['city', (context) => { context.form.city = '佛山' }],
+      ['interest', (context) => { context.form.interests = ['动物'] }],
+      ['custom interest', (context) => { context.form.customInterests = ['绘画'] }],
+      ['custom draft', (context) => { context.customInterest = '绘画' }],
+      ['consent', (context) => { context.form.guardianConsent = true }],
+    ]
+
+    for (const [label, change] of changes) {
+      const context = createContext()
+      change(context)
+      expect(isDirty.call(context), label).toBe(true)
+    }
+  })
+
+  test('returns to clean after restoring create state and preserves edit snapshot behavior', () => {
+    const snapshotForm = nestedPageMethod(childEdit, 'snapshotForm')
+    const isDirty = nestedPageMethod(childEdit, 'isDirty')
+    const context = {
+      form: {
+        avatarPreset: '', name: '', age: null, city: '', interests: [], customInterests: [], guardianConsent: false,
+      },
+      customInterest: '',
+      initialSnapshot: '',
+      snapshotForm,
+    }
+    context.initialSnapshot = snapshotForm.call(context)
+    context.form.name = '小童'
+    context.form.avatarPreset = 'avatar_02'
+    context.form.age = 8
+    context.form.city = '佛山'
+    context.form.interests = ['动物']
+    context.form.customInterests = ['绘画']
+    context.customInterest = '尚未加入'
+    context.form.guardianConsent = true
+    expect(isDirty.call(context)).toBe(true)
+
+    Object.assign(context.form, {
+      avatarPreset: '', name: '', age: null, city: '', interests: [], customInterests: [], guardianConsent: false,
+    })
+    context.customInterest = ''
+    expect(isDirty.call(context)).toBe(false)
+
+    context.form = {
+      avatarPreset: 'avatar_03', name: '小北', age: 7, city: '佛山', interests: [], customInterests: [], guardianConsent: false,
+    }
+    context.initialSnapshot = snapshotForm.call(context)
+    expect(isDirty.call(context)).toBe(false)
+    context.form.city = '广州'
+    expect(isDirty.call(context)).toBe(true)
+    context.form.city = '佛山'
+    expect(isDirty.call(context)).toBe(false)
+  })
+
+  test('uses the existing leave flow only when the current snapshot is dirty', () => {
+    const requestLeave = pageMethod(childEdit, 'requestLeave')()
+    const previousNavigateBack = uni.navigateBack
+    let navigateBackCalls = 0
+    let discardDialogCalls = 0
+    uni.navigateBack = () => { navigateBackCalls += 1 }
+
+    try {
+      const context = {
+        isSubmitting: false,
+        isDirty: false,
+        showDiscardDialog() { discardDialogCalls += 1 },
+      }
+      requestLeave.call(context)
+      expect(navigateBackCalls).toBe(1)
+      expect(discardDialogCalls).toBe(0)
+
+      context.isDirty = true
+      requestLeave.call(context)
+      expect(navigateBackCalls).toBe(1)
+      expect(discardDialogCalls).toBe(1)
+    } finally {
+      if (previousNavigateBack) uni.navigateBack = previousNavigateBack
+      else delete uni.navigateBack
+    }
   })
 
   test('uses shared authentication cleanup instead of a page-owned token flow', () => {
