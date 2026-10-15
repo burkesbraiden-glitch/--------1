@@ -68,7 +68,7 @@
         <text class="profile-section__title">账号与设置</text>
         <view class="profile-list">
           <button class="profile-list__item" @click="openSettings">
-            <view class="profile-list__copy"><text>账号与设置</text><text>查看账号信息与应用说明</text></view>
+            <view class="profile-list__copy"><text>账号与设置</text><text>管理隐私与账户</text></view>
             <text class="profile-list__arrow" aria-hidden="true">›</text>
           </button>
         </view>
