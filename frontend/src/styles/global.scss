@@ -34,6 +34,33 @@ page {
   --tl-shadow-none: #{$tl-shadow-none};
   --tl-shadow-media: #{$tl-shadow-media};
   --tl-shadow-overlay: #{$tl-shadow-overlay};
+  --tl-color-bg: #{$tl-color-bg};
+  --tl-color-surface: #{$tl-color-surface};
+  --tl-color-text: #{$tl-color-text};
+  --tl-color-text-secondary: #{$tl-color-text-secondary};
+  --tl-color-primary: #{$tl-color-primary};
+  --tl-color-primary-soft: #{$tl-color-primary-soft};
+  --tl-color-on-primary: #{$tl-color-on-primary};
+  --tl-color-accent: #{$tl-color-accent};
+  --tl-color-border: #{$tl-color-border};
+  --tl-color-danger: #{$tl-color-danger};
+  --tl-color-disabled: #{$tl-color-disabled};
+  --tl-color-overlay: #{$tl-color-overlay};
+  --tl-radius-pill: #{$tl-radius-pill};
+  --tl-shadow-soft: #{$tl-shadow-soft};
+  --tl-motion-fast: #{$tl-motion-fast};
+  --tl-motion-normal: #{$tl-motion-normal};
+  --tl-motion-slow: #{$tl-motion-slow};
+  --tl-motion-loading: #{$tl-motion-loading};
+  --tl-ease-standard: #{$tl-ease-standard};
+  --tl-ease-enter: #{$tl-ease-enter};
+  --tl-ease-exit: #{$tl-ease-exit};
+  --tl-touch-target: #{$tl-touch-target};
+  --tl-z-content: #{$tl-z-content};
+  --tl-z-sticky: #{$tl-z-sticky};
+  --tl-z-tabbar: #{$tl-z-tabbar};
+  --tl-z-overlay: #{$tl-z-overlay};
+  --tl-z-dialog: #{$tl-z-dialog};
   --tl-type-page-title: #{$tl-type-page-title};
   --tl-type-section-title: #{$tl-type-section-title};
   --tl-type-body: #{$tl-type-body};
@@ -168,4 +195,92 @@ button::after {
 .tl-stage-card {
   @include watercolor-card;
   padding: 28rpx;
+}
+
+.tl-safe-top {
+  padding-top: var(--tl-safe-top);
+}
+
+.tl-safe-bottom {
+  padding-bottom: var(--tl-safe-bottom);
+}
+
+.tl-touch-target {
+  min-width: var(--tl-touch-target);
+  min-height: var(--tl-touch-target);
+}
+
+.tl-fade-in {
+  animation: tl-fade-in var(--tl-motion-normal) var(--tl-ease-enter) both;
+}
+
+.tl-dialog-enter {
+  animation: tl-dialog-enter var(--tl-motion-normal) var(--tl-ease-enter) both;
+}
+
+.tl-dialog-exit {
+  animation: tl-dialog-exit var(--tl-motion-fast) var(--tl-ease-exit) both;
+}
+
+.tl-pressable,
+.tl-selected-transition {
+  transition-duration: var(--tl-motion-fast);
+  transition-timing-function: var(--tl-ease-standard);
+}
+
+.tl-pressable {
+  transition-property: opacity, transform, background-color;
+}
+
+.tl-selected-transition {
+  transition-property: color, background-color, border-color;
+}
+
+.tl-pressable:active:not([disabled]) {
+  opacity: 0.84;
+  transform: scale(0.985);
+}
+
+@keyframes tl-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tl-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tl-dialog-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8rpx);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-fade-in,
+  .tl-dialog-enter,
+  .tl-dialog-exit {
+    animation-duration: 1ms;
+  }
+
+  .tl-pressable,
+  .tl-selected-transition {
+    transition-duration: 1ms;
+  }
+
+  .tl-pressable:active:not([disabled]) {
+    transform: none;
+  }
 }

@@ -13,3 +13,16 @@
   color: $tl-text-main;
   background: $tl-bg;
 }
+
+@mixin safe-area-top($base: 0rpx) {
+  padding-top: calc(#{$base} + #{$tl-safe-top});
+}
+
+@mixin safe-area-bottom($base: 0rpx) {
+  padding-bottom: calc(#{$base} + #{$tl-safe-bottom});
+}
+
+@mixin touch-target {
+  min-width: $tl-touch-target;
+  min-height: $tl-touch-target;
+}

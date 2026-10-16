@@ -39,6 +39,41 @@ $tl-shadow-none: none;
 $tl-shadow-media: 0 4rpx 12rpx rgba(97, 63, 28, 0.06);
 $tl-shadow-overlay: 0 -16rpx 40rpx rgba(53, 31, 15, 0.2);
 
+// P11.3 semantic UI foundation. Legacy brand tokens above stay unchanged for
+// existing pages; shared UI primitives should prefer these role-based tokens.
+$tl-color-bg: $tl-bg;
+$tl-color-surface: $tl-surface;
+$tl-color-text: $tl-text-main;
+$tl-color-text-secondary: $tl-text-secondary;
+$tl-color-primary: #1f7b47;
+$tl-color-primary-soft: #e2f3e7;
+$tl-color-on-primary: #fff;
+$tl-color-accent: $tl-primary;
+$tl-color-border: $tl-divider;
+$tl-color-danger: #b43d31;
+$tl-color-disabled: #9f958b;
+$tl-color-overlay: rgba(43, 38, 31, 0.42);
+$tl-radius-pill: 999rpx;
+$tl-shadow-soft: 0 8rpx 24rpx rgba(53, 31, 15, 0.08);
+
+// P11.3 motion uses short, quiet transitions and is reduced globally when the
+// operating system requests less motion.
+$tl-motion-fast: 120ms;
+$tl-motion-normal: 180ms;
+$tl-motion-slow: 240ms;
+$tl-motion-loading: 1200ms;
+$tl-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+$tl-ease-enter: cubic-bezier(0, 0, 0.2, 1);
+$tl-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+// Shared interaction and overlay layers.
+$tl-touch-target: 88rpx;
+$tl-z-content: 0;
+$tl-z-sticky: 30;
+$tl-z-tabbar: 50;
+$tl-z-overlay: 70;
+$tl-z-dialog: 80;
+
 // P10.1 type hierarchy.
 $tl-type-page-title: 48rpx;
 $tl-type-section-title: 34rpx;
