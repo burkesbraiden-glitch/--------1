@@ -175,6 +175,19 @@ export const useChildStore = defineStore('child', {
       this.isLoaded = true
       return savedChild
     },
+    applyDeletedChildPayload(data, userId) {
+      const children = Array.isArray(data?.children) ? data.children.map(normalizeChild) : []
+      const currentChild = normalizeChild(data?.currentChild)
+
+      this.children = children
+      this.activeChildId = findChildById(children, currentChild?.id)?.id || null
+      this.hasRemoteChild = Boolean(currentChild)
+      this.loadedForUserId = userId
+      this.isLoaded = true
+      this.error = null
+      this.syncCurrentChild(currentChild)
+      return data
+    },
     async createChild(payload) {
       const requestSession = getCurrentSession()
       const data = await childrenApi.createChild(payload)
@@ -184,6 +197,13 @@ export const useChildStore = defineStore('child', {
       const requestSession = getCurrentSession()
       const data = await childrenApi.updateChild(id, payload)
       return isCurrentSession(requestSession) ? this.applySavedChild(data.child, requestSession.userId) : data.child
+    },
+    async deleteChild(id) {
+      const requestSession = getCurrentSession()
+      const data = await childrenApi.deleteChild(id)
+      return isCurrentSession(requestSession)
+        ? this.applyDeletedChildPayload(data, requestSession.userId)
+        : data
     },
     setActiveChild(childId) {
       const currentSession = getCurrentSession()

@@ -24,7 +24,10 @@
           :class="{ 'child-switch-item--active': isActiveChild(candidate) }"
           @click="selectActiveChild(candidate)"
         >
-          <view class="child-switch-item__avatar" aria-hidden="true"><text>{{ childInitial(candidate) }}</text></view>
+          <view class="child-switch-item__avatar" aria-hidden="true">
+            <image v-if="childAvatar(candidate)" :src="childAvatar(candidate).src" mode="aspectFit" />
+            <text v-else>{{ childInitial(candidate) }}</text>
+          </view>
           <view class="child-switch-item__copy">
             <text>{{ candidate.name }}</text>
             <text><template v-if="ageText(candidate)">{{ ageText(candidate) }} · </template>{{ isActiveChild(candidate) ? '当前探索档案' : '孩子档案' }}</text>
@@ -42,6 +45,7 @@
 <script>
 import { useChildStore } from '../../stores/child'
 import { useUserStore } from '../../stores/user'
+import { getChildAvatar } from '../../constants/childAvatars.js'
 import { endUserSession } from '../../utils/sessionBoundary'
 
 export default {
@@ -70,6 +74,7 @@ export default {
     childInitial(candidate) {
       return String(candidate?.name || '孩').trim().slice(0, 1) || '孩'
     },
+    childAvatar(candidate) { return getChildAvatar(candidate?.avatarPreset) },
     ageText(candidate) {
       return Number.isInteger(candidate?.age) ? `${candidate.age}岁` : ''
     },
@@ -84,11 +89,12 @@ export default {
       }
       uni.navigateBack()
     },
-    openProfile(childAction) {
-      uni.navigateTo({ url: `/pages/profile/index?childAction=${encodeURIComponent(childAction)}` })
+    openChildEdit(childId = null) {
+      const suffix = Number.isInteger(childId) && childId > 0 ? `?id=${encodeURIComponent(childId)}` : ''
+      uni.navigateTo({ url: `/pages/child-edit/index${suffix}` })
     },
-    openAddChild() { this.openProfile('create') },
-    openManageChild() { this.openProfile('manage') },
+    openAddChild() { this.openChildEdit() },
+    openManageChild() { this.openChildEdit(this.child.activeChild?.id) },
     goBack() { uni.navigateBack() },
   },
 }
@@ -98,7 +104,7 @@ export default {
 .child-switch-page { min-height: 100vh; color: var(--tl-text-main); background: var(--tl-bg); }
 .child-switch-page__paper { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; padding: calc(var(--tl-page-padding) + var(--tl-safe-top)) var(--tl-page-padding) calc(var(--tl-space-xl) + var(--tl-safe-bottom)); margin: 0 auto; }
 .child-switch-header { display: grid; grid-template-columns: 88rpx 1fr 88rpx; align-items: center; min-height: 88rpx; margin-bottom: 38rpx; text-align: center; }.child-switch-header > text { font-size: var(--tl-type-section-title); font-weight: 700; }.child-switch-header__back,.child-switch-header__manage { min-height: 88rpx; padding: 0; font-size: var(--tl-type-meta); color: #17673c; }.child-switch-header__back { font-size: 58rpx; font-weight: 300; color: var(--tl-text-main); text-align: left; }.child-switch-header__manage { font-weight: 600; text-align: right; white-space: nowrap; }
-.child-switch-list { display: flex; flex-direction: column; gap: 18rpx; }.child-switch-item { display: flex; align-items: center; width: 100%; min-height: 142rpx; padding: 22rpx; color: var(--tl-text-main); text-align: left; background: var(--tl-surface); border: 1rpx solid transparent; border-radius: var(--tl-radius-media); box-shadow: var(--tl-shadow-media); }.child-switch-item--active { border-color: #1f7b47; }.child-switch-item__avatar { display: flex; flex: 0 0 92rpx; align-items: center; justify-content: center; width: 92rpx; height: 92rpx; margin-right: 22rpx; font-size: 36rpx; font-weight: 600; color: #fff; background: #315248; border-radius: 50%; }.child-switch-item__copy { flex: 1; min-width: 0; }.child-switch-item__copy text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.child-switch-item__copy text:first-child { font-size: var(--tl-type-body); font-weight: 700; }.child-switch-item__copy text:last-child { margin-top: 10rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }.child-switch-item__check,.child-switch-item__radio { display: flex; flex: 0 0 44rpx; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; border-radius: 50%; }.child-switch-item__check { font-size: 28rpx; font-weight: 700; color: #fff; background: #1f9b5a; }.child-switch-item__radio { border: 2rpx solid #b4bec6; }
+.child-switch-list { display: flex; flex-direction: column; gap: 18rpx; }.child-switch-item { display: flex; align-items: center; width: 100%; min-height: 142rpx; padding: 22rpx; color: var(--tl-text-main); text-align: left; background: var(--tl-surface); border: 1rpx solid transparent; border-radius: var(--tl-radius-media); box-shadow: var(--tl-shadow-media); }.child-switch-item--active { border-color: #1f7b47; }.child-switch-item__avatar { display: flex; flex: 0 0 92rpx; align-items: center; justify-content: center; width: 92rpx; height: 92rpx; margin-right: 22rpx; overflow: hidden; font-size: 36rpx; font-weight: 600; color: #fff; background: #315248; border-radius: 50%; }.child-switch-item__avatar image { width: 100%; height: 100%; }.child-switch-item__copy { flex: 1; min-width: 0; }.child-switch-item__copy text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.child-switch-item__copy text:first-child { font-size: var(--tl-type-body); font-weight: 700; }.child-switch-item__copy text:last-child { margin-top: 10rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }.child-switch-item__check,.child-switch-item__radio { display: flex; flex: 0 0 44rpx; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; border-radius: 50%; }.child-switch-item__check { font-size: 28rpx; font-weight: 700; color: #fff; background: #1f9b5a; }.child-switch-item__radio { border: 2rpx solid #b4bec6; }
 .child-switch-add { display: flex; gap: 16rpx; align-items: center; justify-content: center; width: 100%; min-height: var(--tl-control-min-height); margin-top: 26rpx; font-size: var(--tl-type-primary-action); font-weight: 600; color: #17673c; background: #e2f3e7; border-radius: var(--tl-radius-control); }.child-switch-add text { font-size: 48rpx; font-weight: 300; }
 .child-switch-state { display: flex; flex-direction: column; gap: 18rpx; align-items: flex-start; padding: 32rpx; font-size: var(--tl-type-body); line-height: var(--tl-line-height-body); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-media); }.child-switch-state button { min-height: 72rpx; padding: 0 22rpx; font-size: var(--tl-type-meta); color: #17673c; border: 1rpx solid #1f7b47; border-radius: var(--tl-radius-control); }
 @media (min-width: 431px) { .child-switch-page__paper { padding: calc(18px + var(--tl-safe-top)) 18px calc(32px + var(--tl-safe-bottom)); }.child-switch-header { grid-template-columns: 44px 1fr 44px; min-height: 44px; margin-bottom: 19px; }.child-switch-header__back,.child-switch-header__manage { min-height: 44px; }.child-switch-item { min-height: 71px; padding: 11px; }.child-switch-item__avatar { flex-basis: 46px; width: 46px; height: 46px; margin-right: 11px; font-size: 18px; }.child-switch-item__check,.child-switch-item__radio { flex-basis: 22px; width: 22px; height: 22px; }.child-switch-add { min-height: 44px; margin-top: 13px; }.child-switch-add text { font-size: 24px; } }

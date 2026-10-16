@@ -244,6 +244,13 @@ def cleanup_record_image_copies(prepared, *, remove_published=False):
         _remove_owned_directory(prepared.final_directory, root, prepared.storage_root)
 
 
+def delete_record_image_assets(record_id, *, record_image_root):
+    """Delete one committed record directory using only its database-owned ID."""
+    _require_record_id(record_id)
+    root = Path(record_image_root).resolve()
+    _remove_owned_directory(root / str(record_id), root, root)
+
+
 def resolve_record_image_asset(record, asset_id, *, record_image_root):
     snapshot = getattr(record, "snapshot", None)
     if not snapshot:

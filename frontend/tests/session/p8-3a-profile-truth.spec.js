@@ -8,6 +8,7 @@ import { useUserStore } from '../../src/stores/user.js'
 
 const root = resolve(process.cwd(), '..')
 const profileSource = readFileSync(resolve(root, 'frontend/src/pages/profile/index.vue'), 'utf8')
+const childEditSource = readFileSync(resolve(root, 'frontend/src/pages/child-edit/index.vue'), 'utf8')
 const settingsSource = readFileSync(resolve(root, 'frontend/src/pages/settings/index.vue'), 'utf8')
 const userId = 8301
 
@@ -65,9 +66,10 @@ describe('P8.3A Profile data-truth contract', () => {
   })
 
   test('keeps the real child editor and routes session logout through Settings', () => {
-    expect(profileSource).toContain('openChildForm()')
-    expect(profileSource).toContain('this.child.createChild(payload)')
-    expect(profileSource).toContain('this.child.updateChild(this.activeChild.id, payload)')
+    expect(profileSource).toContain('openChildEdit(childId = null)')
+    expect(profileSource).toContain('/pages/child-edit/index')
+    expect(childEditSource).toContain('this.child.createChild(this.buildPayload())')
+    expect(childEditSource).toContain('this.child.updateChild(this.childId, this.buildPayload())')
     expect(profileSource).toContain('openSettings()')
     expect(settingsSource).toContain('endUserSession()')
   })

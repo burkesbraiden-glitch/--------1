@@ -77,6 +77,13 @@
       }
     },
     {
+      "path": "pages/child-edit/index",
+      "style": {
+        "navigationBarTitleText": "儿童资料",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/settings/index",
       "style": {
         "navigationBarTitleText": "账号与设置",
