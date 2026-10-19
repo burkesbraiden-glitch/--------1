@@ -54,7 +54,7 @@ describe('P10.2 Explore Workbench', () => {
     expect(workbench).toContain('hasDistinctActiveDayTitle()')
     expect(workbench.indexOf('class="stop-expanded"')).toBeLessThan(workbench.indexOf('class="task-list"'))
     expect(workbench).toContain('class="stop-block"')
-    expect(workbench).toContain('class="task-row"')
+    expect(workbench).toContain('class="task-row ')
     expect(workbench).toContain('class="stop-summary__meta"')
     expect(workbench).toContain('class="stop-summary__summary"')
     expect(workbench).toContain("task.status === 'completed'\">✓")

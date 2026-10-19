@@ -34,7 +34,7 @@ const submitPlanGeneration = pageMethod(routeDetailSource, 'submitPlanGeneration
 
 describe('P9-03 Route to ExplorationPlan main user flow', () => {
   test('Home summary routes parents into the Explore workbench without a manual Plan creation path', () => {
-    expect(homeTemplate).toContain('class="current-exploration__action" @click="openCurrentExploration"')
+    expect(homeTemplate).toMatch(/class="current-exploration__action(?:\s+[^\"]+)?"\s+@click="openCurrentExploration"/)
     expect(homeTemplate).toContain('{{ heroActionLabel }}')
     expect(homeScript).toContain('buildExploreUrl(context = this.currentExploration)')
     expect(homeScript).toContain("selectionPolicy: 'none'")

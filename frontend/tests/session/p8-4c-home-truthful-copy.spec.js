@@ -25,7 +25,7 @@ describe('P8.4C Home truthful production copy', () => {
   })
 
   test('the primary Home action sends parents to the Explore workbench without a manual Plan request', () => {
-    expect(templateSource).toContain('class="current-exploration__action" @click="openCurrentExploration"')
+    expect(templateSource).toMatch(/class="current-exploration__action(?:\s+[^\"]+)?"\s+@click="openCurrentExploration"/)
     expect(scriptSource).toContain('buildExploreUrl(context = this.currentExploration)')
     expect(scriptSource).toContain("selectionPolicy: 'none'")
     expect(scriptSource).not.toContain('createPlan(')
