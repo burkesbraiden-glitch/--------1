@@ -4,8 +4,9 @@
       <button
         v-for="item in tabs"
         :key="item.key"
-        class="app-tabbar__item"
+        class="app-tabbar__item tl-pressable tl-selected-transition"
         :class="{ 'app-tabbar__item--active': active === item.key }"
+        :aria-current="active === item.key ? 'page' : undefined"
         @click="go(item)"
       >
         <view class="app-tabbar__icon" :class="`app-tabbar__icon--${item.icon}`" aria-hidden="true">
@@ -89,7 +90,7 @@ export default {
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 50;
+  z-index: var(--tl-z-tabbar);
   display: flex;
   height: calc(var(--tl-tabbar-height) + var(--tl-safe-bottom));
   padding: 10rpx 18rpx calc(10rpx + var(--tl-safe-bottom));

@@ -52,9 +52,9 @@ describe('P8.3A Profile data-truth contract', () => {
   })
 
   test('orders child loading, request failure, and successful-empty states distinctly', () => {
-    const loadingIndex = profileSource.indexOf('v-if="child.isLoading"')
-    const errorIndex = profileSource.indexOf('v-else-if="child.error"')
-    const emptyIndex = profileSource.indexOf('v-else-if="child.isLoaded && child.children.length === 0"')
+    const loadingIndex = profileSource.indexOf('v-if="isInitialChildLoading"')
+    const errorIndex = profileSource.indexOf('v-else-if="showFullChildError"')
+    const emptyIndex = profileSource.indexOf('v-else-if="isChildEmpty"')
 
     expect(loadingIndex).toBeGreaterThanOrEqual(0)
     expect(errorIndex).toBeGreaterThan(loadingIndex)
@@ -62,6 +62,7 @@ describe('P8.3A Profile data-truth contract', () => {
     expect(profileSource).toContain('孩子资料加载失败，请重试')
     expect(profileSource).toContain('尚未添加孩子')
     expect(profileSource).toContain('@action="loadChildren"')
+    expect(profileSource).toContain('showChildRefreshError')
     expect(profileSource).toContain('{{ activeChild.name }}')
   })
 

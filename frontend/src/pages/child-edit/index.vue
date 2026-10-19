@@ -1,11 +1,12 @@
 <template>
   <view class="child-edit-page">
     <view v-if="loadState === 'loading'" class="child-edit-page__paper child-edit-page__paper--loading">
-      <PageHeader class="child-edit-page__header" title="儿童资料" :show-back="false" disabled />
+      <PageHeader class="child-edit-page__header" title="儿童资料" @back="requestLeave" />
       <AppSkeleton v-for="item in 4" :key="item" class="child-edit-skeleton" variant="block" />
     </view>
 
     <view v-else-if="loadState === 'error'" class="child-edit-page__paper child-edit-page__paper--state">
+      <PageHeader class="child-edit-page__header" title="儿童资料" @back="requestLeave" />
       <PageState
         type="error"
         title="儿童资料加载失败"
@@ -16,6 +17,7 @@
     </view>
 
     <view v-else-if="loadState === 'missing'" class="child-edit-page__paper child-edit-page__paper--state">
+      <PageHeader class="child-edit-page__header" title="儿童资料" @back="requestLeave" />
       <PageState type="empty" title="该儿童资料不存在或已被删除" />
     </view>
 
@@ -115,26 +117,26 @@
             @confirm="addCustomInterest"
             @input="customInterestError = ''"
           />
-          <button @click="addCustomInterest">添加</button>
+          <button class="tl-pressable" @click="addCustomInterest">添加</button>
         </view>
         <text v-if="customInterestError" class="child-edit-field__error">{{ customInterestError }}</text>
         <text v-else-if="fieldErrors.interests" class="child-edit-field__error">{{ fieldErrors.interests }}</text>
       </view>
 
       <view v-if="isCreateMode" class="child-edit-consent">
-        <button class="child-edit-consent__check" :class="{ 'child-edit-consent__check--selected': form.guardianConsent }" @click="toggleGuardianConsent">
+        <button class="child-edit-consent__check tl-pressable" :class="{ 'child-edit-consent__check--selected': form.guardianConsent }" @click="toggleGuardianConsent">
           <text aria-hidden="true">{{ form.guardianConsent ? '✓' : '' }}</text>
         </button>
-        <button class="child-edit-consent__copy" @click="toggleGuardianConsent">我是孩子的监护人，并同意为其创建儿童资料</button>
+        <button class="child-edit-consent__copy tl-pressable" @click="toggleGuardianConsent">我是孩子的监护人，并同意为其创建儿童资料</button>
       </view>
       <view v-else-if="childDetail?.guardianConsentGranted" class="child-edit-consent child-edit-consent--confirmed">
         <text>监护人同意已确认</text>
       </view>
       <view v-else class="child-edit-consent">
-        <button class="child-edit-consent__check" :class="{ 'child-edit-consent__check--selected': form.guardianConsent }" @click="toggleGuardianConsent">
+        <button class="child-edit-consent__check tl-pressable" :class="{ 'child-edit-consent__check--selected': form.guardianConsent }" @click="toggleGuardianConsent">
           <text aria-hidden="true">{{ form.guardianConsent ? '✓' : '' }}</text>
         </button>
-        <button class="child-edit-consent__copy" @click="toggleGuardianConsent">我是孩子的监护人，并确认继续保存该儿童资料</button>
+        <button class="child-edit-consent__copy tl-pressable" @click="toggleGuardianConsent">我是孩子的监护人，并确认继续保存该儿童资料</button>
       </view>
 
       <view v-if="!isCreateMode" class="child-edit-privacy">
@@ -175,15 +177,15 @@
       @cancel="showDeleteConfirm = false"
     />
 
-    <view v-if="showDeleteNameDialog" class="child-edit-dialog" role="dialog" aria-modal="true" aria-label="确认删除儿童资料">
+    <view v-if="showDeleteNameDialog" class="child-edit-dialog tl-fade-in" :style="deleteNameDialogStyle" role="dialog" aria-modal="true" aria-label="确认删除儿童资料">
       <view class="child-edit-dialog__mask" @click="closeDeleteNameDialog"></view>
-      <view class="child-edit-dialog__panel">
+      <view class="child-edit-dialog__panel tl-dialog-enter">
         <text class="child-edit-dialog__title">确认删除儿童资料</text>
         <text class="child-edit-dialog__copy">请输入孩子昵称以确认：{{ childDetail?.name }}</text>
         <input v-model="deleteName" class="child-edit-input" :adjust-position="true" placeholder="请输入孩子昵称" />
         <view class="child-edit-dialog__actions">
-          <button :disabled="isDeleting" @click="closeDeleteNameDialog">取消</button>
-          <button class="child-edit-dialog__confirm" :disabled="!deleteNameMatches || isDeleting" @click="deleteProfile">{{ isDeleting ? '删除中…' : '确认删除' }}</button>
+          <button class="tl-pressable" :disabled="isDeleting" @click="closeDeleteNameDialog">取消</button>
+          <button class="child-edit-dialog__confirm tl-pressable" :disabled="!deleteNameMatches || isDeleting" @click="deleteProfile">{{ isDeleting ? '删除中…' : '确认删除' }}</button>
         </view>
       </view>
     </view>
@@ -277,6 +279,9 @@ export default {
     },
     bottomActionStyle() {
       return { bottom: `${this.keyboardHeight}px` }
+    },
+    deleteNameDialogStyle() {
+      return this.keyboardHeight > 0 ? { paddingBottom: `${this.keyboardHeight}px` } : {}
     },
   },
   async onLoad(options) {
@@ -534,12 +539,19 @@ export default {
         INVALID_CHILD_CITY: 'city',
         INVALID_CHILD_INTERESTS: 'interests',
       }
+      const messageByCode = {
+        INVALID_CHILD_AVATAR: '请选择预设头像',
+        INVALID_CHILD_NAME: '请检查孩子昵称',
+        INVALID_CHILD_AGE: '请选择孩子年龄',
+        INVALID_CHILD_CITY: '请检查所在城市',
+        INVALID_CHILD_INTERESTS: '请检查兴趣选择',
+      }
       const field = fieldByCode[error?.code]
       if (field) {
-        this.fieldErrors = { ...this.fieldErrors, [field]: error?.message || '请检查此项' }
+        this.fieldErrors = { ...this.fieldErrors, [field]: messageByCode[error?.code] }
         return
       }
-      this.formError = error?.message || '保存失败，请稍后重试'
+      this.formError = '保存失败，请稍后重试'
     },
     requestLeave() {
       if (this.isSubmitting) return
@@ -587,7 +599,7 @@ export default {
           await endUserSession()
           return
         }
-        this.formError = error?.message || '删除失败，请稍后重试'
+        this.formError = '删除失败，请稍后重试'
       } finally {
         this.isDeleting = false
       }
@@ -617,14 +629,14 @@ export default {
 <style scoped>
 .child-edit-page { min-height: 100vh; color: var(--tl-text-main); background: var(--tl-bg); }
 .child-edit-page__paper { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; padding: 0 var(--tl-page-padding) calc(232rpx + var(--tl-safe-bottom)); margin: 0 auto; box-sizing: border-box; }
-.child-edit-page__paper--state { padding-top: var(--tl-safe-top); }.child-edit-page__paper--state > .page-state { width: 100%; min-height: 70vh; }
+.child-edit-page__paper--state > .page-state { width: 100%; min-height: 70vh; }
 .child-edit-page__header { margin-bottom: 26rpx; }.child-edit-skeleton { height: 148rpx; margin-top: 24rpx; }
 .child-edit-section { padding: 32rpx 0; border-top: 1rpx solid var(--tl-divider); }.child-edit-section--avatars { padding-top: 12rpx; border-top: 0; }.child-edit-section__label { display: block; margin-bottom: 18rpx; font-size: var(--tl-type-body); font-weight: 600; }.child-edit-avatar-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18rpx; }.child-edit-avatar { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 176rpx; padding: 12rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); background: transparent; border: 2rpx solid transparent; border-radius: var(--tl-radius-media); }.child-edit-avatar image { width: 104rpx; height: 104rpx; }.child-edit-avatar text { margin-top: 6rpx; }.child-edit-avatar--selected { color: #17673c; background: rgba(226, 243, 231, .5); border-color: #1f7b47; }
 .child-edit-input,.child-edit-picker { width: 100%; min-height: var(--tl-control-min-height); padding: 0 24rpx; font-size: var(--tl-type-body); color: var(--tl-text-main); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); box-sizing: border-box; }.child-edit-input--error { border-color: #b4513d; }.child-edit-picker__value { display: flex; align-items: center; justify-content: space-between; min-height: var(--tl-control-min-height); }.child-edit-picker__value > text:last-child { font-size: 38rpx; color: var(--tl-text-secondary); }.child-edit-picker__value--placeholder { color: var(--tl-text-secondary); }.child-edit-field__error { display: block; margin-top: 12rpx; font-size: var(--tl-type-meta); line-height: 1.4; color: #b4513d; }
-.child-edit-tags,.child-edit-custom-tags { display: flex; flex-wrap: wrap; gap: 14rpx; }.child-edit-custom-tags { margin-top: 14rpx; }.child-edit-tag { min-height: 68rpx; padding: 0 22rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: 999rpx; }.child-edit-tag--selected { color: #17673c; background: #e2f3e7; border-color: #1f7b47; }.child-edit-tag--add { color: #17673c; border-style: dashed; }.child-edit-custom-input { display: flex; gap: 16rpx; align-items: center; margin-top: 18rpx; }.child-edit-custom-input input { flex: 1; min-width: 0; min-height: 72rpx; padding: 0 20rpx; font-size: var(--tl-type-meta); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); }.child-edit-custom-input button { flex: 0 0 auto; min-height: 72rpx; padding: 0 22rpx; font-size: var(--tl-type-meta); color: #17673c; border: 1rpx solid #1f7b47; border-radius: var(--tl-radius-control); }
-.child-edit-consent { display: flex; gap: 16rpx; align-items: flex-start; padding: 30rpx 0; border-top: 1rpx solid var(--tl-divider); }.child-edit-consent__check { display: flex; flex: 0 0 44rpx; align-items: center; justify-content: center; width: 44rpx; min-width: 44rpx; height: 44rpx; min-height: 44rpx; padding: 0; color: #fff; border: 2rpx solid #789083; border-radius: 10rpx; }.child-edit-consent__check--selected { background: #1f7b47; border-color: #1f7b47; }.child-edit-consent__copy { flex: 1; padding: 0; font-size: var(--tl-type-meta); line-height: 1.55; color: var(--tl-text-main); text-align: left; background: transparent; }.child-edit-consent--confirmed { padding-left: 2rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }
+.child-edit-tags,.child-edit-custom-tags { display: flex; flex-wrap: wrap; gap: 14rpx; }.child-edit-custom-tags { margin-top: 14rpx; }.child-edit-tag { min-height: var(--tl-touch-target); padding: 0 22rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: 999rpx; }.child-edit-tag--selected { color: #17673c; background: #e2f3e7; border-color: #1f7b47; }.child-edit-tag--add { color: #17673c; border-style: dashed; }.child-edit-custom-input { display: flex; gap: 16rpx; align-items: center; margin-top: 18rpx; }.child-edit-custom-input input { flex: 1; min-width: 0; min-height: var(--tl-touch-target); padding: 0 20rpx; font-size: var(--tl-type-meta); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); }.child-edit-custom-input button { flex: 0 0 auto; min-height: var(--tl-touch-target); padding: 0 22rpx; font-size: var(--tl-type-meta); color: #17673c; border: 1rpx solid #1f7b47; border-radius: var(--tl-radius-control); }
+.child-edit-consent { display: flex; gap: 16rpx; align-items: flex-start; padding: 30rpx 0; border-top: 1rpx solid var(--tl-divider); }.child-edit-consent__check { display: flex; flex: 0 0 var(--tl-touch-target); align-items: center; justify-content: center; width: var(--tl-touch-target); min-width: var(--tl-touch-target); height: var(--tl-touch-target); min-height: var(--tl-touch-target); padding: 0; background: transparent; border: 0; }.child-edit-consent__check > text { display: flex; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; color: #fff; border: 2rpx solid #789083; border-radius: 10rpx; }.child-edit-consent__check--selected > text { background: #1f7b47; border-color: #1f7b47; }.child-edit-consent__copy { display: flex; flex: 1; align-items: center; min-height: var(--tl-touch-target); padding: 0; font-size: var(--tl-type-meta); line-height: 1.55; color: var(--tl-text-main); text-align: left; background: transparent; }.child-edit-consent--confirmed { padding-left: 2rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }
 .child-edit-privacy { margin-top: 10rpx; padding: 34rpx 0 10rpx; border-top: 1rpx solid var(--tl-divider); }.child-edit-privacy__title { display: block; font-size: var(--tl-type-body); font-weight: 600; }.child-edit-privacy__delete { min-height: var(--tl-touch-target); padding: 0; margin-top: 18rpx; font-size: var(--tl-type-meta); color: #a94b36; background: transparent; }
 .child-edit-actions__error { display: block; margin: 0 4rpx; font-size: var(--tl-type-meta); color: #b4513d; }
 .child-edit-dialog { position: fixed; inset: 0; z-index: var(--tl-z-dialog); display: flex; align-items: flex-end; }.child-edit-dialog__mask { position: absolute; inset: 0; background: var(--tl-color-overlay); }.child-edit-dialog__panel { position: relative; width: 100%; max-width: var(--tl-content-max-width); padding: 32rpx var(--tl-page-padding) calc(32rpx + var(--tl-safe-bottom)); margin: 0 auto; background: var(--tl-surface); border-radius: var(--tl-radius-sheet) var(--tl-radius-sheet) 0 0; box-sizing: border-box; }.child-edit-dialog__title { display: block; font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); }.child-edit-dialog__copy { display: block; margin: 14rpx 0 22rpx; font-size: var(--tl-type-meta); line-height: 1.5; color: var(--tl-text-secondary); }.child-edit-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin-top: 22rpx; }.child-edit-dialog__actions button { min-height: var(--tl-touch-target); font-size: var(--tl-type-body); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); }.child-edit-dialog__confirm { color: #fff; background: #a94b36; border-color: #a94b36 !important; }.child-edit-dialog__confirm[disabled] { opacity: .45; }
-@media (min-width: 431px) { .child-edit-page__paper { padding: 0 18px calc(116px + var(--tl-safe-bottom)); }.child-edit-page__header { margin-bottom: 13px; }.child-edit-section { padding: 16px 0; }.child-edit-avatar-grid { gap: 9px; }.child-edit-avatar { min-height: 88px; padding: 6px; }.child-edit-avatar image { width: 52px; height: 52px; }.child-edit-avatar text { margin-top: 3px; }.child-edit-input,.child-edit-picker { min-height: 44px; padding: 0 12px; }.child-edit-picker__value { min-height: 44px; }.child-edit-tags,.child-edit-custom-tags { gap: 7px; }.child-edit-tag { min-height: 34px; padding: 0 11px; }.child-edit-dialog__panel { padding: 16px 18px calc(16px + var(--tl-safe-bottom)); }.child-edit-dialog__actions button { min-height: 44px; } }
+@media (min-width: 431px) { .child-edit-page__paper { padding: 0 18px calc(116px + var(--tl-safe-bottom)); }.child-edit-page__header { margin-bottom: 13px; }.child-edit-section { padding: 16px 0; }.child-edit-avatar-grid { gap: 9px; }.child-edit-avatar { min-height: 88px; padding: 6px; }.child-edit-avatar image { width: 52px; height: 52px; }.child-edit-avatar text { margin-top: 3px; }.child-edit-input,.child-edit-picker { min-height: 44px; padding: 0 12px; }.child-edit-picker__value { min-height: 44px; }.child-edit-tags,.child-edit-custom-tags { gap: 7px; }.child-edit-tag,.child-edit-custom-input input,.child-edit-custom-input button { min-height: 44px; padding: 0 11px; }.child-edit-consent__check { flex-basis: 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }.child-edit-consent__check > text { width: 22px; height: 22px; }.child-edit-consent__copy { min-height: 44px; }.child-edit-dialog__panel { padding: 16px 18px calc(16px + var(--tl-safe-bottom)); }.child-edit-dialog__actions button { min-height: 44px; } }
 </style>

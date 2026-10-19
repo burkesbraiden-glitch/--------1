@@ -7,11 +7,11 @@
         </template>
       </PageHeader>
 
-      <view v-if="child.isLoading" class="child-switch-skeletons" aria-label="正在同步孩子档案">
+      <view v-if="child.isLoading && child.children.length === 0" class="child-switch-skeletons" aria-label="正在同步孩子档案">
         <AppSkeleton v-for="item in 3" :key="item" class="child-switch-skeleton" variant="block" />
       </view>
       <PageState
-        v-else-if="child.error"
+        v-else-if="child.error && child.children.length === 0"
         type="error"
         title="孩子资料加载失败"
         description="请检查网络后重试。"
@@ -26,25 +26,31 @@
         action-text="添加孩子"
         @action="openAddChild"
       />
-      <view v-else class="child-switch-list">
-        <button
-          v-for="candidate in child.children"
-          :key="candidate.id"
-          class="child-switch-item tl-pressable tl-selected-transition"
-          :class="{ 'child-switch-item--active': isActiveChild(candidate) }"
-          @click="selectActiveChild(candidate)"
-        >
-          <view class="child-switch-item__avatar" aria-hidden="true">
-            <image v-if="childAvatar(candidate)" :src="childAvatar(candidate).src" mode="aspectFit" />
-            <text v-else>{{ childInitial(candidate) }}</text>
-          </view>
-          <view class="child-switch-item__copy">
-            <text>{{ candidate.name }}</text>
-            <text><template v-if="ageText(candidate)">{{ ageText(candidate) }} · </template>{{ isActiveChild(candidate) ? '当前探索档案' : '孩子档案' }}</text>
-          </view>
-          <view v-if="isActiveChild(candidate)" class="child-switch-item__check" aria-label="当前孩子">✓</view>
-          <view v-else class="child-switch-item__radio" aria-hidden="true"></view>
-        </button>
+      <view v-else>
+        <view v-if="child.error && child.children.length" class="child-switch-refresh-error" role="status">
+          <text>孩子资料更新失败，请检查网络后重试。</text>
+          <button class="child-switch-refresh-error__retry tl-pressable" :disabled="child.isLoading" @click="loadChildren">重试</button>
+        </view>
+        <view class="child-switch-list">
+          <button
+            v-for="candidate in child.children"
+            :key="candidate.id"
+            class="child-switch-item tl-pressable tl-selected-transition"
+            :class="{ 'child-switch-item--active': isActiveChild(candidate) }"
+            @click="selectActiveChild(candidate)"
+          >
+            <view class="child-switch-item__avatar" aria-hidden="true">
+              <image v-if="childAvatar(candidate)" :src="childAvatar(candidate).src" mode="aspectFit" />
+              <text v-else>{{ childInitial(candidate) }}</text>
+            </view>
+            <view class="child-switch-item__copy">
+              <text>{{ candidate.name }}</text>
+              <text><template v-if="ageText(candidate)">{{ ageText(candidate) }} · </template>{{ isActiveChild(candidate) ? '当前探索档案' : '孩子档案' }}</text>
+            </view>
+            <view v-if="isActiveChild(candidate)" class="child-switch-item__check" aria-label="当前孩子">✓</view>
+            <view v-else class="child-switch-item__radio" aria-hidden="true"></view>
+          </button>
+        </view>
       </view>
 
       <button v-if="child.isLoaded && child.children.length" class="child-switch-add tl-pressable" @click="openAddChild"><text>＋</text>添加孩子</button>
@@ -118,8 +124,9 @@ export default {
 .child-switch-page { min-height: 100vh; color: var(--tl-text-main); background: var(--tl-bg); }
 .child-switch-page__paper { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; padding: 0 var(--tl-page-padding) calc(var(--tl-space-xl) + var(--tl-safe-bottom)); margin: 0 auto; }
 .child-switch-page__header { margin-bottom: 38rpx; }.child-switch-manage { min-width: var(--tl-touch-target); min-height: var(--tl-touch-target); font-size: var(--tl-type-meta); font-weight: 600; color: var(--tl-color-primary); text-align: right; white-space: nowrap; }.child-switch-manage[disabled] { color: var(--tl-color-disabled); }
-.child-switch-list { display: flex; flex-direction: column; gap: 18rpx; }.child-switch-item { display: flex; align-items: center; width: 100%; min-height: 142rpx; padding: 22rpx; color: var(--tl-text-main); text-align: left; background: var(--tl-surface); border: 1rpx solid transparent; border-radius: var(--tl-radius-media); box-shadow: var(--tl-shadow-media); }.child-switch-item--active { border-color: #1f7b47; }.child-switch-item__avatar { display: flex; flex: 0 0 92rpx; align-items: center; justify-content: center; width: 92rpx; height: 92rpx; margin-right: 22rpx; overflow: hidden; font-size: 36rpx; font-weight: 600; color: #fff; background: #315248; border-radius: 50%; }.child-switch-item__avatar image { width: 100%; height: 100%; }.child-switch-item__copy { flex: 1; min-width: 0; }.child-switch-item__copy text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.child-switch-item__copy text:first-child { font-size: var(--tl-type-body); font-weight: 700; }.child-switch-item__copy text:last-child { margin-top: 10rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }.child-switch-item__check,.child-switch-item__radio { display: flex; flex: 0 0 44rpx; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; border-radius: 50%; }.child-switch-item__check { font-size: 28rpx; font-weight: 700; color: #fff; background: #1f9b5a; }.child-switch-item__radio { border: 2rpx solid #b4bec6; }
+  .child-switch-refresh-error { display: flex; gap: var(--tl-space-xs); align-items: center; justify-content: space-between; min-height: var(--tl-touch-target); padding: var(--tl-space-xs) 0; color: var(--tl-color-text-secondary); border-bottom: 1rpx solid var(--tl-color-border); }.child-switch-refresh-error text { flex: 1; min-width: 0; font-size: var(--tl-type-meta); line-height: var(--tl-line-height-body); }.child-switch-refresh-error__retry { min-width: var(--tl-touch-target); min-height: var(--tl-touch-target); padding: 0; font-size: var(--tl-type-meta); color: var(--tl-color-primary); }
+  .child-switch-list { display: flex; flex-direction: column; gap: 18rpx; }.child-switch-item { display: flex; align-items: center; width: 100%; min-height: 142rpx; padding: 22rpx; color: var(--tl-text-main); text-align: left; background: var(--tl-surface); border: 1rpx solid transparent; border-radius: var(--tl-radius-media); box-shadow: var(--tl-shadow-media); }.child-switch-item--active { border-color: #1f7b47; }.child-switch-item__avatar { display: flex; flex: 0 0 92rpx; align-items: center; justify-content: center; width: 92rpx; height: 92rpx; margin-right: 22rpx; overflow: hidden; font-size: 36rpx; font-weight: 600; color: #fff; background: #315248; border-radius: 50%; }.child-switch-item__avatar image { width: 100%; height: 100%; }.child-switch-item__copy { flex: 1; min-width: 0; }.child-switch-item__copy text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.child-switch-item__copy text:first-child { font-size: var(--tl-type-body); font-weight: 700; }.child-switch-item__copy text:last-child { margin-top: 10rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }.child-switch-item__check,.child-switch-item__radio { display: flex; flex: 0 0 44rpx; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; border-radius: 50%; }.child-switch-item__check { font-size: 28rpx; font-weight: 700; color: #fff; background: #1f9b5a; }.child-switch-item__radio { border: 2rpx solid #b4bec6; }
 .child-switch-add { display: flex; gap: 16rpx; align-items: center; justify-content: center; width: 100%; min-height: var(--tl-control-min-height); margin-top: 26rpx; font-size: var(--tl-type-primary-action); font-weight: 600; color: #17673c; background: #e2f3e7; border-radius: var(--tl-radius-control); }.child-switch-add text { font-size: 48rpx; font-weight: 300; }
 .child-switch-skeletons { display: flex; flex-direction: column; gap: 18rpx; }.child-switch-skeleton { height: 142rpx; }
-@media (min-width: 431px) { .child-switch-page__paper { padding: 0 18px calc(32px + var(--tl-safe-bottom)); }.child-switch-page__header { margin-bottom: 19px; }.child-switch-item { min-height: 71px; padding: 11px; }.child-switch-item__avatar { flex-basis: 46px; width: 46px; height: 46px; margin-right: 11px; font-size: 18px; }.child-switch-item__check,.child-switch-item__radio { flex-basis: 22px; width: 22px; height: 22px; }.child-switch-add { min-height: 44px; margin-top: 13px; }.child-switch-add text { font-size: 24px; } }
+  @media (min-width: 431px) { .child-switch-page__paper { padding: 0 18px calc(32px + var(--tl-safe-bottom)); }.child-switch-page__header { margin-bottom: 19px; }.child-switch-refresh-error,.child-switch-refresh-error__retry { min-height: 44px; }.child-switch-item { min-height: 71px; padding: 11px; }.child-switch-item__avatar { flex-basis: 46px; width: 46px; height: 46px; margin-right: 11px; font-size: 18px; }.child-switch-item__check,.child-switch-item__radio { flex-basis: 22px; width: 22px; height: 22px; }.child-switch-add { min-height: 44px; margin-top: 13px; }.child-switch-add text { font-size: 24px; } }
 </style>

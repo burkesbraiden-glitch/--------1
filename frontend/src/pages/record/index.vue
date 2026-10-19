@@ -15,6 +15,7 @@
         title="孩子资料加载失败"
         :description="childErrorMessage"
         action-text="重新加载"
+        :disabled="isRetrying"
         @action="retryRecords"
       />
       <PageState
@@ -32,6 +33,7 @@
         title="记录暂时加载失败"
         :description="errorMessage"
         action-text="重新加载"
+        :disabled="isRetrying"
         @action="retryRecords"
       />
       <PageState
@@ -44,9 +46,11 @@
       />
 
       <template v-else>
-        <view v-if="error" class="record-refresh-error">
-          <text>{{ errorMessage }}</text>
-          <button class="record-refresh-error__retry tl-pressable" @click="retryRecords">重新加载</button>
+        <view v-if="showChildRefreshError || (error && records.length)" class="record-refresh-error" role="status">
+          <text>{{ showChildRefreshError ? childRefreshErrorMessage : errorMessage }}</text>
+          <button class="record-refresh-error__retry tl-pressable" :disabled="isRetrying" @click="retryRecords">
+            {{ isRetrying ? '正在加载…' : '重新加载' }}
+          </button>
         </view>
 
         <view v-for="yearGroup in recordsByYear" :key="yearGroup.recordYear" class="record-year-group">
@@ -56,7 +60,6 @@
               v-for="record in yearGroup.records"
               :key="record.id"
               class="record-card tl-pressable"
-              hover-class="record-card--pressed"
               @click="openRecordDetail(record)"
             >
               <view class="record-card__media">
@@ -136,7 +139,20 @@ export default {
   computed: {
     childStore() { return useChildStore() },
     childErrorMessage() { return '请检查网络后重新加载孩子资料' },
-    error() { return this.recordStore.error },
+    childRefreshErrorMessage() { return '孩子资料更新失败，当前仍显示上次内容。' },
+    activeChildId() {
+      const childId = Number(this.childStore.activeChild?.id)
+      return Number.isInteger(childId) && childId > 0 ? childId : null
+    },
+    hasRetainedChildContext() {
+      return Boolean(this.activeChildId)
+        && String(this.childStore.loadedForUserId) === String(this.userStore.userInfo?.id)
+    },
+    recordContextMatchesActiveChild() {
+      return Boolean(this.activeChildId)
+        && Number(this.recordStore.lastQuery?.childId) === this.activeChildId
+    },
+    error() { return this.recordContextMatchesActiveChild ? this.recordStore.error : null },
     errorMessage() { return '请检查网络后再试一次' },
     hasActiveChild() {
       const childId = Number(this.childStore.activeChild?.id)
@@ -147,11 +163,19 @@ export default {
         && Number.isInteger(childId)
         && childId > 0
     },
-    isChildLoading() { return this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error) },
-    isEmpty() { return this.recordStore.hasLoaded && !this.loading && !this.error && this.records.length === 0 },
-    isInitialLoading() { return this.loading && this.records.length === 0 && !this.recordStore.hasLoaded },
-    loading() { return this.recordStore.loading },
-    records() { return this.recordStore.records },
+    hasLoadedRecordsForActiveChild() { return this.recordStore.hasLoaded && this.recordContextMatchesActiveChild },
+    hasRetainedRecords() { return this.records.length > 0 },
+    isChildLoading() {
+      return (this.childStore.isLoading || (!this.childStore.isLoaded && !this.childStore.error)) && !this.hasRetainedRecords
+    },
+    isEmpty() { return this.hasLoadedRecordsForActiveChild && !this.loading && !this.error && this.records.length === 0 },
+    isInitialLoading() { return this.loading && this.records.length === 0 },
+    isRetrying() { return this.loading || this.childStore.isLoading },
+    loading() { return this.recordContextMatchesActiveChild && this.recordStore.loading },
+    records() {
+      if (!this.activeChildId || !Array.isArray(this.recordStore.records)) return []
+      return this.recordStore.records.filter((record) => Number(record?.childId) === this.activeChildId)
+    },
     recordsByYear() {
       const groups = new Map()
       this.records.forEach((record) => {
@@ -170,7 +194,10 @@ export default {
         })
     },
     recordStore() { return useRecordStore() },
-    showChildError() { return !this.isChildLoading && Boolean(this.childStore.error) },
+    showChildError() { return !this.isChildLoading && Boolean(this.childStore.error) && !this.hasRetainedRecords },
+    showChildRefreshError() {
+      return !this.isChildLoading && Boolean(this.childStore.error) && this.hasRetainedChildContext && this.hasRetainedRecords
+    },
     showFullError() { return Boolean(this.error) && this.records.length === 0 },
     showNoChild() { return !this.isChildLoading && !this.childStore.error && this.childStore.isLoaded && !this.hasActiveChild },
     userStore() { return useUserStore() },
@@ -212,6 +239,7 @@ export default {
       return record?.destination ? `${title} · ${record.destination}` : title
     },
     async retryRecords() {
+      if (this.isRetrying) return
       await this.loadRecords()
     },
     taskCompletionWidth(record) {
@@ -240,7 +268,6 @@ export default {
 .record-year-group__title { margin-bottom: 24rpx; font-size: 34rpx; line-height: 1.3; }
 .record-list { display: flex; flex-direction: column; gap: 28rpx; }
 .record-card { overflow: hidden; background: var(--tl-surface); border: 1rpx solid rgba(190, 142, 78, 0.14); border-radius: var(--tl-radius-sheet); box-shadow: var(--tl-shadow-media); }
-.record-card--pressed { opacity: 0.76; transform: scale(0.988); }
 .record-card__media { height: 316rpx; overflow: hidden; background: var(--tl-surface-muted); }
 .record-card__image { display: block; width: 100%; height: 100%; }
 .record-card__media-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12rpx; width: 100%; height: 100%; font-size: 22rpx; color: var(--tl-text-secondary); background: linear-gradient(145deg, #f3e8d1, #ebe0ca); }
