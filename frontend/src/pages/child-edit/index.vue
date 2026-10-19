@@ -1,30 +1,31 @@
 <template>
   <view class="child-edit-page">
     <view v-if="loadState === 'loading'" class="child-edit-page__paper child-edit-page__paper--loading">
-      <view class="child-edit-header">
-        <view class="child-edit-header__placeholder"></view>
-        <view class="child-edit-header__title-placeholder"></view>
-        <view class="child-edit-header__placeholder"></view>
-      </view>
-      <view class="child-edit-skeleton" v-for="item in 4" :key="item"></view>
+      <PageHeader class="child-edit-page__header" title="儿童资料" :show-back="false" disabled />
+      <AppSkeleton v-for="item in 4" :key="item" class="child-edit-skeleton" variant="block" />
     </view>
 
     <view v-else-if="loadState === 'error'" class="child-edit-page__paper child-edit-page__paper--state">
-      <text class="child-edit-state__title">儿童资料加载失败</text>
-      <text class="child-edit-state__copy">请检查网络后重试，已填写的内容不会被清除。</text>
-      <button class="child-edit-state__action" @click="loadChildDetail">重试</button>
+      <PageState
+        type="error"
+        title="儿童资料加载失败"
+        description="请检查网络后重试，已填写的内容不会被清除。"
+        action-text="重试"
+        @action="loadChildDetail"
+      />
     </view>
 
     <view v-else-if="loadState === 'missing'" class="child-edit-page__paper child-edit-page__paper--state">
-      <text class="child-edit-state__title">该儿童资料不存在或已被删除</text>
+      <PageState type="empty" title="该儿童资料不存在或已被删除" />
     </view>
 
     <view v-else class="child-edit-page__paper">
-      <view class="child-edit-header">
-        <button class="child-edit-header__back" aria-label="返回" :disabled="isSubmitting" @click="requestLeave">‹</button>
-        <text class="child-edit-header__title">{{ isCreateMode ? '添加孩子' : '儿童资料' }}</text>
-        <view class="child-edit-header__spacer"></view>
-      </view>
+      <PageHeader
+        class="child-edit-page__header"
+        :title="isCreateMode ? '添加孩子' : '儿童资料'"
+        :disabled="isSubmitting"
+        @back="requestLeave"
+      />
 
       <view class="child-edit-section child-edit-section--avatars">
         <text class="child-edit-section__label">选择头像</text>
@@ -32,7 +33,7 @@
           <button
             v-for="avatar in childAvatars"
             :key="avatar.key"
-            class="child-edit-avatar"
+            class="child-edit-avatar tl-pressable tl-selected-transition"
             :class="{ 'child-edit-avatar--selected': form.avatarPreset === avatar.key }"
             :aria-label="`选择${avatar.label}头像`"
             @click="selectAvatar(avatar.key)"
@@ -94,14 +95,14 @@
           <button
             v-for="interest in interestOptions"
             :key="interest"
-            class="child-edit-tag"
+            class="child-edit-tag tl-pressable tl-selected-transition"
             :class="{ 'child-edit-tag--selected': form.interests.includes(interest) }"
             @click="toggleInterest(interest)"
           >{{ interest }}</button>
-          <button class="child-edit-tag child-edit-tag--add" @click="showCustomInterestInput = !showCustomInterestInput">＋ 自定义</button>
+          <button class="child-edit-tag child-edit-tag--add tl-pressable" @click="showCustomInterestInput = !showCustomInterestInput">＋ 自定义</button>
         </view>
         <view v-if="form.customInterests.length" class="child-edit-custom-tags">
-          <button v-for="interest in form.customInterests" :key="interest" class="child-edit-tag child-edit-tag--selected" @click="removeCustomInterest(interest)">
+          <button v-for="interest in form.customInterests" :key="interest" class="child-edit-tag child-edit-tag--selected tl-pressable tl-selected-transition" @click="removeCustomInterest(interest)">
             {{ interest }} <text aria-hidden="true">×</text>
           </button>
         </view>
@@ -142,12 +143,37 @@
       </view>
     </view>
 
-    <view v-if="loadState === 'ready'" class="child-edit-actions" :style="bottomActionStyle">
-      <view class="child-edit-actions__inner">
-        <text v-if="formError" class="child-edit-actions__error">{{ formError }}</text>
-        <button class="child-edit-actions__save" :disabled="!canSave" @click="saveProfile">{{ isSubmitting ? '保存中…' : (isCreateMode ? '保存' : '保存修改') }}</button>
-      </view>
-    </view>
+    <BottomActionBar
+      v-if="loadState === 'ready'"
+      :primary-text="isCreateMode ? '保存' : '保存修改'"
+      :primary-disabled="!canSave"
+      :primary-loading="isSubmitting"
+      :bottom-offset="bottomActionStyle.bottom"
+      @primary="saveProfile"
+    >
+      <text v-if="formError" class="child-edit-actions__error">{{ formError }}</text>
+    </BottomActionBar>
+
+    <ConfirmDialog
+      :model-value="showDiscardConfirm"
+      :title="discardConfirm.title"
+      :message="discardConfirm.message"
+      :confirm-text="discardConfirm.confirmText"
+      :cancel-text="discardConfirm.cancelText"
+      @confirm="discardChanges"
+      @cancel="showDiscardConfirm = false"
+    />
+
+    <ConfirmDialog
+      :model-value="showDeleteConfirm"
+      :title="deleteConfirm.title"
+      :message="deleteConfirm.message"
+      :confirm-text="deleteConfirm.confirmText"
+      :cancel-text="deleteConfirm.cancelText"
+      danger
+      @confirm="continueDelete"
+      @cancel="showDeleteConfirm = false"
+    />
 
     <view v-if="showDeleteNameDialog" class="child-edit-dialog" role="dialog" aria-modal="true" aria-label="确认删除儿童资料">
       <view class="child-edit-dialog__mask" @click="closeDeleteNameDialog"></view>
@@ -171,9 +197,26 @@ import { useChildStore } from '../../stores/child'
 import { useUserStore } from '../../stores/user'
 import { isAuthenticationError } from '../../utils/request'
 import { endUserSession } from '../../utils/sessionBoundary'
+import AppSkeleton from '../../components/ui/AppSkeleton.vue'
+import BottomActionBar from '../../components/ui/BottomActionBar.vue'
+import ConfirmDialog from '../../components/ui/ConfirmDialog.vue'
+import PageHeader from '../../components/ui/PageHeader.vue'
+import PageState from '../../components/ui/PageState.vue'
 
 const INTEREST_OPTIONS = ['历史故事', '古建筑', '观察探索', '动物', '手工']
 const AGE_OPTIONS = Array.from({ length: 10 }, (_, index) => index + 3)
+const DISCARD_CONFIRM = Object.freeze({
+  title: '放弃本次修改？',
+  message: '未保存的修改将不会保留。',
+  cancelText: '继续编辑',
+  confirmText: '放弃修改',
+})
+const DELETE_CONFIRM = Object.freeze({
+  title: '删除儿童资料？',
+  message: '将删除该儿童的探索计划、任务、提交内容、照片和探索记录。家庭共享路线不会删除，其他孩子资料不会受到影响。操作不可恢复。',
+  cancelText: '取消',
+  confirmText: '继续',
+})
 
 function emptyForm() {
   return {
@@ -188,6 +231,7 @@ function emptyForm() {
 }
 
 export default {
+  components: { AppSkeleton, BottomActionBar, ConfirmDialog, PageHeader, PageState },
   data() {
     return {
       childId: null,
@@ -202,10 +246,14 @@ export default {
       customInterest: '',
       customInterestError: '',
       showCustomInterestInput: false,
+      showDiscardConfirm: false,
+      showDeleteConfirm: false,
       showDeleteNameDialog: false,
       deleteName: '',
       keyboardHeight: 0,
       keyboardHeightHandler: null,
+      discardConfirm: DISCARD_CONFIRM,
+      deleteConfirm: DELETE_CONFIRM,
     }
   },
   computed: {
@@ -242,6 +290,18 @@ export default {
     }
   },
   onBackPress() {
+    if (this.showDiscardConfirm) {
+      this.showDiscardConfirm = false
+      return true
+    }
+    if (this.showDeleteConfirm) {
+      this.showDeleteConfirm = false
+      return true
+    }
+    if (this.showDeleteNameDialog) {
+      this.closeDeleteNameDialog()
+      return true
+    }
     if (this.isDirty) {
       this.showDiscardDialog()
       return true
@@ -490,30 +550,20 @@ export default {
       this.showDiscardDialog()
     },
     showDiscardDialog() {
-      uni.showModal({
-        title: '放弃本次修改？',
-        content: '未保存的修改将不会保留。',
-        cancelText: '继续编辑',
-        confirmText: '放弃修改',
-        success: (result) => {
-          if (result?.confirm) uni.navigateBack()
-        },
-      })
+      this.showDiscardConfirm = true
+    },
+    discardChanges() {
+      this.showDiscardConfirm = false
+      uni.navigateBack()
     },
     requestDelete() {
       if (this.isSubmitting || this.isDeleting) return
-      uni.showModal({
-        title: '删除儿童资料？',
-        content: '将删除该儿童的探索计划、任务、提交内容、照片和探索记录。家庭共享路线不会删除，其他孩子资料不会受到影响。操作不可恢复。',
-        cancelText: '取消',
-        confirmText: '继续',
-        success: (result) => {
-          if (result?.confirm) {
-            this.deleteName = ''
-            this.showDeleteNameDialog = true
-          }
-        },
-      })
+      this.showDeleteConfirm = true
+    },
+    continueDelete() {
+      this.showDeleteConfirm = false
+      this.deleteName = ''
+      this.showDeleteNameDialog = true
     },
     closeDeleteNameDialog() {
       if (this.isDeleting) return
@@ -566,15 +616,15 @@ export default {
 
 <style scoped>
 .child-edit-page { min-height: 100vh; color: var(--tl-text-main); background: var(--tl-bg); }
-.child-edit-page__paper { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; padding: calc(var(--tl-page-padding) + var(--tl-safe-top)) var(--tl-page-padding) calc(232rpx + var(--tl-safe-bottom)); margin: 0 auto; box-sizing: border-box; }
-.child-edit-page__paper--state { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-height: 70vh; }.child-edit-state__title { font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); }.child-edit-state__copy { margin-top: 16rpx; font-size: var(--tl-type-body); line-height: var(--tl-line-height-body); color: var(--tl-text-secondary); }.child-edit-state__action { min-height: var(--tl-control-min-height); margin-top: 30rpx; padding: 0 30rpx; color: #fff; background: #1f7b47; border-radius: var(--tl-radius-control); }
-.child-edit-header { display: grid; grid-template-columns: 88rpx 1fr 88rpx; align-items: center; min-height: 88rpx; margin-bottom: 26rpx; }.child-edit-header__back { min-width: 88rpx; min-height: 88rpx; padding: 0; font-size: 58rpx; font-weight: 300; line-height: 1; color: var(--tl-text-main); text-align: left; }.child-edit-header__title { font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); text-align: center; }.child-edit-header__spacer { min-width: 88rpx; }.child-edit-header__placeholder,.child-edit-header__title-placeholder,.child-edit-skeleton { background: linear-gradient(90deg, rgba(218, 220, 195, .48), rgba(238, 238, 219, .9), rgba(218, 220, 195, .48)); border-radius: 12rpx; }.child-edit-header__placeholder { width: 64rpx; height: 64rpx; }.child-edit-header__title-placeholder { width: 150rpx; height: 34rpx; margin: 0 auto; }.child-edit-skeleton { height: 148rpx; margin-top: 24rpx; }
+.child-edit-page__paper { width: 100%; max-width: var(--tl-content-max-width); min-height: 100vh; padding: 0 var(--tl-page-padding) calc(232rpx + var(--tl-safe-bottom)); margin: 0 auto; box-sizing: border-box; }
+.child-edit-page__paper--state { padding-top: var(--tl-safe-top); }.child-edit-page__paper--state > .page-state { width: 100%; min-height: 70vh; }
+.child-edit-page__header { margin-bottom: 26rpx; }.child-edit-skeleton { height: 148rpx; margin-top: 24rpx; }
 .child-edit-section { padding: 32rpx 0; border-top: 1rpx solid var(--tl-divider); }.child-edit-section--avatars { padding-top: 12rpx; border-top: 0; }.child-edit-section__label { display: block; margin-bottom: 18rpx; font-size: var(--tl-type-body); font-weight: 600; }.child-edit-avatar-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18rpx; }.child-edit-avatar { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 176rpx; padding: 12rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); background: transparent; border: 2rpx solid transparent; border-radius: var(--tl-radius-media); }.child-edit-avatar image { width: 104rpx; height: 104rpx; }.child-edit-avatar text { margin-top: 6rpx; }.child-edit-avatar--selected { color: #17673c; background: rgba(226, 243, 231, .5); border-color: #1f7b47; }
 .child-edit-input,.child-edit-picker { width: 100%; min-height: var(--tl-control-min-height); padding: 0 24rpx; font-size: var(--tl-type-body); color: var(--tl-text-main); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); box-sizing: border-box; }.child-edit-input--error { border-color: #b4513d; }.child-edit-picker__value { display: flex; align-items: center; justify-content: space-between; min-height: var(--tl-control-min-height); }.child-edit-picker__value > text:last-child { font-size: 38rpx; color: var(--tl-text-secondary); }.child-edit-picker__value--placeholder { color: var(--tl-text-secondary); }.child-edit-field__error { display: block; margin-top: 12rpx; font-size: var(--tl-type-meta); line-height: 1.4; color: #b4513d; }
 .child-edit-tags,.child-edit-custom-tags { display: flex; flex-wrap: wrap; gap: 14rpx; }.child-edit-custom-tags { margin-top: 14rpx; }.child-edit-tag { min-height: 68rpx; padding: 0 22rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: 999rpx; }.child-edit-tag--selected { color: #17673c; background: #e2f3e7; border-color: #1f7b47; }.child-edit-tag--add { color: #17673c; border-style: dashed; }.child-edit-custom-input { display: flex; gap: 16rpx; align-items: center; margin-top: 18rpx; }.child-edit-custom-input input { flex: 1; min-width: 0; min-height: 72rpx; padding: 0 20rpx; font-size: var(--tl-type-meta); background: var(--tl-surface); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); }.child-edit-custom-input button { flex: 0 0 auto; min-height: 72rpx; padding: 0 22rpx; font-size: var(--tl-type-meta); color: #17673c; border: 1rpx solid #1f7b47; border-radius: var(--tl-radius-control); }
 .child-edit-consent { display: flex; gap: 16rpx; align-items: flex-start; padding: 30rpx 0; border-top: 1rpx solid var(--tl-divider); }.child-edit-consent__check { display: flex; flex: 0 0 44rpx; align-items: center; justify-content: center; width: 44rpx; min-width: 44rpx; height: 44rpx; min-height: 44rpx; padding: 0; color: #fff; border: 2rpx solid #789083; border-radius: 10rpx; }.child-edit-consent__check--selected { background: #1f7b47; border-color: #1f7b47; }.child-edit-consent__copy { flex: 1; padding: 0; font-size: var(--tl-type-meta); line-height: 1.55; color: var(--tl-text-main); text-align: left; background: transparent; }.child-edit-consent--confirmed { padding-left: 2rpx; font-size: var(--tl-type-meta); color: var(--tl-text-secondary); }
-.child-edit-privacy { margin-top: 10rpx; padding: 34rpx 0 10rpx; border-top: 1rpx solid var(--tl-divider); }.child-edit-privacy__title { display: block; font-size: var(--tl-type-body); font-weight: 600; }.child-edit-privacy__delete { min-height: 72rpx; padding: 0; margin-top: 18rpx; font-size: var(--tl-type-meta); color: #a94b36; background: transparent; }
-.child-edit-actions { position: fixed; right: 0; left: 0; z-index: 60; padding: 16rpx var(--tl-page-padding) calc(16rpx + var(--tl-safe-bottom)); background: rgba(248, 239, 217, .96); border-top: 1rpx solid var(--tl-divider); box-sizing: border-box; }.child-edit-actions__inner { width: 100%; max-width: calc(var(--tl-content-max-width) - (var(--tl-page-padding) * 2)); margin: 0 auto; }.child-edit-actions__error { display: block; margin: 0 4rpx 12rpx; font-size: var(--tl-type-meta); color: #b4513d; }.child-edit-actions__save { width: 100%; min-height: 88rpx; font-size: var(--tl-type-primary-action); font-weight: var(--tl-weight-primary-action); color: #fff; background: #1f7b47; border-radius: var(--tl-radius-control); transition: opacity .16s ease; }.child-edit-actions__save[disabled] { opacity: .45; }
-.child-edit-dialog { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; }.child-edit-dialog__mask { position: absolute; inset: 0; background: rgba(49, 39, 27, .38); }.child-edit-dialog__panel { position: relative; width: 100%; max-width: var(--tl-content-max-width); padding: 32rpx var(--tl-page-padding) calc(32rpx + var(--tl-safe-bottom)); margin: 0 auto; background: var(--tl-surface); border-radius: var(--tl-radius-sheet) var(--tl-radius-sheet) 0 0; box-sizing: border-box; }.child-edit-dialog__title { display: block; font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); }.child-edit-dialog__copy { display: block; margin: 14rpx 0 22rpx; font-size: var(--tl-type-meta); line-height: 1.5; color: var(--tl-text-secondary); }.child-edit-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin-top: 22rpx; }.child-edit-dialog__actions button { min-height: 80rpx; font-size: var(--tl-type-body); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); }.child-edit-dialog__confirm { color: #fff; background: #a94b36; border-color: #a94b36 !important; }.child-edit-dialog__confirm[disabled] { opacity: .45; }
-@media (min-width: 431px) { .child-edit-page__paper { padding: calc(18px + var(--tl-safe-top)) 18px calc(116px + var(--tl-safe-bottom)); }.child-edit-header { grid-template-columns: 44px 1fr 44px; min-height: 44px; margin-bottom: 13px; }.child-edit-header__back { min-width: 44px; min-height: 44px; font-size: 29px; }.child-edit-header__spacer { min-width: 44px; }.child-edit-section { padding: 16px 0; }.child-edit-avatar-grid { gap: 9px; }.child-edit-avatar { min-height: 88px; padding: 6px; }.child-edit-avatar image { width: 52px; height: 52px; }.child-edit-avatar text { margin-top: 3px; }.child-edit-input,.child-edit-picker { min-height: 44px; padding: 0 12px; }.child-edit-picker__value { min-height: 44px; }.child-edit-tags,.child-edit-custom-tags { gap: 7px; }.child-edit-tag { min-height: 34px; padding: 0 11px; }.child-edit-actions { padding: 8px 18px calc(8px + var(--tl-safe-bottom)); }.child-edit-actions__inner { max-width: 394px; }.child-edit-actions__save { min-height: 44px; }.child-edit-dialog__panel { padding: 16px 18px calc(16px + var(--tl-safe-bottom)); }.child-edit-dialog__actions button { min-height: 40px; } }
+.child-edit-privacy { margin-top: 10rpx; padding: 34rpx 0 10rpx; border-top: 1rpx solid var(--tl-divider); }.child-edit-privacy__title { display: block; font-size: var(--tl-type-body); font-weight: 600; }.child-edit-privacy__delete { min-height: var(--tl-touch-target); padding: 0; margin-top: 18rpx; font-size: var(--tl-type-meta); color: #a94b36; background: transparent; }
+.child-edit-actions__error { display: block; margin: 0 4rpx; font-size: var(--tl-type-meta); color: #b4513d; }
+.child-edit-dialog { position: fixed; inset: 0; z-index: var(--tl-z-dialog); display: flex; align-items: flex-end; }.child-edit-dialog__mask { position: absolute; inset: 0; background: var(--tl-color-overlay); }.child-edit-dialog__panel { position: relative; width: 100%; max-width: var(--tl-content-max-width); padding: 32rpx var(--tl-page-padding) calc(32rpx + var(--tl-safe-bottom)); margin: 0 auto; background: var(--tl-surface); border-radius: var(--tl-radius-sheet) var(--tl-radius-sheet) 0 0; box-sizing: border-box; }.child-edit-dialog__title { display: block; font-size: var(--tl-type-section-title); font-weight: var(--tl-weight-section-title); }.child-edit-dialog__copy { display: block; margin: 14rpx 0 22rpx; font-size: var(--tl-type-meta); line-height: 1.5; color: var(--tl-text-secondary); }.child-edit-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin-top: 22rpx; }.child-edit-dialog__actions button { min-height: var(--tl-touch-target); font-size: var(--tl-type-body); border: 1rpx solid var(--tl-divider); border-radius: var(--tl-radius-control); }.child-edit-dialog__confirm { color: #fff; background: #a94b36; border-color: #a94b36 !important; }.child-edit-dialog__confirm[disabled] { opacity: .45; }
+@media (min-width: 431px) { .child-edit-page__paper { padding: 0 18px calc(116px + var(--tl-safe-bottom)); }.child-edit-page__header { margin-bottom: 13px; }.child-edit-section { padding: 16px 0; }.child-edit-avatar-grid { gap: 9px; }.child-edit-avatar { min-height: 88px; padding: 6px; }.child-edit-avatar image { width: 52px; height: 52px; }.child-edit-avatar text { margin-top: 3px; }.child-edit-input,.child-edit-picker { min-height: 44px; padding: 0 12px; }.child-edit-picker__value { min-height: 44px; }.child-edit-tags,.child-edit-custom-tags { gap: 7px; }.child-edit-tag { min-height: 34px; padding: 0 11px; }.child-edit-dialog__panel { padding: 16px 18px calc(16px + var(--tl-safe-bottom)); }.child-edit-dialog__actions button { min-height: 44px; } }
 </style>

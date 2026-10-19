@@ -61,7 +61,7 @@ describe('P8.3A Profile data-truth contract', () => {
     expect(emptyIndex).toBeGreaterThan(errorIndex)
     expect(profileSource).toContain('孩子资料加载失败，请重试')
     expect(profileSource).toContain('尚未添加孩子')
-    expect(profileSource).toContain('@click="loadChildren"')
+    expect(profileSource).toContain('@action="loadChildren"')
     expect(profileSource).toContain('{{ activeChild.name }}')
   })
 

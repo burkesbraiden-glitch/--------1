@@ -149,9 +149,10 @@ describe('P8.3B Records child-context contract', () => {
   })
 
   test('keeps the successful-empty Records state and offers a go-explore action', () => {
-    expect(recordPageSource).toContain('class="record-state record-state--empty"')
+    expect(recordPageSource).toContain('v-else-if="isEmpty"')
+    expect(recordPageSource).toContain('type="empty"')
     expect(recordPageSource).toContain('去探索')
-    expect(recordPageSource).toContain('@click="goExplore"')
+    expect(recordPageSource).toContain('@action="goExplore"')
   })
 
   test('routes the empty-state action to the Explore workbench with reLaunch', () => {
